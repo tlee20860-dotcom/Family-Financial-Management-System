@@ -565,3 +565,31 @@ export function listenInsurancePayments(policyId, year, month, callback) {
   const r = ref(db, `insurance_payments/${policyId}/${year}/${month}`);
   return onValue(r, (snap) => callback(snap.val() || {}));
 }
+/* ---------- 每月收入（新結構：按成員ID儲存） ---------- */
+
+export function listenIncomeV2(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `family_income/${year}/${month}`);
+  return onValue(r, (snap) => {
+    callback(snap.val() || {});
+  });
+}
+
+export async function saveIncomeV2(year, month, data) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  // data 格式：{ mem_husband: 20000, mem_wife: 20000, extra: 5000 }
+  const clean = {};
+  Object.entries(data).forEach(([key, val]) => {
+    const num = Number(val) || 0;
+    if (num > 0) clean[key] = num;
+  });
+  await set(ref(db, `family_income/${year}/${month}`), clean);
+}
