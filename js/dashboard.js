@@ -3,10 +3,21 @@
 // ============================================
 
 import { api } from './api.js';
-import { formatHKD, currentYearMonth } from './utils.js';
+import { formatHKD } from './utils.js';
+import { AppState } from './state.js';
 
 export async function initDashboardPage() {
-  const { year, month } = currentYearMonth();
+  // 初次載入
+  await loadDashboard();
+
+  // 監聽年月變化，自動重新載入
+  AppState.on('ym-change', () => {
+    loadDashboard();
+  });
+}
+
+async function loadDashboard() {
+  const { year, month } = AppState.getYearMonth();
 
   const monthLabel = document.getElementById('dashboard-month');
   if (monthLabel) monthLabel.textContent = `${year} 年 ${month} 月`;
@@ -28,31 +39,26 @@ function renderDashboard(data) {
   setText('stat-assets',    formatHKD(data.totalAssets));
   setText('stat-monthly-insurance', formatHKD(data.monthlyInsuranceAverage));
 
-  // 淨結餘顏色（正綠負紅）
   const netEl = document.getElementById('stat-net');
   if (netEl) {
     netEl.classList.remove('emerald', 'red');
     netEl.classList.add(data.netBalance >= 0 ? 'emerald' : 'red');
   }
 
-  // 收入細項 hint
   setText('hint-income',
     `老公 ${formatHKD(data.incomeBreakdown.husbandContribution)} ＋ ` +
     `老婆 ${formatHKD(data.incomeBreakdown.wifeContribution)} ＋ ` +
     `額外 ${formatHKD(data.incomeBreakdown.extraIncome)}`
   );
 
-  // 支出細項 hint
   setText('hint-expense',
     `共 ${Object.values(data.perMember).reduce((s, m) => s + m.itemCount, 0)} 筆項目`
   );
 
-  // 總資產 hint
   setText('hint-assets',
     `銀行 ${formatHKD(data.bankBalance)} ＋ 基金 ${formatHKD(data.fundValue)}`
   );
 
-  // 保單數量
   setText('hint-insurance', `共 ${data.policyCount} 張保單`);
 }
 
