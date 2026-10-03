@@ -2,7 +2,7 @@
 // sw.js — Service Worker（離線快取）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v1';
+const CACHE_NAME = 'family-fin-v2'; // ⚠️ 版本號從 v1 改為 v2
 
 const STATIC_ASSETS = [
   './',
@@ -32,12 +32,12 @@ const STATIC_ASSETS = [
   './js/portfolio.js',
   './js/members.js',
   './js/member-detail.js',
+  './js/expenses.js',
   './js/pwa.js',
   './manifest.json',
   './icons/icon.svg',
 ];
 
-// 安裝：預先快取靜態資源
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME)
@@ -46,7 +46,6 @@ self.addEventListener('install', (e) => {
   );
 });
 
-// 啟用：清除舊版快取
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
@@ -59,13 +58,11 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// 攔截請求
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
 
   const url = new URL(e.request.url);
 
-  // 不攔截：Firebase、CDN、API、跨域請求
   if (
     url.origin !== self.location.origin ||
     url.hostname.includes('firebase') ||
@@ -77,7 +74,6 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Cache First，找不到才連網
   e.respondWith(
     caches.match(e.request).then((cached) => {
       if (cached) return cached;
