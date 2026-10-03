@@ -13,6 +13,7 @@ const STATIC_BOTTOM = [
   { icon: 'shield',      label: '保險付款',   href: 'insurance.html' },
   { icon: 'receipt',     label: '每月總開銷', href: 'expenses.html' },
   { icon: 'clipboard-check', label: '結算清單', href: 'settlements.html' },
+  { icon: 'file-text',   label: '固定支出',   href: 'fixed-expenses.html' },
   { icon: 'tags',        label: '支出項目庫', href: 'expense-categories.html' },
   { icon: 'line-chart',  label: '基金投資',   href: 'portfolio.html' },
   { icon: 'settings',    label: '系統設定',   href: 'settings.html' },
