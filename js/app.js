@@ -6,8 +6,12 @@ import { renderSidebar } from './sidebar.js';
 import { renderNavbar } from './navbar.js';
 import { requireLogin } from './auth-guard.js';
 import { getDisplayName } from './auth.js';
+import { initPWA } from './pwa.js';
 
 export async function initApp({ activeHref = '', title = '', needAuth = true } = {}) {
+  // 初始化 PWA
+  initPWA();
+
   let user = null;
   if (needAuth) {
     user = await requireLogin();
