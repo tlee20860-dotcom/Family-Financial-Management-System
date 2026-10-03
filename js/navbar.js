@@ -1,5 +1,5 @@
 // ============================================
-// navbar.js — 頂部導覽列 + 漢堡按鈕
+// navbar.js — 頂部導覽列 + 漢堡按鈕（事件委派版）
 // ============================================
 
 export function renderNavbar(containerId = 'navbar-root', title = '') {
@@ -16,18 +16,35 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
     <div class="navbar-user" id="navbar-user"></div>
   `;
 
-  const btn = document.getElementById('hamburger-btn');
-  if (btn) btn.addEventListener('click', toggleSidebar);
+  // 綁定一次即可（避免重複綁定）
+  if (!window._navbarEventBound) {
+    window._navbarEventBound = true;
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#hamburger-btn');
+      if (btn) {
+        console.log('✅ 漢堡按鈕被點擊了');
+        toggleSidebar();
+      }
+    });
+
+    console.log('✅ navbar 事件已綁定');
+  }
 }
 
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
-  if (!sidebar) return;
+  if (!sidebar) {
+    console.warn('❌ 找不到 .sidebar 元素');
+    return;
+  }
 
   const isMobile = window.innerWidth < 640;
+  console.log('📱 切換模式：', isMobile ? '手機' : '桌面');
 
   if (isMobile) {
     sidebar.classList.toggle('mobile-open');
+    console.log('📱 sidebar classList：', sidebar.className);
 
     let backdrop = document.querySelector('.sidebar-backdrop');
     if (!backdrop) {
