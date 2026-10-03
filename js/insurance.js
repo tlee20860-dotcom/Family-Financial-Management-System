@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款版面邏輯
+// insurance.js — 保險付款版面邏輯（含 API 自動連動）
 // ============================================
 
 import {
@@ -9,7 +9,8 @@ import {
   removeInsurancePolicy,
   listenMembers,
 } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, currentYearMonth } from './utils.js';
+import { api } from './api.js';
 
 const COMPANIES = ['富通', '保誠', 'FWD', 'AIA', '宏利', 'AXA'];
 
@@ -33,13 +34,11 @@ export function initInsurancePage() {
   const totalInput = document.getElementById('policy-total');
   const completedInput = document.getElementById('policy-completed');
 
-  // 即時監聽保單
   listenInsurancePolicies((list) => {
     policies = list;
     renderGrid();
   });
 
-  // 即時監聽成員（讓下拉選單即時更新）
   listenMembers((list) => {
     members = list;
     renderMemberOptions();
@@ -51,7 +50,6 @@ export function initInsurancePage() {
     monthlyInput.value = annual > 0 ? (annual / 12).toFixed(2) : '';
   });
 
-  // 新增按鈕
   document.getElementById('add-policy-btn').addEventListener('click', () => {
     editingId = null;
     modalTitle.textContent = '新增保單';
@@ -84,11 +82,17 @@ export function initInsurancePage() {
 
     if (!payload.name || !payload.memberId) return;
 
+    let policyId = editingId;
+
     if (editingId) {
       await updateInsurancePolicy(editingId, payload);
     } else {
-      await addInsurancePolicy(payload);
+      policyId = await addInsurancePolicy(payload);
     }
+
+    // ➜ 呼叫 Cloudflare Function 進行自動連動
+    await syncInsuranceToExpense(policyId, payload);
+
     modal.classList.remove('active');
   });
 
@@ -118,13 +122,24 @@ export function initInsurancePage() {
       setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
       if (confirm(`確定要刪除保單「${p.name}」嗎？`)) {
+        // ➜ 先刪除連動的支出項目
+        const { year, month } = currentYearMonth();
+        try {
+          await api.insuranceUnsync({
+            policyId: id,
+            memberId: p.memberId,
+            year,
+            month,
+          });
+        } catch (err) {
+          console.warn('刪除連動支出失敗：', err);
+        }
         await removeInsurancePolicy(id);
       }
     }
   });
 
   function renderMemberOptions() {
-    // 記住目前選擇
     const current = memberSelect.value;
     memberSelect.innerHTML = `
       <option value="">— 請選擇成員 —</option>
@@ -206,5 +221,28 @@ export function initInsurancePage() {
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
     }
+  }
+}
+
+// ============================================
+// 呼叫 Cloudflare Function 自動連動
+// ============================================
+async function syncInsuranceToExpense(policyId, payload) {
+  if (!policyId || !payload.memberId) return;
+
+  const { year, month } = currentYearMonth();
+
+  try {
+    await api.insuranceSync({
+      policyId,
+      memberId: payload.memberId,
+      policyName: payload.name,
+      monthlyAverage: payload.monthlyAverage,
+      year,
+      month,
+    });
+    console.log('✅ 保險平攤已同步至成員支出');
+  } catch (err) {
+    console.warn('⚠️ 保險同步失敗（可能尚未部署 Functions）：', err.message);
   }
 }
