@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v6';
+const CACHE_NAME = 'family-fin-v7'; // ⚠️ 升級
 
 const STATIC_ASSETS = [
   './css/theme.css',
@@ -26,6 +26,7 @@ const STATIC_ASSETS = [
   './js/expenses.js',
   './js/expense-categories.js',
   './js/settlements.js',
+  './js/fixed-expenses.js',
   './js/pwa.js',
   './manifest.json',
   './icons/icon.svg',
@@ -59,7 +60,6 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-
   const url = new URL(e.request.url);
 
   if (
@@ -73,9 +73,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  if (url.pathname.endsWith('.html') || url.pathname === '/') {
-    return;
-  }
+  if (url.pathname.endsWith('.html') || url.pathname === '/') return;
 
   e.respondWith(
     fetch(e.request)
@@ -87,10 +85,7 @@ self.addEventListener('fetch', (e) => {
         return res;
       })
       .catch(() => {
-        return caches.match(e.request).then((cached) => {
-          if (cached) return cached;
-          return caches.match('./index.html');
-        });
+        return caches.match(e.request).then((cached) => cached || caches.match('./index.html'));
       })
   );
 });
