@@ -12,6 +12,7 @@ const STATIC_TOP = [
 const STATIC_BOTTOM = [
   { icon: 'shield',     label: '保險付款',   href: 'insurance.html' },
   { icon: 'receipt',    label: '每月總開銷', href: 'expenses.html' },
+  { icon: 'tags',       label: '支出項目庫', href: 'expense-categories.html' },
   { icon: 'line-chart', label: '基金投資',   href: 'portfolio.html' },
   { icon: 'settings',   label: '系統設定',   href: 'settings.html' },
 ];
@@ -37,7 +38,6 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
 
   const nav = root.querySelector('#sidebar-nav-inner');
 
-  // 即時監聽成員變化，sidebar 會自動更新
   listenMembers((members) => {
     nav.innerHTML = renderNavContent(members, activeHref);
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
