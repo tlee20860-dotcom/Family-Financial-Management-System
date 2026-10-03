@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v8'; // ⚠️ 升級
+const CACHE_NAME = 'family-fin-v9'; // ⚠️ 升級
 
 const STATIC_ASSETS = [
   './css/theme.css', './css/layout.css', './css/components.css',
@@ -42,6 +42,7 @@ self.addEventListener('fetch', (e) => {
     url.origin !== self.location.origin ||
     url.hostname.includes('firebase') || url.hostname.includes('gstatic') ||
     url.hostname.includes('unpkg') || url.hostname.includes('jsdelivr') ||
+    url.hostname.includes('cdnjs') ||
     url.pathname.startsWith('/api/')
   ) return;
 
