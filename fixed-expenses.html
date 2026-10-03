@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>固定支出 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">家庭固定支出</h1>
+            <p class="page-subtitle" id="fixed-month"></p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-magenta" id="generate-btn">
+              <i data-lucide="zap"></i> 從模板生成本月
+            </button>
+            <button class="btn btn-primary" id="add-fixed-btn">
+              <i data-lucide="plus"></i> 新增固定支出
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:20px;">
+          <div class="glass-card">
+            <div class="glass-card-title">本月固定支出總額</div>
+            <div class="glass-card-value red mono" id="fixed-total">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">尚未付款筆數</div>
+            <div class="glass-card-value orange mono" id="fixed-pending-count">0 筆</div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>項目名稱</th>
+                  <th style="text-align:right;">金額</th>
+                  <th>週期</th>
+                  <th>到期日</th>
+                  <th>狀態</th>
+                  <th>已付款</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="fixed-tbody">
+                <tr><td colspan="7" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="fixed-modal">
+    <div class="modal">
+      <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
+      <form id="fixed-form">
+        <div class="field">
+          <label class="field-label" for="fixed-name">項目名稱</label>
+          <input class="input" id="fixed-name" required maxlength="40" placeholder="例如：水費">
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-amount">金額（HK$）</label>
+          <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-cycle">付款週期</label>
+          <select class="select" id="fixed-cycle">
+            <option value="每月">每月</option>
+            <option value="每2個月">每2個月</option>
+            <option value="每季">每季</option>
+            <option value="每年">每年</option>
+            <option value="一次性">一次性</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-due">到期日</label>
+          <input class="input" id="fixed-due" type="text" placeholder="例如：2026-10-15">
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-note">備註（可選）</label>
+          <input class="input" id="fixed-note" maxlength="60" placeholder="例如：每期調整">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initFixedExpensesPage } from './js/fixed-expenses.js';
+
+    await initApp({ activeHref: 'fixed-expenses.html', title: '家庭固定支出' });
+    initFixedExpensesPage();
+  </script>
+</body>
+</html>
