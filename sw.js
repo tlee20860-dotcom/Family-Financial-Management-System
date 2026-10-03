@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v4';
+const CACHE_NAME = 'family-fin-v5';
 
 const STATIC_ASSETS = [
   './css/theme.css',
@@ -25,6 +25,7 @@ const STATIC_ASSETS = [
   './js/member-detail.js',
   './js/expenses.js',
   './js/expense-categories.js',
+  './js/settlements.js',
   './js/pwa.js',
   './manifest.json',
   './icons/icon.svg',
@@ -72,7 +73,6 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // HTML 檔一律走網路
   if (url.pathname.endsWith('.html') || url.pathname === '/') {
     return;
   }
