@@ -33,11 +33,21 @@ function render(data) {
   const perMember = data.perMember || {};
   const memberIds = Object.keys(perMember);
 
-  const memberTotal = Object.values(perMember).reduce((s, m) => s + m.sum, 0);
-  document.getElementById('expenses-member-total').textContent = formatHKD(memberTotal);
-  document.getElementById('expenses-fixed-total').textContent = formatHKD(data.fixedTotal || 0);
-  document.getElementById('expenses-total').textContent = formatHKD(data.totalExpense || 0);
+  // ===== 統計卡片 =====
+  const totalIncome = data.totalIncome || 0;
+  const totalExpense = data.totalExpense || 0;
+  const balance = totalIncome - totalExpense;
 
+  document.getElementById('expenses-income').textContent = formatHKD(totalIncome);
+  document.getElementById('expenses-total').textContent = formatHKD(totalExpense);
+  document.getElementById('expenses-fixed-total').textContent = formatHKD(data.fixedTotal || 0);
+
+  const balanceEl = document.getElementById('expenses-balance');
+  balanceEl.textContent = formatHKD(balance);
+  balanceEl.classList.remove('emerald', 'red');
+  balanceEl.classList.add(balance >= 0 ? 'emerald' : 'red');
+
+  // ===== 成員明細 =====
   const container = document.getElementById('member-sections');
 
   if (memberIds.length === 0) {
@@ -91,6 +101,7 @@ function render(data) {
     }).join('');
   }
 
+  // ===== 固定支出 =====
   const fixedTbody = document.getElementById('fixed-tbody');
   const fixedList = data.fixedList || [];
 
@@ -124,7 +135,7 @@ function renderStatusBadge(status) {
 }
 
 /* ============================================
-   PDF 匯出：開啟新視窗列印（最穩定方案）
+   PDF 匯出：開啟新視窗列印
    ============================================ */
 async function exportToPDF() {
   if (!currentData) {
@@ -135,15 +146,12 @@ async function exportToPDF() {
   const { year, month } = AppState.getYearMonth();
   const html = buildPrintHTML(year, month, currentData);
 
-  // 開啟新視窗（乾淨的環境，無主 App CSS 干擾）
   const printWindow = window.open('', '_blank', 'width=900,height=700');
-
   if (!printWindow) {
     alert('請允許彈出視窗，才能匯出 PDF。\n（設定 ➜ 網站設定 ➜ 允許彈出視窗）');
     return;
   }
 
-  // 將完整 HTML 寫入新視窗（包含內嵌樣式）
   printWindow.document.write(`
     <!DOCTYPE html>
     <html lang="zh-Hant">
@@ -153,19 +161,13 @@ async function exportToPDF() {
       <title>家庭總開銷_${year}-${month}</title>
       <style>
         * { box-sizing: border-box; }
-        html, body {
-          margin: 0;
-          padding: 0;
-          background: #ffffff;
-          color: #000000;
-          font-family: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', -apple-system, sans-serif;
-        }
+        html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', -apple-system, sans-serif; }
         body { padding: 20px; }
         h1 { font-size: 22px; margin: 0 0 6px 0; }
         h2 { font-size: 15px; margin: 20px 0 10px 0; }
         h3 { font-size: 13px; margin: 16px 0 6px 0; border-left: 4px solid #0a84ff; padding-left: 10px; }
-        .summary { display: flex; gap: 12px; margin-bottom: 16px; }
-        .summary > div { flex: 1; border: 1px solid #ddd; padding: 10px; }
+        .summary { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+        .summary > div { flex: 1; min-width: 120px; border: 1px solid #ddd; padding: 10px; }
         .summary-label { font-size: 10px; color: #666; margin-bottom: 4px; }
         .summary-value { font-size: 16px; font-weight: 700; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
@@ -176,10 +178,7 @@ async function exportToPDF() {
         .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #666; text-align: center; }
         tr, .member-block { page-break-inside: avoid; }
         @page { size: A4; margin: 15mm; }
-        @media print {
-          body { padding: 0; }
-          .no-print { display: none !important; }
-        }
+        @media print { body { padding: 0; } .no-print { display: none !important; } }
       </style>
     </head>
     <body>
@@ -188,17 +187,12 @@ async function exportToPDF() {
         <button onclick="window.print()" style="padding:10px 20px; font-size:14px; cursor:pointer; background:#0a84ff; color:#fff; border:none; border-radius:6px;">
           📄 列印 / 儲存為 PDF
         </button>
-        <p style="font-size:11px; color:#999; margin-top:10px;">
-          若按鈕無反應，請使用瀏覽器選單 ➜ 列印
-        </p>
+        <p style="font-size:11px; color:#999; margin-top:10px;">若按鈕無反應，請使用瀏覽器選單 ➜ 列印</p>
       </div>
       <script>
-        // 頁面載入後自動呼叫列印（僅在桌面版自動，手機版顯示按鈕）
         window.addEventListener('load', function() {
           var isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-          if (!isMobile) {
-            setTimeout(function() { window.print(); }, 400);
-          }
+          if (!isMobile) { setTimeout(function() { window.print(); }, 400); }
         });
       </script>
     </body>
@@ -212,6 +206,10 @@ function buildPrintHTML(year, month, data) {
   const memberIds = Object.keys(perMember);
   const memberTotal = Object.values(perMember).reduce((s, m) => s + m.sum, 0);
   const fixedList = data.fixedList || [];
+  const totalIncome = data.totalIncome || 0;
+  const totalExpense = data.totalExpense || 0;
+  const balance = totalIncome - totalExpense;
+  const balanceColor = balance >= 0 ? '#10b981' : '#f43f5e';
 
   const memberSections = memberIds.map((id) => {
     const m = perMember[id];
@@ -286,16 +284,20 @@ function buildPrintHTML(year, month, data) {
 
     <div class="summary">
       <div>
-        <div class="summary-label">成員代墊總額</div>
-        <div class="summary-value" style="color:#c026d3;">HK$ ${formatNumber(memberTotal)}</div>
+        <div class="summary-label">當月總收入</div>
+        <div class="summary-value" style="color:#10b981;">HK$ ${formatNumber(totalIncome)}</div>
+      </div>
+      <div>
+        <div class="summary-label">當月總支出</div>
+        <div class="summary-value" style="color:#c026d3;">HK$ ${formatNumber(totalExpense)}</div>
+      </div>
+      <div>
+        <div class="summary-label">當月餘額</div>
+        <div class="summary-value" style="color:${balanceColor};">HK$ ${formatNumber(balance)}</div>
       </div>
       <div>
         <div class="summary-label">家庭固定支出</div>
         <div class="summary-value" style="color:#d97706;">HK$ ${formatNumber(data.fixedTotal || 0)}</div>
-      </div>
-      <div>
-        <div class="summary-label">當月總支出</div>
-        <div class="summary-value">HK$ ${formatNumber(data.totalExpense || 0)}</div>
       </div>
     </div>
 
@@ -304,8 +306,6 @@ function buildPrintHTML(year, month, data) {
 
     ${fixedSection}
 
-    <div class="footer">
-      由 FAMILY.FIN 家庭財務系統產出
-    </div>
+    <div class="footer">由 FAMILY.FIN 家庭財務系統產出</div>
   `;
 }
