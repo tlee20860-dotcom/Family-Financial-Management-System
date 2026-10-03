@@ -24,7 +24,6 @@ export async function initMemberDetailPage(id) {
   const idLabel = document.getElementById('member-id-label');
   idLabel.textContent = `ID：${memberId}`;
 
-  // 讀取成員名稱
   try {
     const members = await getMembersOnce();
     const me = members.find((m) => m.id === memberId);
@@ -40,7 +39,6 @@ export async function initMemberDetailPage(id) {
     nameEl.textContent = '（無法讀取成員）';
   }
 
-  // 載入類別與項目
   listenCategories((list) => {
     categories = list;
     renderCategoryOptions();
@@ -101,6 +99,7 @@ function bindEvents() {
   const itemSel = document.getElementById('expense-item-input');
   const amountInput = document.getElementById('expense-amount-input');
   const dateInput = document.getElementById('expense-date-input');
+  const statusSel = document.getElementById('expense-status-input');
   const memberInput = document.getElementById('expense-member-input');
   const fixedCheck = document.getElementById('expense-fixed-input');
 
@@ -109,8 +108,10 @@ function bindEvents() {
     modalTitle.textContent = '新增支出';
     form.reset();
     dateInput.value = todayISO();
+    statusSel.value = '未處理';
     memberInput.value = memberName;
     fixedCheck.checked = false;
+    fixedCheck.disabled = false;
     renderItemOptions();
     modal.classList.add('active');
     setTimeout(() => dateInput.focus(), 50);
@@ -120,7 +121,6 @@ function bindEvents() {
     modal.classList.remove('active');
   });
 
-  // 類別改變 ➜ 更新項目下拉
   categorySel.addEventListener('change', renderItemOptions);
 
   form.addEventListener('submit', async (e) => {
@@ -132,13 +132,12 @@ function bindEvents() {
     const catName = categories.find((c) => c.id === catId)?.name || '';
     const itemName = items.find((i) => i.id === itemId)?.name || '';
 
-    // 組合顯示名稱：類別 / 項目
     const displayName = itemName || catName || '未命名支出';
 
     const payload = {
       name: displayName,
       amount: Number(amountInput.value) || 0,
-      status: '未處理',
+      status: statusSel.value, // 🆕 使用下拉選單的值
       date: dateInput.value.trim() || todayISO(),
       categoryId: catId,
       itemId: itemId,
@@ -151,7 +150,6 @@ function bindEvents() {
     } else {
       await addExpense(year, month, memberId, payload);
 
-      // 若勾選「設為固定支出」，寫入模板
       if (fixedCheck.checked) {
         await addFixedTemplate({
           name: displayName,
@@ -183,9 +181,10 @@ function bindEvents() {
       itemSel.value = exp.itemId || '';
       amountInput.value = exp.amount || '';
       dateInput.value = exp.date || '';
+      statusSel.value = exp.status || '未處理'; // 🆕 正確帶入狀態
       memberInput.value = memberName;
       fixedCheck.checked = false;
-      fixedCheck.disabled = true;
+      fixedCheck.disabled = true; // 編輯時不允許再寫入模板
       modal.classList.add('active');
       setTimeout(() => dateInput.focus(), 50);
     } else if (action === 'delete') {
@@ -194,11 +193,6 @@ function bindEvents() {
         await removeExpense(year, month, memberId, id);
       }
     }
-  });
-
-  // 每次打開 Modal 時，恢復 fixedCheck 可用
-  document.getElementById('add-expense-btn').addEventListener('click', () => {
-    fixedCheck.disabled = false;
   });
 }
 
@@ -213,9 +207,17 @@ function renderExpenses() {
   }
 
   tbody.innerHTML = expenses.map((x) => {
-    const statusBadge = x.status === '已處理'
-      ? '<span class="badge badge-success">已處理</span>'
-      : '<span class="badge badge-pending">未處理</span>';
+    // 🆕 正確處理各種狀態的 Badge
+    let statusBadge = '';
+    if (x.status === '已還款') {
+      statusBadge = '<span class="badge badge-success">已還款</span>';
+    } else if (x.status === '未還款') {
+      statusBadge = '<span class="badge badge-pending">未還款</span>';
+    } else if (x.status === '已處理') {
+      statusBadge = '<span class="badge badge-success">已處理</span>';
+    } else {
+      statusBadge = '<span class="badge badge-pending">未處理</span>';
+    }
 
     const actionCell = x.isAutoLinked
       ? `<span class="text-muted" style="font-size:12px;">由保險模組管理</span>`
