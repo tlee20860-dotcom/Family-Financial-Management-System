@@ -10,7 +10,7 @@ export async function onRequestGet({ request }) {
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
 
-    const [members, policies, expenses, income, assets, funds, fixed] = await Promise.all([
+    const [members, policies, expenses, income, assets, funds, fixed, categories, items] = await Promise.all([
       dbGet('family_members'),
       dbGet('insurance_policies'),
       year && month ? dbGet(`family_expenses/${year}/${month}/member_expenses`) : null,
@@ -18,6 +18,8 @@ export async function onRequestGet({ request }) {
       dbGet('family_assets'),
       dbGet('investment_funds'),
       year && month ? dbGet(`fixed_expenses/${year}/${month}`) : null,
+      dbGet('expense_categories'),
+      dbGet('expense_items'),
     ]);
 
     const membersObj = members || {};
@@ -27,24 +29,51 @@ export async function onRequestGet({ request }) {
     const assetsObj = assets || {};
     const fundsObj = funds || {};
     const fixedObj = fixed || {};
+    const categoriesObj = categories || {};
+    const itemsObj = items || {};
 
-    /* ---------- 支出匯總（成員代墊） ---------- */
+    /* ---------- 支出匯總（含明細） ---------- */
     const perMember = {};
     let totalExpense = 0;
 
     Object.entries(expensesObj).forEach(([memberId, list]) => {
-      const items = Object.entries(list || {}).map(([id, e]) => ({ id, ...e }));
-      const sum = items.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+      const itemsArr = Object.entries(list || {}).map(([id, e]) => {
+        const catId = e.categoryId || '';
+        const itemId = e.itemId || '';
+        return {
+          id,
+          name: e.name || '',
+          amount: Number(e.amount) || 0,
+          status: e.status || '未處理',
+          date: e.date || '',
+          categoryId: catId,
+          categoryName: categoriesObj[catId]?.name || '',
+          itemId,
+          itemName: itemsObj[itemId]?.name || '',
+          isAutoLinked: e.isAutoLinked || false,
+        };
+      });
+      itemsArr.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+
+      const sum = itemsArr.reduce((s, e) => s + (Number(e.amount) || 0), 0);
       perMember[memberId] = {
         memberName: membersObj[memberId]?.name || '（未知成員）',
-        itemCount: items.length,
+        itemCount: itemsArr.length,
         sum,
+        items: itemsArr,
       };
       totalExpense += sum;
     });
 
     /* ---------- 固定支出匯總 ---------- */
-    const fixedList = Object.entries(fixedObj).map(([id, x]) => ({ id, ...x }));
+    const fixedList = Object.entries(fixedObj).map(([id, x]) => ({
+      id,
+      name: x.name || '',
+      amount: Number(x.amount) || 0,
+      status: x.status || '未付款',
+      dueDate: x.dueDate || '',
+      cycle: x.cycle || '每月',
+    }));
     const fixedTotal = fixedList.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
     totalExpense += fixedTotal;
@@ -55,13 +84,12 @@ export async function onRequestGet({ request }) {
     const extraIncome         = Number(incomeObj.extraIncome)         || 0;
     const totalIncome = husbandContribution + wifeContribution + extraIncome;
 
-    /* ---------- 保險匯總（兼容新舊結構） ---------- */
+    /* ---------- 保險匯總 ---------- */
     const policyList = Object.values(policiesObj);
     let yearlyInsuranceTotal = 0;
     let monthlyInsuranceAverage = 0;
 
     policyList.forEach((p) => {
-      // 月攤金額
       if (p.monthlyAverage != null) {
         monthlyInsuranceAverage += Number(p.monthlyAverage) || 0;
       } else if (p.monthlyPremium != null) {
@@ -70,7 +98,6 @@ export async function onRequestGet({ request }) {
         monthlyInsuranceAverage += (Number(p.annualPremium) || 0) / 12;
       }
 
-      // 年繳總額
       if (p.annualPremium != null) {
         yearlyInsuranceTotal += Number(p.annualPremium) || 0;
       } else if (p.monthlyPremium != null) {
@@ -86,17 +113,16 @@ export async function onRequestGet({ request }) {
     const fundValue = fundList.reduce((s, f) => s + (Number(f.currentValue) || 0), 0);
     const totalAssets = bankBalance + fundValue;
 
-    /* ---------- 淨結餘 ---------- */
     const netBalance = totalIncome - totalExpense;
 
     return jsonResponse({
       ok: true,
       year, month,
       totalIncome, totalExpense, netBalance,
-      yearlyInsuranceTotal,
-      monthlyInsuranceAverage,
+      yearlyInsuranceTotal, monthlyInsuranceAverage,
       totalAssets, bankBalance, fundValue,
       fixedTotal, fixedPendingCount,
+      fixedList,
       incomeBreakdown: { husbandContribution, wifeContribution, extraIncome },
       memberCount: Object.keys(membersObj).length,
       policyCount: policyList.length,
