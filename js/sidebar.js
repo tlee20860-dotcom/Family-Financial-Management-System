@@ -1,58 +1,80 @@
 // ============================================
-// sidebar.js — 左側可摺疊導覽選單
+// sidebar.js — 左側導覽選單（動態讀取成員）
 // ============================================
 
-const NAV_ITEMS = [
+import { listenMembers } from './db.js';
+import { escapeHtml } from './utils.js';
+
+const STATIC_TOP = [
   { icon: 'home', label: '總覽儀表板', href: 'index.html' },
+];
 
-  { type: 'group', label: '成員版面', children: [
-    { icon: 'user', label: '老公',    href: 'member-detail.html?id=mem_husband' },
-    { icon: 'user', label: '老婆',    href: 'member-detail.html?id=mem_wife' },
-    { icon: 'user', label: '梓舜',    href: 'member-detail.html?id=mem_son' },
-    { icon: 'user', label: '梓言',    href: 'member-detail.html?id=mem_daughter' },
-    { icon: 'plus', label: '管理成員', href: 'members.html' },
-  ]},
-
+const STATIC_BOTTOM = [
   { icon: 'shield',     label: '保險付款',   href: 'insurance.html' },
   { icon: 'receipt',    label: '每月總開銷', href: 'expenses.html' },
   { icon: 'line-chart', label: '基金投資',   href: 'portfolio.html' },
   { icon: 'settings',   label: '系統設定',   href: 'settings.html' },
 ];
 
-export function renderSidebar(containerId = 'sidebar-root', activeHref = '') {
+const ROLE_ICON = {
+  husband: 'user',
+  wife: 'user',
+  child: 'user',
+  other: 'user',
+};
+
+export async function renderSidebar(containerId = 'sidebar-root', activeHref = '') {
   const root = document.getElementById(containerId);
   if (!root) return;
 
   root.classList.add('sidebar');
-
   root.innerHTML = `
     <div class="sidebar-header">
       <div class="sidebar-logo">◈ FAMILY.FIN</div>
     </div>
-    <nav class="sidebar-nav">
-      ${NAV_ITEMS.map(item => renderNavItem(item, activeHref)).join('')}
-    </nav>
+    <nav class="sidebar-nav" id="sidebar-nav-inner"></nav>
   `;
 
-  // 桌面：讀取上次摺疊狀態
+  const nav = root.querySelector('#sidebar-nav-inner');
+
+  // 即時監聽成員變化，sidebar 會自動更新
+  listenMembers((members) => {
+    nav.innerHTML = renderNavContent(members, activeHref);
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
+  });
+
   const collapsed = localStorage.getItem('sidebar-collapsed') === 'true';
   if (collapsed && window.innerWidth >= 640) root.classList.add('collapsed');
 }
 
+function renderNavContent(members, activeHref) {
+  return `
+    ${STATIC_TOP.map((item) => renderNavItem(item, activeHref)).join('')}
+
+    <div class="nav-group-title">成員版面</div>
+    <div class="nav-sub">
+      ${members.map((m) => renderNavItem({
+        icon: ROLE_ICON[m.role] || 'user',
+        label: m.name,
+        href: `member-detail.html?id=${m.id}`,
+      }, activeHref)).join('')}
+      ${renderNavItem({
+        icon: 'plus', label: '管理成員', href: 'members.html',
+      }, activeHref)}
+    </div>
+
+    ${STATIC_BOTTOM.map((item) => renderNavItem(item, activeHref)).join('')}
+  `;
+}
+
 function renderNavItem(item, activeHref) {
-  if (item.type === 'group') {
-    return `
-      <div class="nav-group-title">${item.label}</div>
-      <div class="nav-sub">
-        ${item.children.map(c => renderNavItem(c, activeHref)).join('')}
-      </div>
-    `;
-  }
   const isActive = item.href === activeHref ? 'active' : '';
   return `
     <a class="nav-item ${isActive}" href="${item.href}">
       <i data-lucide="${item.icon}" class="nav-icon"></i>
-      <span class="nav-label">${item.label}</span>
+      <span class="nav-label">${escapeHtml(item.label)}</span>
     </a>
   `;
 }
