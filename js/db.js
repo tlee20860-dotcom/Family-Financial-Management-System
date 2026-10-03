@@ -150,3 +150,42 @@ export async function saveAssets(data) {
     bankBalance: Number(data.bankBalance) || 0,
   });
 }
+/* ---------- 基金投資 ---------- */
+
+export function listenFunds(callback) {
+  const r = ref(db, 'investment_funds');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, f]) => ({ id, ...f }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addFund(fund) {
+  const r = ref(db, 'investment_funds');
+  const newRef = push(r);
+  await set(newRef, {
+    name: fund.name || '',
+    cost: Number(fund.cost) || 0,
+    currentValue: Number(fund.currentValue) || 0,
+    units: Number(fund.units) || 0,
+    note: fund.note || '',
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFund(id, patch) {
+  await update(ref(db, `investment_funds/${id}`), {
+    name: patch.name || '',
+    cost: Number(patch.cost) || 0,
+    currentValue: Number(patch.currentValue) || 0,
+    units: Number(patch.units) || 0,
+    note: patch.note || '',
+  });
+}
+
+export async function removeFund(id) {
+  await remove(ref(db, `investment_funds/${id}`));
+}
