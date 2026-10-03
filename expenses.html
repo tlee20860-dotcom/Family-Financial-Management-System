@@ -7,6 +7,39 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+
+  <style>
+    /* ============================================
+       列印專用樣式
+       ============================================ */
+    #print-area { display: none; }
+
+    @media print {
+      /* 隱藏整個 App 介面 */
+      body { background: #ffffff !important; color: #000000 !important; }
+      .app-shell { display: none !important; }
+      .modal-overlay { display: none !important; }
+
+      /* 只顯示列印區塊 */
+      #print-area {
+        display: block !important;
+        position: static;
+        width: 100%;
+        color: #000 !important;
+        background: #fff !important;
+        font-family: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
+      }
+
+      @page {
+        size: A4;
+        margin: 15mm;
+      }
+
+      /* 防止表格行被切斷 */
+      tr, .member-block { page-break-inside: avoid; }
+      h1, h2, h3 { page-break-after: avoid; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -42,40 +75,35 @@
           </div>
         </div>
 
-        <div id="pdf-target" class="pdf-target">
-          <div id="member-sections"></div>
+        <div id="member-sections"></div>
 
-          <div class="glass-card" id="fixed-section" style="margin-top:20px;">
-            <div class="glass-card-title" style="margin-bottom:12px;">家庭固定支出</div>
-            <div style="overflow-x:auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>項目名稱</th>
-                    <th>週期</th>
-                    <th>到期日</th>
-                    <th style="text-align:right;">金額</th>
-                    <th>狀態</th>
-                  </tr>
-                </thead>
-                <tbody id="fixed-tbody">
-                  <tr><td colspan="5" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
-            </div>
+        <div class="glass-card" id="fixed-section" style="margin-top:20px;">
+          <div class="glass-card-title" style="margin-bottom:12px;">家庭固定支出</div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>項目名稱</th>
+                  <th>週期</th>
+                  <th>到期日</th>
+                  <th style="text-align:right;">金額</th>
+                  <th>狀態</th>
+                </tr>
+              </thead>
+              <tbody id="fixed-tbody">
+                <tr><td colspan="5" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
-
       </main>
     </div>
   </div>
 
-  <!-- PDF 列印專用容器 -->
-  <div id="pdf-render" style="position:fixed; top:0; left:-2000px; width:800px; background:#ffffff; color:#000; padding:24px; font-family:'PingFang TC','Microsoft JhengHei','Noto Sans TC',sans-serif; z-index:9999;">
-  </div>
+  <!-- 列印專用區塊（螢幕上不顯示，列印時才呈現） -->
+  <div id="print-area"></div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <script type="module">
     import { initApp } from './js/app.js';
     import { initExpensesPage } from './js/expenses.js';
