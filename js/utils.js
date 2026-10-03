@@ -29,6 +29,7 @@ export function currentYearMonth() {
 
 export function qs(sel, parent = document) { return parent.querySelector(sel); }
 export function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
+
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;',
