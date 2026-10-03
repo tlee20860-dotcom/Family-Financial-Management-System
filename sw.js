@@ -2,34 +2,17 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v7'; // ⚠️ 升級
+const CACHE_NAME = 'family-fin-v8'; // ⚠️ 升級
 
 const STATIC_ASSETS = [
-  './css/theme.css',
-  './css/layout.css',
-  './css/components.css',
-  './js/app.js',
-  './js/sidebar.js',
-  './js/navbar.js',
-  './js/utils.js',
-  './js/auth.js',
-  './js/auth-guard.js',
-  './js/db.js',
-  './js/api.js',
-  './js/state.js',
-  './js/dashboard.js',
-  './js/settings.js',
-  './js/insurance.js',
-  './js/portfolio.js',
-  './js/members.js',
-  './js/member-detail.js',
-  './js/expenses.js',
-  './js/expense-categories.js',
-  './js/settlements.js',
-  './js/fixed-expenses.js',
-  './js/pwa.js',
-  './manifest.json',
-  './icons/icon.svg',
+  './css/theme.css', './css/layout.css', './css/components.css',
+  './js/app.js', './js/sidebar.js', './js/navbar.js', './js/utils.js',
+  './js/auth.js', './js/auth-guard.js', './js/db.js', './js/api.js',
+  './js/state.js', './js/dashboard.js', './js/settings.js',
+  './js/insurance.js', './js/portfolio.js', './js/members.js',
+  './js/member-detail.js', './js/expenses.js', './js/expense-categories.js',
+  './js/settlements.js', './js/fixed-expenses.js', './js/pwa.js',
+  './manifest.json', './icons/icon.svg',
 ];
 
 self.addEventListener('install', (e) => {
@@ -37,9 +20,7 @@ self.addEventListener('install', (e) => {
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.all(
         STATIC_ASSETS.map((url) =>
-          cache.add(url).catch((err) => {
-            console.warn('⚠️ 快取失敗（略過）：', url, err);
-          })
+          cache.add(url).catch((err) => console.warn('⚠️ 快取失敗：', url, err))
         )
       );
     }).then(() => self.skipWaiting())
@@ -49,11 +30,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
-        )
-      )
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -61,17 +38,12 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
-
   if (
     url.origin !== self.location.origin ||
-    url.hostname.includes('firebase') ||
-    url.hostname.includes('gstatic') ||
-    url.hostname.includes('unpkg') ||
-    url.hostname.includes('jsdelivr') ||
+    url.hostname.includes('firebase') || url.hostname.includes('gstatic') ||
+    url.hostname.includes('unpkg') || url.hostname.includes('jsdelivr') ||
     url.pathname.startsWith('/api/')
-  ) {
-    return;
-  }
+  ) return;
 
   if (url.pathname.endsWith('.html') || url.pathname === '/') return;
 
@@ -84,8 +56,6 @@ self.addEventListener('fetch', (e) => {
         }
         return res;
       })
-      .catch(() => {
-        return caches.match(e.request).then((cached) => cached || caches.match('./index.html'));
-      })
+      .catch(() => caches.match(e.request).then((cached) => cached || caches.match('./index.html')))
   );
 });
