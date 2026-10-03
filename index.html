@@ -22,6 +22,20 @@
 
         <div id="dashboard-error" class="banner banner-magenta" style="display:none;"></div>
 
+        <!-- 🆕 可用金額區塊 -->
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="glass-card" style="border-color:rgba(0,240,255,0.5);">
+            <div class="glass-card-title">當月可用金額</div>
+            <div class="glass-card-value cyan mono" id="stat-available">HK$ 0</div>
+            <div class="glass-card-hint" id="hint-available">上月銀行結餘 ＋ 本月約定收入</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">銀行結餘總額</div>
+            <div class="glass-card-value emerald mono" id="stat-bank">HK$ 0</div>
+            <div class="glass-card-hint" id="hint-bank">本月所有銀行結餘加總</div>
+          </div>
+        </div>
+
         <div class="grid grid-4">
           <div class="glass-card">
             <div class="glass-card-title">家庭當月總收入</div>
