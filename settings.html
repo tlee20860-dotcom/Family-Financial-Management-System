@@ -17,10 +17,12 @@
       <main class="content">
         <div class="page-header">
           <h1 class="page-title">系統設定</h1>
-          <p class="page-subtitle">帳號與偏好設定</p>
+          <p class="page-subtitle">帳號、收入與資產設定</p>
         </div>
 
-        <div class="glass-card" style="max-width:520px;">
+        <!-- 帳號資訊 -->
+        <div class="glass-card" style="max-width:520px; margin-bottom:20px;">
+          <div class="glass-card-title">帳號資訊</div>
           <div class="field">
             <label class="field-label">登入帳號</label>
             <input class="input mono" id="settings-account" value="載入中…" disabled>
@@ -29,8 +31,47 @@
             <label class="field-label">角色</label>
             <input class="input mono" value="超級管理員" disabled>
           </div>
-
           <button class="btn btn-danger" id="logout-btn">登出</button>
+        </div>
+
+        <!-- 收入設定 -->
+        <div class="glass-card" style="max-width:520px; margin-bottom:20px;">
+          <div class="glass-card-title">當月家庭收入</div>
+          <p class="glass-card-hint" style="margin-bottom:14px;">
+            設定後將自動反映在總覽儀表板。
+          </p>
+          <form id="income-form">
+            <div class="field">
+              <label class="field-label" for="income-husband">老公投入（HK$）</label>
+              <input class="input mono" id="income-husband" type="number" min="0" step="0.01" placeholder="0">
+            </div>
+            <div class="field">
+              <label class="field-label" for="income-wife">老婆投入（HK$）</label>
+              <input class="input mono" id="income-wife" type="number" min="0" step="0.01" placeholder="0">
+            </div>
+            <div class="field">
+              <label class="field-label" for="income-extra">額外收入（HK$）</label>
+              <input class="input mono" id="income-extra" type="number" min="0" step="0.01" placeholder="0">
+            </div>
+            <div class="banner" id="income-status" style="display:none; margin-bottom:14px;"></div>
+            <button type="submit" class="btn btn-primary">儲存收入</button>
+          </form>
+        </div>
+
+        <!-- 資產設定 -->
+        <div class="glass-card" style="max-width:520px;">
+          <div class="glass-card-title">家庭資產</div>
+          <p class="glass-card-hint" style="margin-bottom:14px;">
+            銀行戶口結餘將計入「家庭總資產」。
+          </p>
+          <form id="asset-form">
+            <div class="field">
+              <label class="field-label" for="asset-bank">銀行戶口結餘（HK$）</label>
+              <input class="input mono" id="asset-bank" type="number" min="0" step="0.01" placeholder="0">
+            </div>
+            <div class="banner" id="asset-status" style="display:none; margin-bottom:14px;"></div>
+            <button type="submit" class="btn btn-primary">儲存資產</button>
+          </form>
         </div>
       </main>
     </div>
@@ -40,6 +81,7 @@
   <script type="module">
     import { initApp } from './js/app.js';
     import { getDisplayName, logout } from './js/auth.js';
+    import { initSettingsPage } from './js/settings.js';
 
     const user = await initApp({ activeHref: 'settings.html', title: '系統設定' });
 
@@ -50,6 +92,8 @@
     document.getElementById('logout-btn').addEventListener('click', () => {
       if (confirm('確定要登出嗎？')) logout();
     });
+
+    initSettingsPage();
   </script>
 </body>
 </html>
