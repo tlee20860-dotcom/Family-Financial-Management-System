@@ -17,10 +17,9 @@
       <main class="content">
         <div class="page-header">
           <h1 class="page-title">系統設定</h1>
-          <p class="page-subtitle">帳號、收入與資產設定</p>
+          <p class="page-subtitle">帳號與資產設定</p>
         </div>
 
-        <!-- 帳號資訊 -->
         <div class="glass-card" style="max-width:520px; margin-bottom:20px;">
           <div class="glass-card-title">帳號資訊</div>
           <div class="field">
@@ -34,31 +33,6 @@
           <button class="btn btn-danger" id="logout-btn">登出</button>
         </div>
 
-        <!-- 收入設定 -->
-        <div class="glass-card" style="max-width:520px; margin-bottom:20px;">
-          <div class="glass-card-title">當月家庭收入</div>
-          <p class="glass-card-hint" style="margin-bottom:14px;">
-            設定後將自動反映在總覽儀表板。
-          </p>
-          <form id="income-form">
-            <div class="field">
-              <label class="field-label" for="income-husband">老公投入（HK$）</label>
-              <input class="input mono" id="income-husband" type="number" min="0" step="0.01" placeholder="0">
-            </div>
-            <div class="field">
-              <label class="field-label" for="income-wife">老婆投入（HK$）</label>
-              <input class="input mono" id="income-wife" type="number" min="0" step="0.01" placeholder="0">
-            </div>
-            <div class="field">
-              <label class="field-label" for="income-extra">額外收入（HK$）</label>
-              <input class="input mono" id="income-extra" type="number" min="0" step="0.01" placeholder="0">
-            </div>
-            <div class="banner" id="income-status" style="display:none; margin-bottom:14px;"></div>
-            <button type="submit" class="btn btn-primary">儲存收入</button>
-          </form>
-        </div>
-
-        <!-- 資產設定 -->
         <div class="glass-card" style="max-width:520px;">
           <div class="glass-card-title">家庭資產</div>
           <p class="glass-card-hint" style="margin-bottom:14px;">
@@ -102,7 +76,6 @@
 
     initSettingsPage();
 
-    // 即時顯示基金現值總計
     listenFunds((funds) => {
       const total = funds.reduce((s, f) => s + (Number(f.currentValue) || 0), 0);
       const el = document.getElementById('asset-fund-value');
