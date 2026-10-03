@@ -1,20 +1,12 @@
 // ============================================
-// sw.js — Service Worker（離線快取）
+// sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v2'; // ⚠️ 版本號從 v1 改為 v2
+const CACHE_NAME = 'family-fin-v4'; // ⚠️ 版本號升級
 
+// 只快取靜態資源（CSS / JS / 圖標）
+// HTML 檔一律不走快取，永遠從網路載入
 const STATIC_ASSETS = [
-  './',
-  './index.html',
-  './login.html',
-  './register.html',
-  './members.html',
-  './member-detail.html',
-  './insurance.html',
-  './expenses.html',
-  './portfolio.html',
-  './settings.html',
   './css/theme.css',
   './css/layout.css',
   './css/components.css',
@@ -40,9 +32,15 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(STATIC_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.all(
+        STATIC_ASSETS.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('⚠️ 快取失敗（略過）：', url, err);
+          })
+        )
+      );
+    }).then(() => self.skipWaiting())
   );
 });
 
@@ -63,6 +61,7 @@ self.addEventListener('fetch', (e) => {
 
   const url = new URL(e.request.url);
 
+  // 1. 跳過跨域請求、API、CDN
   if (
     url.origin !== self.location.origin ||
     url.hostname.includes('firebase') ||
@@ -74,19 +73,26 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // 2. ⚠️ 關鍵：HTML 檔（.html）不走快取，直接走網路
+  if (url.pathname.endsWith('.html') || url.pathname === '/') {
+    return; // 讓瀏覽器自然去抓網路，不攔截
+  }
+
+  // 3. 其他靜態資源：網路優先，失敗才用快取
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      if (cached) return cached;
-
-      return fetch(e.request)
-        .then((res) => {
-          if (!res || res.status !== 200 || res.type !== 'basic') return res;
-
+    fetch(e.request)
+      .then((res) => {
+        if (res && res.status === 200 && res.type === 'basic') {
           const copy = res.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy));
-          return res;
-        })
-        .catch(() => caches.match('./index.html'));
-    })
+        }
+        return res;
+      })
+      .catch(() => {
+        return caches.match(e.request).then((cached) => {
+          if (cached) return cached;
+          return caches.match('./index.html'); // 離線時回首頁
+        });
+      })
   );
 });
