@@ -398,3 +398,80 @@ export async function markMemberExpenseRepaid(year, month, memberId, expId, isRe
     }
   );
 }
+/* ---------- 家庭固定支出 ---------- */
+
+export function listenFixedExpenses(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_expenses/${year}/${month}`);
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addFixedExpense(year, month, data) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_expenses/${year}/${month}`);
+  const newRef = push(r);
+  await set(newRef, {
+    name: data.name || '',
+    amount: Number(data.amount) || 0,
+    cycle: data.cycle || '每月',
+    dueDate: data.dueDate || '',
+    status: data.status || '未付款',
+    paidDate: '',
+    note: data.note || '',
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFixedExpense(year, month, id, patch) {
+  await update(ref(db, `fixed_expenses/${year}/${month}/${id}`), patch);
+}
+
+export async function removeFixedExpense(year, month, id) {
+  await remove(ref(db, `fixed_expenses/${year}/${month}/${id}`));
+}
+
+/**
+ * 從固定支出模板批量生成本月固定支出
+ * 回傳：新增的筆數
+ */
+export async function generateFixedExpensesFromTemplates(year, month) {
+  const tmplSnap = await get(ref(db, 'fixed_expense_templates'));
+  const templates = tmplSnap.val() || {};
+  const currentSnap = await get(ref(db, `fixed_expenses/${year}/${month}`));
+  const existing = currentSnap.val() || {};
+
+  // 建立現有名稱集合，避免重複生成
+  const existingNames = new Set(Object.values(existing).map((x) => x.name));
+
+  let added = 0;
+  for (const [id, t] of Object.entries(templates)) {
+    if (existingNames.has(t.name)) continue;
+
+    await set(ref(db, `fixed_expenses/${year}/${month}/${id}`), {
+      name: t.name || '',
+      amount: Number(t.amount) || 0,
+      cycle: '每月',
+      dueDate: '',
+      status: '未付款',
+      paidDate: '',
+      note: '由模板自動生成',
+      createdAt: Date.now(),
+    });
+    added++;
+  }
+  return added;
+}
