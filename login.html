@@ -37,6 +37,9 @@
 
   <script type="module">
     import { loginWithCustomAccount } from './js/auth.js';
+    import { initPWA } from './js/pwa.js';
+
+    initPWA();
 
     const form = document.getElementById('login-form');
     const errorBox = document.getElementById('login-error');
