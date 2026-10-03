@@ -1,13 +1,14 @@
 // ============================================
-// navbar.js — 頂部導覽列 + 漢堡按鈕（乾淨版）
+// navbar.js — 頂部導覽列 + 漢堡按鈕
 // ============================================
+
+import { AppState } from './state.js';
 
 export function renderNavbar(containerId = 'navbar-root', title = '') {
   const root = document.getElementById(containerId);
   if (!root) return;
 
   root.classList.add('navbar');
-
   root.innerHTML = `
     <button class="hamburger" id="hamburger-btn" aria-label="切換選單">
       <i data-lucide="menu"></i>
@@ -16,7 +17,7 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
     <div class="navbar-user" id="navbar-user"></div>
   `;
 
-  // 只綁定一次
+  // 只綁定一次事件
   if (!window._navbarEventBound) {
     window._navbarEventBound = true;
 
@@ -28,8 +29,22 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
       }
 
       // 2. 點擊背景遮罩 ➜ 關閉手機版側邊欄
-      if (e.target.closest('.sidebar-backdrop')?.classList.contains('active')) {
+      const backdrop = e.target.closest('.sidebar-backdrop');
+      if (backdrop && backdrop.classList.contains('active')) {
         closeMobileSidebar();
+      }
+    });
+
+    // 監聽登入者變化，更新 Navbar 顯示
+    AppState.on('user-change', (user) => {
+      const userBox = document.getElementById('navbar-user');
+      if (userBox && user) {
+        const name = user.email ? user.email.replace('@familyfin.local', '') : '';
+        userBox.innerHTML = `
+          <span class="mono" style="font-size:12px; color:var(--text-muted); margin-right:10px;">
+            👤 ${name}
+          </span>
+        `;
       }
     });
   }
