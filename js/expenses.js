@@ -124,7 +124,7 @@ function renderStatusBadge(status) {
 }
 
 /* ============================================
-   PDF 匯出（修正手機空白版）
+   PDF 匯出：使用瀏覽器原生列印功能
    ============================================ */
 async function exportToPDF() {
   if (!currentData) {
@@ -133,44 +133,22 @@ async function exportToPDF() {
   }
 
   const { year, month } = AppState.getYearMonth();
-  const renderEl = document.getElementById('pdf-render');
+  const printArea = document.getElementById('print-area');
 
-  // 1. 建立內容
-  renderEl.innerHTML = buildPrintHTML(year, month, currentData);
+  // 建立列印內容
+  printArea.innerHTML = buildPrintHTML(year, month, currentData);
 
-  // 2. 強制顯示並重新計算佈局（關鍵：不能用 left: -99999px，手機瀏覽器會無法渲染）
-  renderEl.style.display = 'block';
-  renderEl.style.position = 'fixed';
-  renderEl.style.top = '0';
-  renderEl.style.left = '-2000px';
-  renderEl.style.width = '800px';
-  renderEl.style.zIndex = '9999';
+  // 等待瀏覽器渲染完成
+  await new Promise((r) => setTimeout(r, 150));
 
-  // 3. 等待瀏覽器完成排版與字體渲染（時間延長至 500ms）
-  await new Promise((r) => setTimeout(r, 500));
-
-  const opt = {
-    margin: 10,
-    filename: `家庭總開銷_${year}-${month}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      scrollY: 0,
-      scrollX: 0
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-  };
-
-  try {
-    await html2pdf().set(opt).from(renderEl).save();
-    renderEl.innerHTML = '';
-  } catch (err) {
-    console.error('PDF 匯出失敗：', err);
-    alert('PDF 匯出失敗：' + err.message);
+  // 提示使用者（尤其手機使用者）
+  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobile) {
+    alert('即將開啟列印預覽。\n請選擇「儲存為 PDF」或「列印為 PDF」。');
   }
+
+  // 呼叫瀏覽器列印（使用者可選擇「另存為 PDF」）
+  window.print();
 }
 
 function buildPrintHTML(year, month, data) {
@@ -183,16 +161,16 @@ function buildPrintHTML(year, month, data) {
     const m = perMember[id];
     const rows = m.items.map((it) => `
       <tr>
-        <td>${escapeHtml(it.name)}</td>
-        <td>${escapeHtml(it.categoryName || '—')}</td>
-        <td>${escapeHtml(it.date || '—')}</td>
-        <td style="text-align:right;">${formatNumber(it.amount)}</td>
-        <td>${escapeHtml(it.status || '—')}</td>
+        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.name)}</td>
+        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.categoryName || '—')}</td>
+        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.date || '—')}</td>
+        <td style="padding:6px; border:1px solid #ddd; text-align:right;">${formatNumber(it.amount)}</td>
+        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.status || '—')}</td>
       </tr>
     `).join('');
 
     return `
-      <div style="margin-bottom:18px;">
+      <div class="member-block" style="margin-bottom:18px;">
         <h3 style="font-size:14px; margin:0 0 6px 0; border-left:4px solid #0a84ff; padding-left:8px;">
           ${escapeHtml(m.memberName)}（共 ${m.itemCount} 筆）
           <span style="float:right; color:#c026d3;">HK$ ${formatNumber(m.sum)}</span>
@@ -214,7 +192,7 @@ function buildPrintHTML(year, month, data) {
   }).join('');
 
   const fixedSection = fixedList.length ? `
-    <div style="margin-top:18px;">
+    <div class="member-block" style="margin-top:18px;">
       <h3 style="font-size:14px; margin:0 0 6px 0; border-left:4px solid #f59e0b; padding-left:8px;">
         家庭固定支出
         <span style="float:right; color:#c026d3;">HK$ ${formatNumber(data.fixedTotal || 0)}</span>
@@ -235,7 +213,7 @@ function buildPrintHTML(year, month, data) {
               <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.name)}</td>
               <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.cycle)}</td>
               <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.dueDate || '—')}</td>
-              <td style="text-align:right; padding:6px; border:1px solid #ddd;">${formatNumber(x.amount)}</td>
+              <td style="padding:6px; border:1px solid #ddd; text-align:right;">${formatNumber(x.amount)}</td>
               <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.status)}</td>
             </tr>
           `).join('')}
@@ -245,7 +223,7 @@ function buildPrintHTML(year, month, data) {
   ` : '';
 
   return `
-    <div style="color:#000; background:#fff;">
+    <div style="color:#000; background:#fff; font-family:'PingFang TC','Microsoft JhengHei','Noto Sans TC',sans-serif;">
       <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:16px;">
         <h1 style="font-size:20px; margin:0;">家庭每月總開銷表</h1>
         <div style="font-size:12px; margin-top:4px;">${year} 年 ${month} 月</div>
