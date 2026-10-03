@@ -58,7 +58,6 @@
     </div>
   </div>
 
-  <!-- Modal -->
   <div class="modal-overlay" id="expense-modal">
     <div class="modal" style="max-width:520px;">
       <h2 class="modal-title" id="expense-modal-title">新增支出</h2>
@@ -85,6 +84,17 @@
         <div class="field">
           <label class="field-label" for="expense-amount-input">費用（HK$）</label>
           <input class="input mono" id="expense-amount-input" type="number" min="0" step="0.01" required placeholder="0">
+        </div>
+
+        <!-- 🆕 狀態下拉選單 -->
+        <div class="field">
+          <label class="field-label" for="expense-status-input">狀態</label>
+          <select class="select" id="expense-status-input">
+            <option value="未處理">未處理</option>
+            <option value="已處理">已處理</option>
+            <option value="未還款">未還款</option>
+            <option value="已還款">已還款</option>
+          </select>
         </div>
 
         <div class="field">
