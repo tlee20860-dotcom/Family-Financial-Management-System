@@ -17,45 +17,43 @@
       <main class="content">
         <div class="page-header">
           <h1 class="page-title">總覽儀表板</h1>
-          <p class="page-subtitle">全家財務即時概況</p>
+          <p class="page-subtitle" id="dashboard-month">全家財務即時概況</p>
         </div>
 
-        <div class="banner banner-magenta">
-          ⚠ P1 骨架階段：以下為示意數字，資料將於 P6 接上 Firebase。
-        </div>
+        <div id="dashboard-error" class="banner banner-magenta" style="display:none;"></div>
 
         <div class="grid grid-4">
           <div class="glass-card">
             <div class="glass-card-title">家庭當月總收入</div>
-            <div class="glass-card-value emerald">HK$ 0</div>
-            <div class="glass-card-hint">老公 + 老婆 + 額外收入</div>
+            <div class="glass-card-value emerald mono" id="stat-income">HK$ 0</div>
+            <div class="glass-card-hint" id="hint-income">—</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">家庭當月總支出</div>
-            <div class="glass-card-value red">HK$ 0</div>
-            <div class="glass-card-hint">成員開銷 + 保險平攤 + 固定轉帳</div>
+            <div class="glass-card-value red mono" id="stat-expense">HK$ 0</div>
+            <div class="glass-card-hint" id="hint-expense">—</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">當月淨結餘</div>
-            <div class="glass-card-value">HK$ 0</div>
+            <div class="glass-card-value mono" id="stat-net">HK$ 0</div>
             <div class="glass-card-hint">總收入 − 總支出</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">全年保費總負擔</div>
-            <div class="glass-card-value magenta">HK$ 0</div>
-            <div class="glass-card-hint">所有保險年費加總</div>
+            <div class="glass-card-value magenta mono" id="stat-insurance">HK$ 0</div>
+            <div class="glass-card-hint" id="hint-insurance">—</div>
           </div>
         </div>
 
         <div class="grid grid-2" style="margin-top:16px;">
           <div class="glass-card">
             <div class="glass-card-title">家庭總資產</div>
-            <div class="glass-card-value emerald">HK$ 0</div>
-            <div class="glass-card-hint">銀行結餘 + 基金現值</div>
+            <div class="glass-card-value emerald mono" id="stat-assets">HK$ 0</div>
+            <div class="glass-card-hint" id="hint-assets">—</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">本月保險平攤</div>
-            <div class="glass-card-value magenta">HK$ 0</div>
+            <div class="glass-card-value magenta mono" id="stat-monthly-insurance">HK$ 0</div>
             <div class="glass-card-hint">所有保單年費 ÷ 12 加總</div>
           </div>
         </div>
@@ -66,8 +64,10 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module">
     import { initApp } from './js/app.js';
-    // ⚠️ 這裡加上了 await，確保 Firebase 登入檢查與側邊欄載入完成
+    import { initDashboardPage } from './js/dashboard.js';
+
     await initApp({ activeHref: 'index.html', title: '總覽儀表板' });
+    await initDashboardPage();
   </script>
 </body>
 </html>
