@@ -223,3 +223,100 @@ export async function updateFund(id, patch) {
 export async function removeFund(id) {
   await remove(ref(db, `investment_funds/${id}`));
 }
+/* ---------- 支出類別 ---------- */
+
+export function listenCategories(callback) {
+  const r = ref(db, 'expense_categories');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, c]) => ({ id, ...c }));
+    list.sort((a, b) => (a.order || 0) - (b.order || 0));
+    callback(list);
+  });
+}
+
+export async function addCategory(cat) {
+  const r = ref(db, 'expense_categories');
+  const newRef = push(r);
+  await set(newRef, {
+    name: cat.name || '',
+    order: Number(cat.order) || 0,
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateCategory(id, patch) {
+  await update(ref(db, `expense_categories/${id}`), {
+    name: patch.name || '',
+    order: Number(patch.order) || 0,
+  });
+}
+
+export async function removeCategory(id) {
+  await remove(ref(db, `expense_categories/${id}`));
+}
+
+/* ---------- 支出項目 ---------- */
+
+export function listenItems(callback) {
+  const r = ref(db, 'expense_items');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, i]) => ({ id, ...i }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addItem(item) {
+  const r = ref(db, 'expense_items');
+  const newRef = push(r);
+  await set(newRef, {
+    name: item.name || '',
+    categoryId: item.categoryId || '',
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateItem(id, patch) {
+  await update(ref(db, `expense_items/${id}`), {
+    name: patch.name || '',
+    categoryId: patch.categoryId || '',
+  });
+}
+
+export async function removeItem(id) {
+  await remove(ref(db, `expense_items/${id}`));
+}
+
+/* ---------- 固定支出模板 ---------- */
+
+export function listenFixedTemplates(callback) {
+  const r = ref(db, 'fixed_expense_templates');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, t]) => ({ id, ...t }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addFixedTemplate(tmpl) {
+  const r = ref(db, 'fixed_expense_templates');
+  const newRef = push(r);
+  await set(newRef, {
+    name: tmpl.name || '',
+    categoryId: tmpl.categoryId || '',
+    itemId: tmpl.itemId || '',
+    memberId: tmpl.memberId || '',
+    amount: Number(tmpl.amount) || 0,
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function removeFixedTemplate(id) {
+  await remove(ref(db, `fixed_expense_templates/${id}`));
+}
