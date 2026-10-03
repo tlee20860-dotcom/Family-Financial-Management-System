@@ -320,3 +320,81 @@ export async function addFixedTemplate(tmpl) {
 export async function removeFixedTemplate(id) {
   await remove(ref(db, `fixed_expense_templates/${id}`));
 }
+/* ---------- 結算清單：固定還款 ---------- */
+
+export function listenFixedRepayments(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_repayments/${year}/${month}`);
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addFixedRepayment(year, month, data) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_repayments/${year}/${month}`);
+  const newRef = push(r);
+  await set(newRef, {
+    memberId: data.memberId || '',
+    name: data.name || '',
+    amount: Number(data.amount) || 0,
+    status: '未還款',
+    repaidDate: '',
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFixedRepayment(year, month, id, patch) {
+  await update(ref(db, `fixed_repayments/${year}/${month}/${id}`), patch);
+}
+
+export async function removeFixedRepayment(year, month, id) {
+  await remove(ref(db, `fixed_repayments/${year}/${month}/${id}`));
+}
+
+/* ---------- 結算清單：當月所有成員代墊支出 ---------- */
+
+export function listenAllMemberExpenses(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `family_expenses/${year}/${month}/member_expenses`);
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const flat = [];
+    Object.entries(val).forEach(([memberId, items]) => {
+      Object.entries(items || {}).forEach(([id, exp]) => {
+        flat.push({ id, memberId, ...exp });
+      });
+    });
+    flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(flat);
+  });
+}
+
+/**
+ * 標記成員代墊支出為已還款 / 未還款
+ */
+export async function markMemberExpenseRepaid(year, month, memberId, expId, isRepaid) {
+  await update(
+    ref(db, `family_expenses/${year}/${month}/member_expenses/${memberId}/${expId}`),
+    {
+      status: isRepaid ? '已還款' : '未還款',
+      repaidDate: isRepaid ? new Date().toISOString().slice(0, 10) : '',
+    }
+  );
+}
