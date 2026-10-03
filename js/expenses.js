@@ -124,7 +124,7 @@ function renderStatusBadge(status) {
 }
 
 /* ============================================
-   PDF 匯出：使用瀏覽器原生列印功能
+   PDF 匯出：開啟新視窗列印（最穩定方案）
    ============================================ */
 async function exportToPDF() {
   if (!currentData) {
@@ -133,22 +133,78 @@ async function exportToPDF() {
   }
 
   const { year, month } = AppState.getYearMonth();
-  const printArea = document.getElementById('print-area');
+  const html = buildPrintHTML(year, month, currentData);
 
-  // 建立列印內容
-  printArea.innerHTML = buildPrintHTML(year, month, currentData);
+  // 開啟新視窗（乾淨的環境，無主 App CSS 干擾）
+  const printWindow = window.open('', '_blank', 'width=900,height=700');
 
-  // 等待瀏覽器渲染完成
-  await new Promise((r) => setTimeout(r, 150));
-
-  // 提示使用者（尤其手機使用者）
-  const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-  if (isMobile) {
-    alert('即將開啟列印預覽。\n請選擇「儲存為 PDF」或「列印為 PDF」。');
+  if (!printWindow) {
+    alert('請允許彈出視窗，才能匯出 PDF。\n（設定 ➜ 網站設定 ➜ 允許彈出視窗）');
+    return;
   }
 
-  // 呼叫瀏覽器列印（使用者可選擇「另存為 PDF」）
-  window.print();
+  // 將完整 HTML 寫入新視窗（包含內嵌樣式）
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html lang="zh-Hant">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>家庭總開銷_${year}-${month}</title>
+      <style>
+        * { box-sizing: border-box; }
+        html, body {
+          margin: 0;
+          padding: 0;
+          background: #ffffff;
+          color: #000000;
+          font-family: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', -apple-system, sans-serif;
+        }
+        body { padding: 20px; }
+        h1 { font-size: 22px; margin: 0 0 6px 0; }
+        h2 { font-size: 15px; margin: 20px 0 10px 0; }
+        h3 { font-size: 13px; margin: 16px 0 6px 0; border-left: 4px solid #0a84ff; padding-left: 10px; }
+        .summary { display: flex; gap: 12px; margin-bottom: 16px; }
+        .summary > div { flex: 1; border: 1px solid #ddd; padding: 10px; }
+        .summary-label { font-size: 10px; color: #666; margin-bottom: 4px; }
+        .summary-value { font-size: 16px; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
+        th, td { padding: 6px 8px; border: 1px solid #ddd; text-align: left; }
+        th { background: #f3f4f6; font-weight: 600; }
+        .num { text-align: right; }
+        .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 16px; }
+        .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #666; text-align: center; }
+        tr, .member-block { page-break-inside: avoid; }
+        @page { size: A4; margin: 15mm; }
+        @media print {
+          body { padding: 0; }
+          .no-print { display: none !important; }
+        }
+      </style>
+    </head>
+    <body>
+      ${html}
+      <div class="footer no-print" style="margin-top:30px; text-align:center;">
+        <button onclick="window.print()" style="padding:10px 20px; font-size:14px; cursor:pointer; background:#0a84ff; color:#fff; border:none; border-radius:6px;">
+          📄 列印 / 儲存為 PDF
+        </button>
+        <p style="font-size:11px; color:#999; margin-top:10px;">
+          若按鈕無反應，請使用瀏覽器選單 ➜ 列印
+        </p>
+      </div>
+      <script>
+        // 頁面載入後自動呼叫列印（僅在桌面版自動，手機版顯示按鈕）
+        window.addEventListener('load', function() {
+          var isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+          if (!isMobile) {
+            setTimeout(function() { window.print(); }, 400);
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 function buildPrintHTML(year, month, data) {
@@ -161,28 +217,28 @@ function buildPrintHTML(year, month, data) {
     const m = perMember[id];
     const rows = m.items.map((it) => `
       <tr>
-        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.name)}</td>
-        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.categoryName || '—')}</td>
-        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.date || '—')}</td>
-        <td style="padding:6px; border:1px solid #ddd; text-align:right;">${formatNumber(it.amount)}</td>
-        <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(it.status || '—')}</td>
+        <td>${escapeHtml(it.name)}</td>
+        <td>${escapeHtml(it.categoryName || '—')}</td>
+        <td>${escapeHtml(it.date || '—')}</td>
+        <td class="num">${formatNumber(it.amount)}</td>
+        <td>${escapeHtml(it.status || '—')}</td>
       </tr>
     `).join('');
 
     return `
       <div class="member-block" style="margin-bottom:18px;">
-        <h3 style="font-size:14px; margin:0 0 6px 0; border-left:4px solid #0a84ff; padding-left:8px;">
+        <h3>
           ${escapeHtml(m.memberName)}（共 ${m.itemCount} 筆）
           <span style="float:right; color:#c026d3;">HK$ ${formatNumber(m.sum)}</span>
         </h3>
-        <table style="width:100%; border-collapse:collapse; font-size:11px;">
+        <table>
           <thead>
-            <tr style="background:#f3f4f6;">
-              <th style="text-align:left; padding:6px; border:1px solid #ddd;">項目名稱</th>
-              <th style="text-align:left; padding:6px; border:1px solid #ddd;">類別</th>
-              <th style="text-align:left; padding:6px; border:1px solid #ddd;">日期</th>
-              <th style="text-align:right; padding:6px; border:1px solid #ddd;">金額</th>
-              <th style="text-align:left; padding:6px; border:1px solid #ddd;">狀態</th>
+            <tr>
+              <th>項目名稱</th>
+              <th>類別</th>
+              <th>日期</th>
+              <th class="num">金額</th>
+              <th>狀態</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -193,28 +249,28 @@ function buildPrintHTML(year, month, data) {
 
   const fixedSection = fixedList.length ? `
     <div class="member-block" style="margin-top:18px;">
-      <h3 style="font-size:14px; margin:0 0 6px 0; border-left:4px solid #f59e0b; padding-left:8px;">
+      <h3 style="border-left-color:#f59e0b;">
         家庭固定支出
         <span style="float:right; color:#c026d3;">HK$ ${formatNumber(data.fixedTotal || 0)}</span>
       </h3>
-      <table style="width:100%; border-collapse:collapse; font-size:11px;">
+      <table>
         <thead>
-          <tr style="background:#f3f4f6;">
-            <th style="text-align:left; padding:6px; border:1px solid #ddd;">項目名稱</th>
-            <th style="text-align:left; padding:6px; border:1px solid #ddd;">週期</th>
-            <th style="text-align:left; padding:6px; border:1px solid #ddd;">到期日</th>
-            <th style="text-align:right; padding:6px; border:1px solid #ddd;">金額</th>
-            <th style="text-align:left; padding:6px; border:1px solid #ddd;">狀態</th>
+          <tr>
+            <th>項目名稱</th>
+            <th>週期</th>
+            <th>到期日</th>
+            <th class="num">金額</th>
+            <th>狀態</th>
           </tr>
         </thead>
         <tbody>
           ${fixedList.map((x) => `
             <tr>
-              <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.name)}</td>
-              <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.cycle)}</td>
-              <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.dueDate || '—')}</td>
-              <td style="padding:6px; border:1px solid #ddd; text-align:right;">${formatNumber(x.amount)}</td>
-              <td style="padding:6px; border:1px solid #ddd;">${escapeHtml(x.status)}</td>
+              <td>${escapeHtml(x.name)}</td>
+              <td>${escapeHtml(x.cycle)}</td>
+              <td>${escapeHtml(x.dueDate || '—')}</td>
+              <td class="num">${formatNumber(x.amount)}</td>
+              <td>${escapeHtml(x.status)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -223,35 +279,33 @@ function buildPrintHTML(year, month, data) {
   ` : '';
 
   return `
-    <div style="color:#000; background:#fff; font-family:'PingFang TC','Microsoft JhengHei','Noto Sans TC',sans-serif;">
-      <div style="border-bottom:2px solid #000; padding-bottom:10px; margin-bottom:16px;">
-        <h1 style="font-size:20px; margin:0;">家庭每月總開銷表</h1>
-        <div style="font-size:12px; margin-top:4px;">${year} 年 ${month} 月</div>
+    <div class="header">
+      <h1>家庭每月總開銷表</h1>
+      <div style="font-size:12px; color:#666;">${year} 年 ${month} 月</div>
+    </div>
+
+    <div class="summary">
+      <div>
+        <div class="summary-label">成員代墊總額</div>
+        <div class="summary-value" style="color:#c026d3;">HK$ ${formatNumber(memberTotal)}</div>
       </div>
-
-      <div style="display:flex; gap:12px; margin-bottom:16px;">
-        <div style="flex:1; border:1px solid #ddd; padding:10px;">
-          <div style="font-size:10px; color:#666;">成員代墊總額</div>
-          <div style="font-size:16px; font-weight:700; color:#c026d3;">HK$ ${formatNumber(memberTotal)}</div>
-        </div>
-        <div style="flex:1; border:1px solid #ddd; padding:10px;">
-          <div style="font-size:10px; color:#666;">家庭固定支出</div>
-          <div style="font-size:16px; font-weight:700; color:#d97706;">HK$ ${formatNumber(data.fixedTotal || 0)}</div>
-        </div>
-        <div style="flex:1; border:1px solid #ddd; padding:10px;">
-          <div style="font-size:10px; color:#666;">當月總支出</div>
-          <div style="font-size:16px; font-weight:700; color:#000;">HK$ ${formatNumber(data.totalExpense || 0)}</div>
-        </div>
+      <div>
+        <div class="summary-label">家庭固定支出</div>
+        <div class="summary-value" style="color:#d97706;">HK$ ${formatNumber(data.fixedTotal || 0)}</div>
       </div>
-
-      <h2 style="font-size:14px; margin:0 0 10px 0;">成員支出明細</h2>
-      ${memberSections || '<div style="font-size:11px;">本月尚無成員支出紀錄</div>'}
-
-      ${fixedSection}
-
-      <div style="margin-top:24px; padding-top:10px; border-top:1px solid #ccc; font-size:10px; color:#666; text-align:center;">
-        由 FAMILY.FIN 家庭財務系統產出
+      <div>
+        <div class="summary-label">當月總支出</div>
+        <div class="summary-value">HK$ ${formatNumber(data.totalExpense || 0)}</div>
       </div>
+    </div>
+
+    <h2>成員支出明細</h2>
+    ${memberSections || '<div style="font-size:11px;">本月尚無成員支出紀錄</div>'}
+
+    ${fixedSection}
+
+    <div class="footer">
+      由 FAMILY.FIN 家庭財務系統產出
     </div>
   `;
 }
