@@ -1,1 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>保險付款 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
 
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">保險付款</h1>
+            <p class="page-subtitle">保單管理與每月平攤供款</p>
+          </div>
+          <button class="btn btn-primary" id="add-policy-btn">
+            <i data-lucide="plus"></i> 新增保單
+          </button>
+        </div>
+
+        <div class="grid grid-3" id="policy-grid">
+          <div class="glass-card" style="grid-column:1/-1;">
+            <div class="empty-state">載入中…</div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="policy-modal">
+    <div class="modal" style="max-width:520px;">
+      <h2 class="modal-title" id="policy-modal-title">新增保單</h2>
+      <form id="policy-form">
+        <div class="field">
+          <label class="field-label" for="policy-member">受保成員</label>
+          <select class="select" id="policy-member" required>
+            <option value="">— 請選擇成員 —</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-name">保險名稱</label>
+          <input class="input" id="policy-name" required placeholder="例如：英國保誠住院保險" maxlength="60">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-company">保險公司</label>
+          <select class="select" id="policy-company">
+            <option>富通</option>
+            <option>保誠</option>
+            <option>FWD</option>
+            <option>AIA</option>
+            <option>宏利</option>
+            <option>AXA</option>
+          </select>
+        </div>
+
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="policy-premium">年度保費（HK$）</label>
+            <input class="input mono" id="policy-premium" type="number" min="0" step="0.01" required placeholder="0">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-monthly">平均每月（自動計算）</label>
+            <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-payment">付款日期 / 扣款月份</label>
+          <input class="input" id="policy-payment" placeholder="例如：每年2月" maxlength="40">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-account">扣款帳戶</label>
+          <input class="input" id="policy-account" placeholder="例如：年繳匯豐扣數" maxlength="60">
+        </div>
+
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="policy-total">總供款期數</label>
+            <input class="input mono" id="policy-total" type="number" min="0" placeholder="例如：120">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-completed">已供款期數</label>
+            <input class="input mono" id="policy-completed" type="number" min="0" placeholder="例如：43">
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="policy-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initInsurancePage } from './js/insurance.js';
+
+    await initApp({ activeHref: 'insurance.html', title: '保險付款' });
+    initInsurancePage();
+  </script>
+</body>
+</html>
