@@ -3,22 +3,16 @@
 // ============================================
 
 import { api } from './api.js';
-import { formatHKD } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
 
 export async function initDashboardPage() {
-  // 初次載入
   await loadDashboard();
-
-  // 監聽年月變化，自動重新載入
-  AppState.on('ym-change', () => {
-    loadDashboard();
-  });
+  AppState.on('ym-change', () => loadDashboard());
 }
 
 async function loadDashboard() {
   const { year, month } = AppState.getYearMonth();
-
   const monthLabel = document.getElementById('dashboard-month');
   if (monthLabel) monthLabel.textContent = `${year} 年 ${month} 月`;
 
@@ -45,11 +39,21 @@ function renderDashboard(data) {
     netEl.classList.add(data.netBalance >= 0 ? 'emerald' : 'red');
   }
 
-  setText('hint-income',
-    `老公 ${formatHKD(data.incomeBreakdown.husbandContribution)} ＋ ` +
-    `老婆 ${formatHKD(data.incomeBreakdown.wifeContribution)} ＋ ` +
-    `額外 ${formatHKD(data.incomeBreakdown.extraIncome)}`
-  );
+  // 🆕 收入 hint（新結構）
+  const breakdown = data.incomeBreakdown || {};
+  const parts = [];
+  const memberMap = {
+    mem_husband: '老公', mem_wife: '老婆', mem_son: '梓舜', mem_daughter: '梓言',
+  };
+  Object.entries(breakdown).forEach(([key, val]) => {
+    if (key === 'extra') {
+      parts.push(`額外 ${formatHKD(val)}`);
+    } else {
+      const name = memberMap[key] || key;
+      parts.push(`${name} ${formatHKD(val)}`);
+    }
+  });
+  setText('hint-income', parts.length ? parts.join(' ＋ ') : '本月尚未設定收入');
 
   setText('hint-expense',
     `共 ${Object.values(data.perMember).reduce((s, m) => s + m.itemCount, 0)} 筆項目`
