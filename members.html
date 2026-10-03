@@ -1,105 +1,72 @@
-// ============================================
-// members.js — 成員管理頁邏輯
-// ============================================
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>成員管理 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
 
-import { listenMembers, addMember, updateMember, removeMember } from './db.js';
-import { escapeHtml } from './utils.js';
-
-const ROLE_LABEL = {
-  husband: '老公 / 丈夫',
-  wife: '老婆 / 妻子',
-  child: '子女',
-  other: '其他',
-};
-
-let currentMembers = [];
-let editingId = null;
-
-export function initMembersPage() {
-  const grid = document.getElementById('members-grid');
-  const modal = document.getElementById('member-modal');
-  const modalTitle = document.getElementById('member-modal-title');
-  const form = document.getElementById('member-form');
-  const nameInput = document.getElementById('member-name-input');
-  const roleSelect = document.getElementById('member-role-input');
-
-  listenMembers((members) => {
-    currentMembers = members;
-    renderGrid();
-  });
-
-  document.getElementById('add-member-btn').addEventListener('click', () => {
-    editingId = null;
-    modalTitle.textContent = '新增成員';
-    form.reset();
-    modal.classList.add('active');
-    setTimeout(() => nameInput.focus(), 50);
-  });
-
-  document.getElementById('member-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = nameInput.value.trim();
-    const role = roleSelect.value;
-    if (!name) return;
-
-    if (editingId) {
-      await updateMember(editingId, { name, role });
-    } else {
-      await addMember({ name, role });
-    }
-    modal.classList.remove('active');
-  });
-
-  grid.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-action]');
-    if (!btn) return;
-
-    const id = btn.dataset.id;
-    const action = btn.dataset.action;
-    const member = currentMembers.find((m) => m.id === id);
-    if (!member) return;
-
-    if (action === 'edit') {
-      editingId = id;
-      modalTitle.textContent = '編輯成員';
-      nameInput.value = member.name;
-      roleSelect.value = member.role || 'other';
-      modal.classList.add('active');
-      setTimeout(() => nameInput.focus(), 50);
-    } else if (action === 'delete') {
-      if (confirm(`確定要刪除成員「${member.name}」嗎？\n（該成員的支出紀錄不會被刪除）`)) {
-        await removeMember(id);
-      }
-    }
-  });
-
-  function renderGrid() {
-    if (!currentMembers.length) {
-      grid.innerHTML = `
-        <div class="glass-card" style="grid-column:1/-1;">
-          <div class="empty-state">尚無成員，點擊上方「新增成員」開始。</div>
-        </div>`;
-      return;
-    }
-
-    grid.innerHTML = currentMembers.map((m) => `
-      <div class="glass-card">
-        <div class="glass-card-title">${ROLE_LABEL[m.role] || '成員'}</div>
-        <div class="glass-card-value">${escapeHtml(m.name)}</div>
-        <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
-          <a class="btn btn-sm" href="member-detail.html?id=${m.id}">進入版面</a>
-          <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${m.id}">編輯</button>
-          <button class="btn btn-sm btn-danger" data-action="delete" data-id="${m.id}">刪除</button>
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">成員管理</h1>
+            <p class="page-subtitle">新增、編輯、刪除家庭成員</p>
+          </div>
+          <button class="btn btn-primary" id="add-member-btn">
+            <i data-lucide="plus"></i> 新增成員
+          </button>
         </div>
-      </div>
-    `).join('');
 
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
-  }
-}
+        <div class="grid grid-4" id="members-grid">
+          <div class="glass-card" style="grid-column:1/-1;">
+            <div class="empty-state">載入中…</div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="member-modal">
+    <div class="modal">
+      <h2 class="modal-title" id="member-modal-title">新增成員</h2>
+      <form id="member-form">
+        <div class="field">
+          <label class="field-label" for="member-name-input">名稱</label>
+          <input class="input" id="member-name-input" required placeholder="例如：老公、梓舜" maxlength="20">
+        </div>
+        <div class="field">
+          <label class="field-label" for="member-role-input">角色</label>
+          <select class="select" id="member-role-input">
+            <option value="husband">老公 / 丈夫</option>
+            <option value="wife">老婆 / 妻子</option>
+            <option value="child">子女</option>
+            <option value="other" selected>其他</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="member-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initMembersPage } from './js/members.js';
+
+    await initApp({ activeHref: 'members.html', title: '成員管理' });
+    initMembersPage();
+  </script>
+</body>
+</html>
