@@ -82,3 +82,40 @@ export async function updateExpense(year, month, memberId, expId, patch) {
 export async function removeExpense(year, month, memberId, expId) {
   await remove(ref(db, `${expensePath(year, month, memberId)}/${expId}`));
 }
+/* ---------- 保險 ---------- */
+
+export function listenInsurancePolicies(callback) {
+  const r = ref(db, 'insurance_policies');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, p]) => ({ id, ...p }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addInsurancePolicy(policy) {
+  const r = ref(db, 'insurance_policies');
+  const newRef = push(r);
+  await set(newRef, {
+    memberId: policy.memberId || '',
+    name: policy.name || '',
+    company: policy.company || '',
+    annualPremium: Number(policy.annualPremium) || 0,
+    monthlyAverage: Number(policy.monthlyAverage) || 0,
+    paymentDate: policy.paymentDate || '',
+    account: policy.account || '',
+    totalPeriods: Number(policy.totalPeriods) || 0,
+    completedPeriods: Number(policy.completedPeriods) || 0,
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateInsurancePolicy(id, patch) {
+  await update(ref(db, `insurance_policies/${id}`), patch);
+}
+
+export async function removeInsurancePolicy(id) {
+  await remove(ref(db, `insurance_policies/${id}`));
+}
