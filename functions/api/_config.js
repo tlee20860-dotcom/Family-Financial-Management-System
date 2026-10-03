@@ -3,7 +3,7 @@
 // ============================================
 
 // ⚠️ 請替換成你的 Realtime Database URL（結尾不要加斜線）
-export const FIREBASE_DB_URL = "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com";
+export const FIREBASE_DB_URL = "https://family-financial-management-system.pages.dev/";
 
 // 快速封裝：讀取 RTDB 某個路徑
 export async function dbGet(path) {
