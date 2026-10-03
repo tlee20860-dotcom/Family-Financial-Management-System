@@ -3,65 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>登入 | 家庭財務</title>
+  <title>每月總開銷 | 家庭財務</title>
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
 </head>
-<body class="auth-page">
-  <div class="glass-card auth-card">
-    <h1 class="auth-title">◈ FAMILY.FIN</h1>
-    <p class="auth-subtitle">家庭財務與固定供款管理</p>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
 
-    <form id="login-form">
-      <div class="field">
-        <label class="field-label" for="account">帳號</label>
-        <input class="input" type="text" id="account" required placeholder="例如：superadmin" autocomplete="username">
-      </div>
-      <div class="field">
-        <label class="field-label" for="password">密碼</label>
-        <input class="input" type="password" id="password" required minlength="6" placeholder="至少 6 位" autocomplete="current-password">
-      </div>
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">每月總開銷表</h1>
+            <p class="page-subtitle" id="expenses-month">全家當月開銷匯總</p>
+          </div>
+          <div style="text-align:right;">
+            <div class="glass-card-title" style="margin:0;">當月總支出</div>
+            <div class="mono text-red" id="expenses-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
+          </div>
+        </div>
 
-      <div id="login-error" class="banner banner-magenta" style="display:none;"></div>
-
-      <button class="btn btn-primary" type="submit" id="login-btn" style="width:100%; justify-content:center;">
-        登入
-      </button>
-    </form>
-
-    <p style="margin-top:16px; font-size:13px; color:var(--text-muted); text-align:center;">
-      沒有帳號？請聯繫超級管理員開通
-    </p>
+        <div class="glass-card">
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>成員</th>
+                  <th style="text-align:right;">項目數</th>
+                  <th style="text-align:right;">小計</th>
+                </tr>
+              </thead>
+              <tbody id="expenses-tbody">
+                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
   </div>
 
+  <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module">
-    import { loginWithCustomAccount } from './js/auth.js';
+    import { initApp } from './js/app.js';
+    import { initExpensesPage } from './js/expenses.js';
 
-    const form = document.getElementById('login-form');
-    const errorBox = document.getElementById('login-error');
-    const btn = document.getElementById('login-btn');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorBox.style.display = 'none';
-      btn.disabled = true;
-      btn.textContent = '登入中…';
-
-      const account = document.getElementById('account').value.trim();
-      const password = document.getElementById('password').value;
-
-      try {
-        await loginWithCustomAccount(account, password);
-        window.location.href = 'index.html';
-      } catch (err) {
-        console.error(err);
-        errorBox.textContent = '登入失敗：帳號或密碼錯誤';
-        errorBox.style.display = 'block';
-        btn.disabled = false;
-        btn.textContent = '登入';
-      }
-    });
+    await initApp({ activeHref: 'expenses.html', title: '每月總開銷表' });
+    await initExpensesPage();
   </script>
 </body>
 </html>
