@@ -9,8 +9,9 @@ import {
   removeInsurancePolicy,
   listenMembers,
 } from './db.js';
-import { formatHKD, escapeHtml, currentYearMonth } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
 import { api } from './api.js';
+import { AppState } from './state.js';
 
 const COMPANIES = ['富通', '保誠', 'FWD', 'AIA', '宏利', 'AXA'];
 
@@ -44,7 +45,6 @@ export function initInsurancePage() {
     renderMemberOptions();
   });
 
-  // 年費即時自動計算月攤
   premiumInput.addEventListener('input', () => {
     const annual = Number(premiumInput.value) || 0;
     monthlyInput.value = annual > 0 ? (annual / 12).toFixed(2) : '';
@@ -63,7 +63,6 @@ export function initInsurancePage() {
     modal.classList.remove('active');
   });
 
-  // 表單送出
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -90,13 +89,10 @@ export function initInsurancePage() {
       policyId = await addInsurancePolicy(payload);
     }
 
-    // ➜ 呼叫 Cloudflare Function 進行自動連動
     await syncInsuranceToExpense(policyId, payload);
-
     modal.classList.remove('active');
   });
 
-  // 卡片事件委派
   grid.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -122,8 +118,7 @@ export function initInsurancePage() {
       setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
       if (confirm(`確定要刪除保單「${p.name}」嗎？`)) {
-        // ➜ 先刪除連動的支出項目
-        const { year, month } = currentYearMonth();
+        const { year, month } = AppState.getYearMonth();
         try {
           await api.insuranceUnsync({
             policyId: id,
@@ -224,13 +219,9 @@ export function initInsurancePage() {
   }
 }
 
-// ============================================
-// 呼叫 Cloudflare Function 自動連動
-// ============================================
 async function syncInsuranceToExpense(policyId, payload) {
   if (!policyId || !payload.memberId) return;
-
-  const { year, month } = currentYearMonth();
+  const { year, month } = AppState.getYearMonth();
 
   try {
     await api.insuranceSync({
