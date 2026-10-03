@@ -3,7 +3,7 @@
 // ============================================
 
 import { api } from './api.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD } from './utils.js';
 import { AppState } from './state.js';
 
 export async function initDashboardPage() {
@@ -26,6 +26,14 @@ async function loadDashboard() {
 }
 
 function renderDashboard(data) {
+  // 🆕 可用金額與銀行
+  setText('stat-available', formatHKD(data.availableFunds));
+  setText('hint-available',
+    `上月結餘 ${formatHKD(data.prevBankTotal)} ＋ 本月收入 ${formatHKD(data.totalIncome)}`
+  );
+  setText('stat-bank', formatHKD(data.bankBalance));
+  setText('hint-bank', `共 ${data.bankCount} 間銀行`);
+
   setText('stat-income',    formatHKD(data.totalIncome));
   setText('stat-expense',   formatHKD(data.totalExpense));
   setText('stat-net',       formatHKD(data.netBalance));
@@ -39,19 +47,14 @@ function renderDashboard(data) {
     netEl.classList.add(data.netBalance >= 0 ? 'emerald' : 'red');
   }
 
-  // 🆕 收入 hint（新結構）
   const breakdown = data.incomeBreakdown || {};
   const parts = [];
   const memberMap = {
     mem_husband: '老公', mem_wife: '老婆', mem_son: '梓舜', mem_daughter: '梓言',
   };
   Object.entries(breakdown).forEach(([key, val]) => {
-    if (key === 'extra') {
-      parts.push(`額外 ${formatHKD(val)}`);
-    } else {
-      const name = memberMap[key] || key;
-      parts.push(`${name} ${formatHKD(val)}`);
-    }
+    if (key === 'extra') parts.push(`額外 ${formatHKD(val)}`);
+    else parts.push(`${memberMap[key] || key} ${formatHKD(val)}`);
   });
   setText('hint-income', parts.length ? parts.join(' ＋ ') : '本月尚未設定收入');
 
