@@ -18,7 +18,7 @@
         <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
           <div>
             <h1 class="page-title">保險付款</h1>
-            <p class="page-subtitle">保單管理與每月平攤供款</p>
+            <p class="page-subtitle" id="insurance-month"></p>
           </div>
           <button class="btn btn-primary" id="add-policy-btn">
             <i data-lucide="plus"></i> 新增保單
@@ -36,63 +36,119 @@
 
   <!-- Modal -->
   <div class="modal-overlay" id="policy-modal">
-    <div class="modal" style="max-width:520px;">
+    <div class="modal" style="max-width:560px; max-height:90vh; overflow-y:auto;">
       <h2 class="modal-title" id="policy-modal-title">新增保單</h2>
       <form id="policy-form">
         <div class="field">
-          <label class="field-label" for="policy-member">受保成員</label>
+          <label class="field-label" for="policy-type">保單類型</label>
+          <select class="select" id="policy-type">
+            <option value="normal">普通保險（住院 / 人壽 / 意外）</option>
+            <option value="fund_insurance">基金保險（投資型，月供）</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-member">受保人</label>
           <select class="select" id="policy-member" required>
-            <option value="">— 請選擇成員 —</option>
+            <option value="">— 請選擇 —</option>
           </select>
         </div>
 
         <div class="field">
           <label class="field-label" for="policy-name">保險名稱</label>
-          <input class="input" id="policy-name" required placeholder="例如：英國保誠住院保險" maxlength="60">
+          <input class="input" id="policy-name" required maxlength="60" placeholder="例如：英國保誠住院保險">
         </div>
 
         <div class="field">
           <label class="field-label" for="policy-company">保險公司</label>
           <select class="select" id="policy-company">
-            <option>富通</option>
-            <option>保誠</option>
-            <option>FWD</option>
-            <option>AIA</option>
-            <option>宏利</option>
-            <option>AXA</option>
+            <option>富通</option><option>保誠</option><option>FWD</option>
+            <option>AIA</option><option>宏利</option><option>AXA</option>
           </select>
         </div>
 
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
-            <label class="field-label" for="policy-premium">年度保費（HK$）</label>
-            <input class="input mono" id="policy-premium" type="number" min="0" step="0.01" required placeholder="0">
+            <label class="field-label" for="policy-start">保險開始日期</label>
+            <input class="input" id="policy-start" type="text" placeholder="2020-02-01">
           </div>
           <div class="field">
-            <label class="field-label" for="policy-monthly">平均每月（自動計算）</label>
-            <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
+            <label class="field-label" for="policy-payment-type">付款類型</label>
+            <select class="select" id="policy-payment-type">
+              <option value="月繳">月繳</option>
+              <option value="年繳">年繳</option>
+              <option value="一次付款">一次付款</option>
+            </select>
           </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="policy-payment">付款日期 / 扣款月份</label>
-          <input class="input" id="policy-payment" placeholder="例如：每年2月" maxlength="40">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="policy-account">扣款帳戶</label>
-          <input class="input" id="policy-account" placeholder="例如：年繳匯豐扣數" maxlength="60">
         </div>
 
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
-            <label class="field-label" for="policy-total">總供款期數</label>
-            <input class="input mono" id="policy-total" type="number" min="0" placeholder="例如：120">
+            <label class="field-label" for="policy-total-premium">總保費（HK$）</label>
+            <input class="input mono" id="policy-total-premium" type="number" min="0" step="0.01" placeholder="0">
           </div>
           <div class="field">
-            <label class="field-label" for="policy-completed">已供款期數</label>
-            <input class="input mono" id="policy-completed" type="number" min="0" placeholder="例如：43">
+            <label class="field-label" for="policy-paid-premium">已供保費（HK$）</label>
+            <input class="input mono" id="policy-paid-premium" type="number" min="0" step="0.01" placeholder="0">
           </div>
+        </div>
+
+        <div class="grid grid-3" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="policy-total-periods">總期數</label>
+            <input class="input mono" id="policy-total-periods" type="number" min="0" placeholder="120">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-completed-periods">已供期數</label>
+            <input class="input mono" id="policy-completed-periods" type="number" min="0" placeholder="43">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-remaining-periods">餘下期數</label>
+            <input class="input mono" id="policy-remaining-periods" type="number" min="0" placeholder="77" disabled>
+          </div>
+        </div>
+
+        <!-- 普通保險：年費 / 月攤 -->
+        <div class="grid grid-2" style="gap:12px;" id="normal-fields">
+          <div class="field">
+            <label class="field-label" for="policy-annual">年費（HK$）</label>
+            <input class="input mono" id="policy-annual" type="number" min="0" step="0.01" placeholder="0">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-monthly">平均月攤（自動）</label>
+            <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
+          </div>
+        </div>
+
+        <!-- 基金保險專屬 -->
+        <div id="fund-fields" style="display:none;">
+          <div class="grid grid-2" style="gap:12px;">
+            <div class="field">
+              <label class="field-label" for="policy-monthly-premium">每月供款（HK$）</label>
+              <input class="input mono" id="policy-monthly-premium" type="number" min="0" step="0.01" placeholder="2000">
+            </div>
+            <div class="field">
+              <label class="field-label" for="policy-current-value">目前基金總值（HK$）</label>
+              <input class="input mono" id="policy-current-value" type="number" min="0" step="0.01" placeholder="52000">
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-payment-date">付款日期 / 扣款月份</label>
+          <input class="input" id="policy-payment-date" maxlength="40" placeholder="例如：每年2月">
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="policy-account">扣款帳戶</label>
+          <input class="input" id="policy-account" maxlength="60" placeholder="例如：年繳匯豐扣數">
+        </div>
+
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-secondary); font-size:13px;">
+            <input type="checkbox" id="policy-completed" style="width:auto;">
+            是否已供款完畢
+          </label>
         </div>
 
         <div class="modal-actions">
