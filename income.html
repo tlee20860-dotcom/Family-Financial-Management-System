@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>每月收入 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">每月收入</h1>
+          <p class="page-subtitle" id="income-month">為每位成員設定當月收入</p>
+        </div>
+
+        <div class="glass-card" style="max-width:560px;">
+          <div class="glass-card-title">家庭成員收入</div>
+          <p class="glass-card-hint" style="margin-bottom:18px;">
+            輸入每位成員本月帶入家庭帳號的金額，以及額外收入。
+          </p>
+
+          <form id="income-form">
+            <div id="member-inputs"></div>
+
+            <div class="field" style="margin-top:14px; padding-top:14px; border-top:1px dashed rgba(255,255,255,0.1);">
+              <label class="field-label" for="income-extra">額外收入（HK$）</label>
+              <input class="input mono" id="income-extra" type="number" min="0" step="0.01" placeholder="0">
+            </div>
+
+            <div class="banner" id="income-status" style="display:none; margin-top:14px;"></div>
+
+            <button type="submit" class="btn btn-primary" style="margin-top:16px; width:100%; justify-content:center;">
+              儲存本月收入
+            </button>
+          </form>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initIncomePage } from './js/income.js';
+
+    await initApp({ activeHref: 'income.html', title: '每月收入' });
+    initIncomePage();
+  </script>
+</body>
+</html>
