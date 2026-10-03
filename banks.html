@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>銀行管理 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">銀行管理</h1>
+            <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
+          </div>
+          <button class="btn btn-primary" id="add-bank-btn">
+            <i data-lucide="plus"></i> 新增銀行
+          </button>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom:20px;">
+          <div class="glass-card">
+            <div class="glass-card-title">本月銀行總結餘</div>
+            <div class="glass-card-value emerald mono" id="bank-total">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">當月可用金額（上月結餘 + 本月收入）</div>
+            <div class="glass-card-value cyan mono" id="bank-available">HK$ 0</div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>銀行</th>
+                  <th style="text-align:right;">本月結餘（HK$）</th>
+                  <th>最後更新</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="bank-tbody">
+                <tr><td colspan="4" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 新增銀行 Modal -->
+  <div class="modal-overlay" id="bank-modal">
+    <div class="modal">
+      <h2 class="modal-title">新增銀行</h2>
+      <form id="bank-form">
+        <div class="field">
+          <label class="field-label" for="bank-name">銀行名稱</label>
+          <input class="input" id="bank-name" required maxlength="20" placeholder="例如：滙豐銀行">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="bank-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initBanksPage } from './js/banks.js';
+
+    await initApp({ activeHref: 'banks.html', title: '銀行管理' });
+    initBanksPage();
+  </script>
+</body>
+</html>
