@@ -1,1 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>總覽儀表板 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
 
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">總覽儀表板</h1>
+          <p class="page-subtitle">全家財務即時概況</p>
+        </div>
+
+        <div class="banner banner-magenta">
+          ⚠ P1 骨架階段：以下為示意數字，資料將於 P6 接上 Firebase。
+        </div>
+
+        <div class="grid grid-4">
+          <div class="glass-card">
+            <div class="glass-card-title">家庭當月總收入</div>
+            <div class="glass-card-value emerald">HK$ 0</div>
+            <div class="glass-card-hint">老公 + 老婆 + 額外收入</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">家庭當月總支出</div>
+            <div class="glass-card-value red">HK$ 0</div>
+            <div class="glass-card-hint">成員開銷 + 保險平攤 + 固定轉帳</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">當月淨結餘</div>
+            <div class="glass-card-value">HK$ 0</div>
+            <div class="glass-card-hint">總收入 − 總支出</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">全年保費總負擔</div>
+            <div class="glass-card-value magenta">HK$ 0</div>
+            <div class="glass-card-hint">所有保險年費加總</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="margin-top:16px;">
+          <div class="glass-card">
+            <div class="glass-card-title">家庭總資產</div>
+            <div class="glass-card-value emerald">HK$ 0</div>
+            <div class="glass-card-hint">銀行結餘 + 基金現值</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">本月保險平攤</div>
+            <div class="glass-card-value magenta">HK$ 0</div>
+            <div class="glass-card-hint">所有保單年費 ÷ 12 加總</div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    initApp({ activeHref: 'index.html', title: '總覽儀表板' });
+  </script>
+</body>
+</html>
