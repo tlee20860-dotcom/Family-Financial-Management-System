@@ -12,14 +12,11 @@ async function callApi(path, options = {}) {
 }
 
 export const api = {
-  // 初始化預設成員
   initFamily: () => callApi('/api/init-family', { method: 'POST' }),
 
-  // 取得家庭匯總
   summary: (year, month) =>
     callApi(`/api/summary?year=${year}&month=${month}`),
 
-  // 保險平攤同步（新增 / 更新）
   insuranceSync: (payload) =>
     callApi('/api/insurance-sync', {
       method: 'POST',
@@ -27,7 +24,6 @@ export const api = {
       body: JSON.stringify({ ...payload, action: 'upsert' }),
     }),
 
-  // 保險平攤同步（刪除）
   insuranceUnsync: (payload) =>
     callApi('/api/insurance-sync', {
       method: 'POST',
