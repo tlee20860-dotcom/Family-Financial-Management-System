@@ -147,20 +147,33 @@ async function exportToPDF() {
   const renderEl = document.getElementById('pdf-render');
   renderEl.innerHTML = buildPrintHTML(year, month, currentData);
 
-  // 等一個 tick 讓版面渲染完成
-  await new Promise((r) => setTimeout(r, 100));
+  // 🆕 強制顯示並重新計算佈局（針對手機瀏覽器）
+  renderEl.style.display = 'block';
+  renderEl.style.opacity = '0.01';
+  renderEl.style.zIndex = '-9999';
+
+  // 🆕 等待 200ms 確保字體與排版完全載入
+  await new Promise((r) => setTimeout(r, 200));
 
   const opt = {
     margin: 10,
     filename: `家庭總開銷_${year}-${month}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    html2canvas: { 
+      scale: 2, 
+      useCORS: true, 
+      backgroundColor: '#ffffff',
+      scrollY: 0,
+      scrollX: 0
+    },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
   };
 
   try {
     await html2pdf().set(opt).from(renderEl).save();
+    // 匯出完成後清空暫存
+    renderEl.innerHTML = '';
   } catch (err) {
     console.error('PDF 匯出失敗：', err);
     alert('PDF 匯出失敗：' + err.message);
