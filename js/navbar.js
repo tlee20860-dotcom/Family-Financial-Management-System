@@ -1,5 +1,5 @@
 // ============================================
-// navbar.js — 頂部導覽列 + 漢堡按鈕
+// navbar.js — 頂部導覽列 + 漢堡按鈕 + 年/月選擇器
 // ============================================
 
 import { AppState } from './state.js';
@@ -9,33 +9,63 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
   if (!root) return;
 
   root.classList.add('navbar');
+
+  const { year, month } = AppState.getYearMonth();
+
+  // 產生年份選項（前後 5 年）
+  const currentYear = Number(year);
+  const yearOptions = [];
+  for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+    yearOptions.push(`<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y} 年</option>`);
+  }
+
+  // 產生月份選項
+  const monthOptions = [];
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, '0');
+    monthOptions.push(`<option value="${mm}" ${mm === month ? 'selected' : ''}>${m} 月</option>`);
+  }
+
   root.innerHTML = `
     <button class="hamburger" id="hamburger-btn" aria-label="切換選單">
       <i data-lucide="menu"></i>
     </button>
     <div class="navbar-title">${title}</div>
+    <div class="navbar-ym">
+      <select class="select" id="ym-year" style="width:auto; padding:6px 10px; font-size:13px;">
+        ${yearOptions.join('')}
+      </select>
+      <select class="select" id="ym-month" style="width:auto; padding:6px 10px; font-size:13px;">
+        ${monthOptions.join('')}
+      </select>
+    </div>
     <div class="navbar-user" id="navbar-user"></div>
   `;
 
-  // 只綁定一次事件
+  // 綁定事件（只綁定一次）
   if (!window._navbarEventBound) {
     window._navbarEventBound = true;
 
     document.addEventListener('click', (e) => {
-      // 1. 點擊漢堡按鈕 ➜ 切換側邊欄
       if (e.target.closest('#hamburger-btn')) {
         toggleSidebar();
         return;
       }
-
-      // 2. 點擊背景遮罩 ➜ 關閉手機版側邊欄
       const backdrop = e.target.closest('.sidebar-backdrop');
       if (backdrop && backdrop.classList.contains('active')) {
         closeMobileSidebar();
       }
     });
 
-    // 監聽登入者變化，更新 Navbar 顯示
+    document.addEventListener('change', (e) => {
+      if (e.target.id === 'ym-year' || e.target.id === 'ym-month') {
+        const y = document.getElementById('ym-year').value;
+        const m = document.getElementById('ym-month').value;
+        AppState.setYearMonth(y, m);
+      }
+    });
+
+    // 監聽登入者變化
     AppState.on('user-change', (user) => {
       const userBox = document.getElementById('navbar-user');
       if (userBox && user) {
