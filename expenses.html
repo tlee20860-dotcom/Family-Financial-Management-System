@@ -7,39 +7,6 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
-
-  <style>
-    /* ============================================
-       列印專用樣式
-       ============================================ */
-    #print-area { display: none; }
-
-    @media print {
-      /* 隱藏整個 App 介面 */
-      body { background: #ffffff !important; color: #000000 !important; }
-      .app-shell { display: none !important; }
-      .modal-overlay { display: none !important; }
-
-      /* 只顯示列印區塊 */
-      #print-area {
-        display: block !important;
-        position: static;
-        width: 100%;
-        color: #000 !important;
-        background: #fff !important;
-        font-family: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', sans-serif;
-      }
-
-      @page {
-        size: A4;
-        margin: 15mm;
-      }
-
-      /* 防止表格行被切斷 */
-      tr, .member-block { page-break-inside: avoid; }
-      h1, h2, h3 { page-break-after: avoid; }
-    }
-  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -60,18 +27,23 @@
           </div>
         </div>
 
-        <div class="grid grid-3" style="margin-bottom:20px;">
+        <!-- 統計卡片（改為 4 張） -->
+        <div class="grid grid-4" style="margin-bottom:20px;">
           <div class="glass-card">
-            <div class="glass-card-title">成員代墊總額</div>
-            <div class="glass-card-value red mono" id="expenses-member-total">HK$ 0</div>
-          </div>
-          <div class="glass-card">
-            <div class="glass-card-title">家庭固定支出</div>
-            <div class="glass-card-value orange mono" id="expenses-fixed-total">HK$ 0</div>
+            <div class="glass-card-title">當月總收入</div>
+            <div class="glass-card-value emerald mono" id="expenses-income">HK$ 0</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">當月總支出</div>
             <div class="glass-card-value magenta mono" id="expenses-total">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">當月餘額</div>
+            <div class="glass-card-value mono" id="expenses-balance">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">家庭固定支出</div>
+            <div class="glass-card-value orange mono" id="expenses-fixed-total">HK$ 0</div>
           </div>
         </div>
 
@@ -99,9 +71,6 @@
       </main>
     </div>
   </div>
-
-  <!-- 列印專用區塊（螢幕上不顯示，列印時才呈現） -->
-  <div id="print-area"></div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module">
