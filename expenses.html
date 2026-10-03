@@ -74,8 +74,8 @@
   </div>
 
   <!-- PDF 列印專用容器（隱藏，只在匯出時使用） -->
-  <div id="pdf-render" style="position:fixed; left:-99999px; top:0; width:800px; background:#ffffff; color:#000; padding:24px; font-family:'PingFang TC','Microsoft JhengHei','Noto Sans TC',sans-serif;">
-  </div>
+<div id="pdf-render" style="position:fixed; top:0; left:0; width:800px; background:#ffffff; color:#000; padding:24px; font-family:'PingFang TC','Microsoft JhengHei','Noto Sans TC',sans-serif; z-index:-9999; opacity:0.01; pointer-events:none;">
+</div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
