@@ -3,15 +3,27 @@
 // ============================================
 
 import { api } from './api.js';
-import { formatHKD, currentYearMonth, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
+import { AppState } from './state.js';
 
 export async function initExpensesPage() {
-  const { year, month } = currentYearMonth();
+  await loadExpenses();
+
+  AppState.on('ym-change', () => {
+    loadExpenses();
+  });
+}
+
+async function loadExpenses() {
+  const { year, month } = AppState.getYearMonth();
   const tbody = document.getElementById('expenses-tbody');
-  const totalEl = document.getElementById('expenses-total');
   const monthLabel = document.getElementById('expenses-month');
 
   if (monthLabel) monthLabel.textContent = `${year} 年 ${month} 月`;
+
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-state">載入中…</td></tr>`;
+  }
 
   try {
     const data = await api.summary(year, month);
