@@ -119,3 +119,34 @@ export async function updateInsurancePolicy(id, patch) {
 export async function removeInsurancePolicy(id) {
   await remove(ref(db, `insurance_policies/${id}`));
 }
+/* ---------- 收入 ---------- */
+
+export function listenIncome(year, month, callback) {
+  const r = ref(db, `family_income/${year}/${month}`);
+  return onValue(r, (snap) => {
+    callback(snap.val() || {});
+  });
+}
+
+export async function saveIncome(year, month, data) {
+  await set(ref(db, `family_income/${year}/${month}`), {
+    husbandContribution: Number(data.husbandContribution) || 0,
+    wifeContribution:    Number(data.wifeContribution)    || 0,
+    extraIncome:         Number(data.extraIncome)         || 0,
+  });
+}
+
+/* ---------- 資產 ---------- */
+
+export function listenAssets(callback) {
+  const r = ref(db, 'family_assets');
+  return onValue(r, (snap) => {
+    callback(snap.val() || {});
+  });
+}
+
+export async function saveAssets(data) {
+  await update(ref(db, 'family_assets'), {
+    bankBalance: Number(data.bankBalance) || 0,
+  });
+}
