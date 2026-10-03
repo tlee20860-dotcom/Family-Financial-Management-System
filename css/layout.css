@@ -190,22 +190,20 @@
 }
 
 @media (max-width: 640px) {
-  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
-  .content { padding: 16px; }
+  /* ... 前面的內容保持不變 ... */
 
-  /* 手機：Sidebar 變抽屜（改用 left 定位，避免 transform 衝突） */
   .sidebar {
     position: fixed !important;
     top: 0 !important;
-    left: -260px !important;      /* 預設藏在畫面左側外 */
+    left: -260px !important;
     height: 100vh !important;
     width: 260px !important;
-    z-index: 1000 !important;      /* 提高層級，確保不被遮擋 */
+    z-index: 1000 !important;       /* ⚠️ 確保比遮罩高 */
     transition: left 0.3s ease !important;
   }
 
   .sidebar.mobile-open {
-    left: 0 !important;            /* 展開時回到畫面內 */
+    left: 0 !important;
   }
 
   .sidebar-backdrop {
@@ -213,7 +211,7 @@
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
-    z-index: 999;
+    z-index: 999 !important;        /* ⚠️ 比側邊欄低 */
   }
   .sidebar-backdrop.active { display: block; }
 }
