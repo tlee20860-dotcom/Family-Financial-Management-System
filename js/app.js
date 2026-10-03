@@ -32,4 +32,3 @@ export async function initApp({ activeHref = '', title = '', needAuth = true } =
 
   return user;
 }
-}
