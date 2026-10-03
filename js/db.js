@@ -3,6 +3,7 @@
 // ============================================
 
 import { db } from './firebase-config.js';
+import { AppState } from './state.js';
 import {
   ref, onValue, push, set, update, remove, get
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
@@ -14,7 +15,6 @@ export function listenMembers(callback) {
   return onValue(r, (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, m]) => ({ id, ...m }));
-    // 依 createdAt 排序，舊的在前
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     callback(list);
   });
@@ -52,6 +52,12 @@ function expensePath(year, month, memberId) {
 }
 
 export function listenExpenses(year, month, memberId, callback) {
+  // 若未傳入年月，自動使用 AppState 的當前年月
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
   const r = ref(db, expensePath(year, month, memberId));
   return onValue(r, (snap) => {
     const val = snap.val() || {};
@@ -62,6 +68,11 @@ export function listenExpenses(year, month, memberId, callback) {
 }
 
 export async function addExpense(year, month, memberId, expense) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
   const r = ref(db, expensePath(year, month, memberId));
   const newRef = push(r);
   await set(newRef, {
@@ -76,12 +87,23 @@ export async function addExpense(year, month, memberId, expense) {
 }
 
 export async function updateExpense(year, month, memberId, expId, patch) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
   await update(ref(db, `${expensePath(year, month, memberId)}/${expId}`), patch);
 }
 
 export async function removeExpense(year, month, memberId, expId) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
   await remove(ref(db, `${expensePath(year, month, memberId)}/${expId}`));
 }
+
 /* ---------- 保險 ---------- */
 
 export function listenInsurancePolicies(callback) {
@@ -119,9 +141,15 @@ export async function updateInsurancePolicy(id, patch) {
 export async function removeInsurancePolicy(id) {
   await remove(ref(db, `insurance_policies/${id}`));
 }
+
 /* ---------- 收入 ---------- */
 
 export function listenIncome(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
   const r = ref(db, `family_income/${year}/${month}`);
   return onValue(r, (snap) => {
     callback(snap.val() || {});
@@ -129,6 +157,11 @@ export function listenIncome(year, month, callback) {
 }
 
 export async function saveIncome(year, month, data) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
   await set(ref(db, `family_income/${year}/${month}`), {
     husbandContribution: Number(data.husbandContribution) || 0,
     wifeContribution:    Number(data.wifeContribution)    || 0,
@@ -150,6 +183,7 @@ export async function saveAssets(data) {
     bankBalance: Number(data.bankBalance) || 0,
   });
 }
+
 /* ---------- 基金投資 ---------- */
 
 export function listenFunds(callback) {
