@@ -1,6 +1,5 @@
 // ============================================
 // summary.js — GET /api/summary?year=YYYY&month=MM
-// 回傳：家庭當月收入 / 支出 / 淨結餘 / 保費 / 總資產
 // ============================================
 
 import { dbGet, jsonResponse } from './_config.js';
@@ -11,7 +10,7 @@ export async function onRequestGet({ request }) {
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
 
-    const [members, policies, expenses, income, assets, funds] = await Promise.all([
+    const [members, policies, expenses, income, assets, funds, fixed] = await Promise.all([
       dbGet('family_members'),
       dbGet('insurance_policies'),
       year && month
@@ -22,6 +21,9 @@ export async function onRequestGet({ request }) {
         : Promise.resolve(null),
       dbGet('family_assets'),
       dbGet('investment_funds'),
+      year && month
+        ? dbGet(`fixed_expenses/${year}/${month}`)
+        : Promise.resolve(null),
     ]);
 
     const membersObj = members || {};
@@ -30,8 +32,9 @@ export async function onRequestGet({ request }) {
     const incomeObj = income || {};
     const assetsObj = assets || {};
     const fundsObj = funds || {};
+    const fixedObj = fixed || {};
 
-    /* ---------- 支出匯總 ---------- */
+    /* ---------- 支出匯總（成員代墊） ---------- */
     const perMember = {};
     let totalExpense = 0;
 
@@ -45,6 +48,12 @@ export async function onRequestGet({ request }) {
       };
       totalExpense += sum;
     });
+
+    /* ---------- 🆕 固定支出匯總 ---------- */
+    const fixedList = Object.entries(fixedObj).map(([id, x]) => ({ id, ...x }));
+    const fixedTotal = fixedList.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
+    totalExpense += fixedTotal; // 固定支出計入家庭總支出
 
     /* ---------- 收入匯總 ---------- */
     const husbandContribution = Number(incomeObj.husbandContribution) || 0;
@@ -63,13 +72,10 @@ export async function onRequestGet({ request }) {
 
     /* ---------- 資產匯總 ---------- */
     const bankBalance = Number(assetsObj.bankBalance) || 0;
-
-    // 基金現值加總
     const fundList = Object.values(fundsObj);
     const fundValue = fundList.reduce(
       (s, f) => s + (Number(f.currentValue) || 0), 0
     );
-
     const totalAssets = bankBalance + fundValue;
 
     /* ---------- 淨結餘 ---------- */
@@ -79,7 +85,6 @@ export async function onRequestGet({ request }) {
       ok: true,
       year,
       month,
-      // 卡片資料
       totalIncome,
       totalExpense,
       netBalance,
@@ -88,13 +93,9 @@ export async function onRequestGet({ request }) {
       totalAssets,
       bankBalance,
       fundValue,
-      // 收入細項
-      incomeBreakdown: {
-        husbandContribution,
-        wifeContribution,
-        extraIncome,
-      },
-      // 統計
+      fixedTotal,           // 🆕
+      fixedPendingCount,    // 🆕
+      incomeBreakdown: { husbandContribution, wifeContribution, extraIncome },
       memberCount: Object.keys(membersObj).length,
       policyCount: policyList.length,
       fundCount: fundList.length,
