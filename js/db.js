@@ -475,3 +475,93 @@ export async function generateFixedExpensesFromTemplates(year, month) {
   }
   return added;
 }
+/* ---------- 保險（擴充版：支援基金保險與期數追蹤） ---------- */
+
+export async function addInsurancePolicyV2(policy) {
+  const r = ref(db, 'insurance_policies');
+  const newRef = push(r);
+  await set(newRef, {
+    type: policy.type || 'normal',        // 'normal' | 'fund_insurance'
+    memberId: policy.memberId || '',
+    name: policy.name || '',
+    company: policy.company || '',
+    startDate: policy.startDate || '',
+    paymentType: policy.paymentType || '年繳',
+    annualPremium: Number(policy.annualPremium) || 0,
+    monthlyPremium: Number(policy.monthlyPremium) || 0,
+    monthlyAverage: Number(policy.monthlyAverage) || 0,
+    totalPremium: Number(policy.totalPremium) || 0,
+    paidPremium: Number(policy.paidPremium) || 0,
+    totalPeriods: Number(policy.totalPeriods) || 0,
+    completedPeriods: Number(policy.completedPeriods) || 0,
+    remainingPeriods: Number(policy.remainingPeriods) || 0,
+    isCompleted: policy.isCompleted || false,
+    paymentDate: policy.paymentDate || '',
+    account: policy.account || '',
+    // 基金保險專屬
+    totalInvested: Number(policy.totalInvested) || 0,
+    currentValue: Number(policy.currentValue) || 0,
+    monthlyHistory: policy.monthlyHistory || {},
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateInsurancePolicyV2(id, patch) {
+  await update(ref(db, `insurance_policies/${id}`), patch);
+}
+
+/**
+ * 標記保險本月已扣款（普通保險）
+ * 自動：已供期數 +1、餘下期數 -1、已供保費 += 每期金額
+ */
+export async function markInsurancePaid(policyId, year, month, paymentAmount) {
+  const snap = await get(ref(db, `insurance_policies/${policyId}`));
+  const policy = snap.val();
+  if (!policy) return;
+
+  const newCompleted = (policy.completedPeriods || 0) + 1;
+  const newRemaining = Math.max(0, (policy.remainingPeriods || 0) - 1);
+  const newPaid = (policy.paidPremium || 0) + (Number(paymentAmount) || 0);
+  const isCompleted = newRemaining === 0;
+
+  await update(ref(db, `insurance_policies/${policyId}`), {
+    completedPeriods: newCompleted,
+    remainingPeriods: newRemaining,
+    paidPremium: newPaid,
+    isCompleted,
+  });
+
+  await set(ref(db, `insurance_payments/${policyId}/${year}/${month}`), {
+    status: '已扣款',
+    amount: Number(paymentAmount) || 0,
+    date: new Date().toISOString().slice(0, 10),
+  });
+}
+
+/**
+ * 更新基金保險的現值與月繳紀錄
+ */
+export async function updateFundInsuranceValue(policyId, year, month, newValue) {
+  const snap = await get(ref(db, `insurance_policies/${policyId}`));
+  const policy = snap.val();
+  if (!policy) return;
+
+  const monthlyHistory = policy.monthlyHistory || {};
+  monthlyHistory[`${year}-${month}`] = Number(newValue) || 0;
+
+  const totalInvested = (policy.totalInvested || 0) + (Number(policy.monthlyPremium) || 0);
+  const totalProfitLoss = (Number(newValue) || 0) - totalInvested;
+
+  await update(ref(db, `insurance_policies/${policyId}`), {
+    currentValue: Number(newValue) || 0,
+    totalInvested,
+    totalProfitLoss,
+    monthlyHistory,
+  });
+}
+
+export function listenInsurancePayments(policyId, year, month, callback) {
+  const r = ref(db, `insurance_payments/${policyId}/${year}/${month}`);
+  return onValue(r, (snap) => callback(snap.val() || {}));
+}
