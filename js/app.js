@@ -13,7 +13,7 @@ export async function initApp({ activeHref = '', title = '', needAuth = true } =
     user = await requireLogin();
   }
 
-  renderSidebar('sidebar-root', activeHref);
+  await renderSidebar('sidebar-root', activeHref);
   renderNavbar('navbar-root', title);
 
   const userBox = document.getElementById('navbar-user');
@@ -29,4 +29,7 @@ export async function initApp({ activeHref = '', title = '', needAuth = true } =
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }
+
+  return user;
+}
 }
