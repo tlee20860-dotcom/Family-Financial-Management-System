@@ -10,12 +10,8 @@ let currentData = null;
 
 export async function initExpensesPage() {
   document.getElementById('export-pdf-btn').addEventListener('click', exportToPDF);
-
   await loadExpenses();
-
-  AppState.on('ym-change', () => {
-    loadExpenses();
-  });
+  AppState.on('ym-change', () => loadExpenses());
 }
 
 async function loadExpenses() {
@@ -37,13 +33,11 @@ function render(data) {
   const perMember = data.perMember || {};
   const memberIds = Object.keys(perMember);
 
-  // 統計
   const memberTotal = Object.values(perMember).reduce((s, m) => s + m.sum, 0);
   document.getElementById('expenses-member-total').textContent = formatHKD(memberTotal);
   document.getElementById('expenses-fixed-total').textContent = formatHKD(data.fixedTotal || 0);
   document.getElementById('expenses-total').textContent = formatHKD(data.totalExpense || 0);
 
-  // 成員明細區塊
   const container = document.getElementById('member-sections');
 
   if (memberIds.length === 0) {
@@ -52,18 +46,14 @@ function render(data) {
     container.innerHTML = memberIds.map((id) => {
       const m = perMember[id];
       const rows = m.items.map((it) => {
-        const tag = it.isAutoLinked
-          ? '<span class="badge badge-info" style="margin-left:6px;">保險連動</span>'
-          : '';
-        const statusBadge = renderStatusBadge(it.status);
-
+        const tag = it.isAutoLinked ? '<span class="badge badge-info" style="margin-left:6px;">保險連動</span>' : '';
         return `
           <tr>
             <td>${escapeHtml(it.name)}${tag}</td>
             <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(it.categoryName || '—')}</td>
             <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(it.date || '—')}</td>
             <td class="num">${formatHKD(it.amount)}</td>
-            <td>${statusBadge}</td>
+            <td>${renderStatusBadge(it.status)}</td>
           </tr>
         `;
       }).join('');
@@ -101,7 +91,6 @@ function render(data) {
     }).join('');
   }
 
-  // 固定支出表
   const fixedTbody = document.getElementById('fixed-tbody');
   const fixedList = data.fixedList || [];
 
@@ -135,7 +124,7 @@ function renderStatusBadge(status) {
 }
 
 /* ============================================
-   PDF 匯出（白底黑字）
+   PDF 匯出（修正手機空白版）
    ============================================ */
 async function exportToPDF() {
   if (!currentData) {
@@ -145,23 +134,28 @@ async function exportToPDF() {
 
   const { year, month } = AppState.getYearMonth();
   const renderEl = document.getElementById('pdf-render');
+
+  // 1. 建立內容
   renderEl.innerHTML = buildPrintHTML(year, month, currentData);
 
-  // 🆕 強制顯示並重新計算佈局（針對手機瀏覽器）
+  // 2. 強制顯示並重新計算佈局（關鍵：不能用 left: -99999px，手機瀏覽器會無法渲染）
   renderEl.style.display = 'block';
-  renderEl.style.opacity = '0.01';
-  renderEl.style.zIndex = '-9999';
+  renderEl.style.position = 'fixed';
+  renderEl.style.top = '0';
+  renderEl.style.left = '-2000px';
+  renderEl.style.width = '800px';
+  renderEl.style.zIndex = '9999';
 
-  // 🆕 等待 200ms 確保字體與排版完全載入
-  await new Promise((r) => setTimeout(r, 200));
+  // 3. 等待瀏覽器完成排版與字體渲染（時間延長至 500ms）
+  await new Promise((r) => setTimeout(r, 500));
 
   const opt = {
     margin: 10,
     filename: `家庭總開銷_${year}-${month}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { 
-      scale: 2, 
-      useCORS: true, 
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
       backgroundColor: '#ffffff',
       scrollY: 0,
       scrollX: 0
@@ -172,7 +166,6 @@ async function exportToPDF() {
 
   try {
     await html2pdf().set(opt).from(renderEl).save();
-    // 匯出完成後清空暫存
     renderEl.innerHTML = '';
   } catch (err) {
     console.error('PDF 匯出失敗：', err);
