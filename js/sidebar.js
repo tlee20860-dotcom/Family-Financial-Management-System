@@ -10,6 +10,7 @@ const STATIC_TOP = [
 ];
 
 const STATIC_BOTTOM = [
+  { icon: 'dollar-sign',  label: '每月收入',   href: 'income.html' },
   { icon: 'shield',      label: '保險付款',   href: 'insurance.html' },
   { icon: 'receipt',     label: '每月總開銷', href: 'expenses.html' },
   { icon: 'clipboard-check', label: '結算清單', href: 'settlements.html' },
@@ -19,12 +20,7 @@ const STATIC_BOTTOM = [
   { icon: 'settings',    label: '系統設定',   href: 'settings.html' },
 ];
 
-const ROLE_ICON = {
-  husband: 'user',
-  wife: 'user',
-  child: 'user',
-  other: 'user',
-};
+const ROLE_ICON = { husband: 'user', wife: 'user', child: 'user', other: 'user' };
 
 export async function renderSidebar(containerId = 'sidebar-root', activeHref = '') {
   const root = document.getElementById(containerId);
@@ -39,7 +35,6 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
   `;
 
   const nav = root.querySelector('#sidebar-nav-inner');
-
   listenMembers((members) => {
     nav.innerHTML = renderNavContent(members, activeHref);
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
@@ -54,7 +49,6 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
 function renderNavContent(members, activeHref) {
   return `
     ${STATIC_TOP.map((item) => renderNavItem(item, activeHref)).join('')}
-
     <div class="nav-group-title">成員版面</div>
     <div class="nav-sub">
       ${members.map((m) => renderNavItem({
@@ -62,11 +56,8 @@ function renderNavContent(members, activeHref) {
         label: m.name,
         href: `member-detail.html?id=${m.id}`,
       }, activeHref)).join('')}
-      ${renderNavItem({
-        icon: 'plus', label: '管理成員', href: 'members.html',
-      }, activeHref)}
+      ${renderNavItem({ icon: 'plus', label: '管理成員', href: 'members.html' }, activeHref)}
     </div>
-
     ${STATIC_BOTTOM.map((item) => renderNavItem(item, activeHref)).join('')}
   `;
 }
