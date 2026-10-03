@@ -195,15 +195,18 @@
 
   /* 手機：Sidebar 變抽屜 */
   .sidebar {
-    position: fixed;
+    position: fixed !important;
     top: 0;
     left: 0;
     height: 100vh;
     width: 260px;
     z-index: 100;
-    transform: translateX(-100%);
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s ease !important;
   }
-  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar.mobile-open {
+    transform: translateX(0) !important;
+  }
 
   .sidebar-backdrop {
     display: none;
