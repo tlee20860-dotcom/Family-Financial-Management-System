@@ -62,15 +62,20 @@
         <div class="glass-card" style="max-width:520px;">
           <div class="glass-card-title">家庭資產</div>
           <p class="glass-card-hint" style="margin-bottom:14px;">
-            銀行戶口結餘將計入「家庭總資產」。
+            銀行戶口結餘將計入「家庭總資產」。<br>
+            基金現值請至「基金投資」頁面管理。
           </p>
           <form id="asset-form">
             <div class="field">
               <label class="field-label" for="asset-bank">銀行戶口結餘（HK$）</label>
               <input class="input mono" id="asset-bank" type="number" min="0" step="0.01" placeholder="0">
             </div>
+            <div class="field">
+              <label class="field-label">基金現值總計（自動）</label>
+              <input class="input mono" id="asset-fund-value" value="HK$ 0" disabled>
+            </div>
             <div class="banner" id="asset-status" style="display:none; margin-bottom:14px;"></div>
-            <button type="submit" class="btn btn-primary">儲存資產</button>
+            <button type="submit" class="btn btn-primary">儲存銀行結餘</button>
           </form>
         </div>
       </main>
@@ -82,6 +87,8 @@
     import { initApp } from './js/app.js';
     import { getDisplayName, logout } from './js/auth.js';
     import { initSettingsPage } from './js/settings.js';
+    import { listenFunds } from './js/db.js';
+    import { formatHKD } from './js/utils.js';
 
     const user = await initApp({ activeHref: 'settings.html', title: '系統設定' });
 
@@ -94,6 +101,13 @@
     });
 
     initSettingsPage();
+
+    // 即時顯示基金現值總計
+    listenFunds((funds) => {
+      const total = funds.reduce((s, f) => s + (Number(f.currentValue) || 0), 0);
+      const el = document.getElementById('asset-fund-value');
+      if (el) el.value = formatHKD(total);
+    });
   </script>
 </body>
 </html>
