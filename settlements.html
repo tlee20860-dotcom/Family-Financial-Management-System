@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>結算清單 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">結算清單</h1>
+            <p class="page-subtitle" id="settlement-month"></p>
+          </div>
+          <div style="text-align:right;">
+            <div class="glass-card-title" style="margin:0;">本月待還款總額</div>
+            <div class="mono text-magenta" id="settlement-pending-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
+          </div>
+        </div>
+
+        <!-- 固定還款項目 -->
+        <div class="glass-card" style="margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
+            <div class="glass-card-title" style="margin:0;">每月固定還款項目</div>
+            <button class="btn btn-sm btn-primary" id="add-fixed-repayment-btn">
+              <i data-lucide="plus"></i> 新增固定還款
+            </button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>成員</th>
+                  <th>項目名稱</th>
+                  <th style="text-align:right;">金額</th>
+                  <th>狀態</th>
+                  <th>已轉回</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="fixed-repayment-tbody">
+                <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 成員代墊支出 -->
+        <div class="glass-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div class="glass-card-title" style="margin:0;">本月成員代墊支出</div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>成員</th>
+                  <th>項目名稱</th>
+                  <th style="text-align:right;">金額</th>
+                  <th>日期</th>
+                  <th>狀態</th>
+                  <th>已轉回</th>
+                </tr>
+              </thead>
+              <tbody id="member-repayment-tbody">
+                <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 新增固定還款 Modal -->
+  <div class="modal-overlay" id="fixed-repayment-modal">
+    <div class="modal">
+      <h2 class="modal-title">新增固定還款項目</h2>
+      <form id="fixed-repayment-form">
+        <div class="field">
+          <label class="field-label" for="fixed-member">還款成員</label>
+          <select class="select" id="fixed-member" required>
+            <option value="">— 請選擇 —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-name">項目名稱</label>
+          <input class="input" id="fixed-name" required maxlength="30" placeholder="例如：房租代墊">
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-amount">金額（HK$）</label>
+          <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initSettlementsPage } from './js/settlements.js';
+
+    await initApp({ activeHref: 'settlements.html', title: '結算清單' });
+    initSettlementsPage();
+  </script>
+</body>
+</html>
