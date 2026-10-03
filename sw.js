@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v13'; // ⚠️ 升級
+const CACHE_NAME = 'family-fin-v14'; // ⚠️ 升級
 
 const STATIC_ASSETS = [
   './css/theme.css', './css/layout.css', './css/components.css',
