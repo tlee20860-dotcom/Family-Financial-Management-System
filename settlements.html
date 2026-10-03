@@ -26,7 +26,6 @@
           </div>
         </div>
 
-        <!-- 固定還款項目 -->
         <div class="glass-card" style="margin-bottom:20px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
             <div class="glass-card-title" style="margin:0;">每月固定還款項目</div>
@@ -53,7 +52,6 @@
           </div>
         </div>
 
-        <!-- 成員代墊支出 -->
         <div class="glass-card">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div class="glass-card-title" style="margin:0;">本月成員代墊支出</div>
@@ -68,10 +66,11 @@
                   <th>日期</th>
                   <th>狀態</th>
                   <th>已轉回</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody id="member-repayment-tbody">
-                <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+                <tr><td colspan="7" class="empty-state">載入中…</td></tr>
               </tbody>
             </table>
           </div>
@@ -101,6 +100,42 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 🆕 編輯代墊支出 Modal -->
+  <div class="modal-overlay" id="edit-expense-modal">
+    <div class="modal">
+      <h2 class="modal-title">修改支出內容</h2>
+      <form id="edit-expense-form">
+        <input type="hidden" id="edit-member-id">
+        <input type="hidden" id="edit-expense-id">
+        <div class="field">
+          <label class="field-label" for="edit-expense-name">項目名稱</label>
+          <input class="input" id="edit-expense-name" required maxlength="60">
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-expense-amount">金額（HK$）</label>
+          <input class="input mono" id="edit-expense-amount" type="number" min="0" step="0.01" required>
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-expense-date">日期</label>
+          <input class="input" id="edit-expense-date" type="text" placeholder="例如：2026-10-03">
+        </div>
+        <div class="field">
+          <label class="field-label" for="edit-expense-status">狀態</label>
+          <select class="select" id="edit-expense-status">
+            <option value="未處理">未處理</option>
+            <option value="已處理">已處理</option>
+            <option value="未還款">未還款</option>
+            <option value="已還款">已還款</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="edit-expense-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>
       </form>
