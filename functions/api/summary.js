@@ -11,7 +11,7 @@ export async function onRequestGet({ request }) {
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
 
-    const [members, policies, expenses, income, assets] = await Promise.all([
+    const [members, policies, expenses, income, assets, funds] = await Promise.all([
       dbGet('family_members'),
       dbGet('insurance_policies'),
       year && month
@@ -21,6 +21,7 @@ export async function onRequestGet({ request }) {
         ? dbGet(`family_income/${year}/${month}`)
         : Promise.resolve(null),
       dbGet('family_assets'),
+      dbGet('investment_funds'),
     ]);
 
     const membersObj = members || {};
@@ -28,6 +29,7 @@ export async function onRequestGet({ request }) {
     const expensesObj = expenses || {};
     const incomeObj = income || {};
     const assetsObj = assets || {};
+    const fundsObj = funds || {};
 
     /* ---------- 支出匯總 ---------- */
     const perMember = {};
@@ -61,7 +63,13 @@ export async function onRequestGet({ request }) {
 
     /* ---------- 資產匯總 ---------- */
     const bankBalance = Number(assetsObj.bankBalance) || 0;
-    const fundValue   = Number(assetsObj.fundValue)   || 0;
+
+    // 基金現值加總
+    const fundList = Object.values(fundsObj);
+    const fundValue = fundList.reduce(
+      (s, f) => s + (Number(f.currentValue) || 0), 0
+    );
+
     const totalAssets = bankBalance + fundValue;
 
     /* ---------- 淨結餘 ---------- */
@@ -89,6 +97,7 @@ export async function onRequestGet({ request }) {
       // 統計
       memberCount: Object.keys(membersObj).length,
       policyCount: policyList.length,
+      fundCount: fundList.length,
       perMember,
     });
   } catch (err) {
