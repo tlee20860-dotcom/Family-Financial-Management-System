@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>支出項目庫 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">支出項目庫</h1>
+          <p class="page-subtitle">管理支出類別與項目，支出輸入時可直接選用</p>
+        </div>
+
+        <div class="grid grid-2">
+          <!-- 左：類別管理 -->
+          <div class="glass-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <div class="glass-card-title" style="margin:0;">支出類別</div>
+              <button class="btn btn-sm btn-primary" id="add-category-btn">
+                <i data-lucide="plus"></i> 新增類別
+              </button>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>名稱</th>
+                  <th style="text-align:right;">排序</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="category-tbody">
+                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 右：項目管理 -->
+          <div class="glass-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
+              <div class="glass-card-title" style="margin:0;">支出項目</div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <select class="select" id="filter-category" style="width:auto; padding:6px 10px; font-size:13px;">
+                  <option value="">全部分類</option>
+                </select>
+                <button class="btn btn-sm btn-primary" id="add-item-btn">
+                  <i data-lucide="plus"></i> 新增項目
+                </button>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>名稱</th>
+                  <th>所屬類別</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="item-tbody">
+                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 類別 Modal -->
+  <div class="modal-overlay" id="category-modal">
+    <div class="modal">
+      <h2 class="modal-title" id="category-modal-title">新增類別</h2>
+      <form id="category-form">
+        <div class="field">
+          <label class="field-label" for="category-name">類別名稱</label>
+          <input class="input" id="category-name" required maxlength="20" placeholder="例如：醫療類">
+        </div>
+        <div class="field">
+          <label class="field-label" for="category-order">排序（數字越小越前）</label>
+          <input class="input mono" id="category-order" type="number" min="0" placeholder="例如：1">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="category-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 項目 Modal -->
+  <div class="modal-overlay" id="item-modal">
+    <div class="modal">
+      <h2 class="modal-title" id="item-modal-title">新增項目</h2>
+      <form id="item-form">
+        <div class="field">
+          <label class="field-label" for="item-category">所屬類別</label>
+          <select class="select" id="item-category" required>
+            <option value="">— 請選擇 —</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="item-name">項目名稱</label>
+          <input class="input" id="item-name" required maxlength="30" placeholder="例如：看病-濕疹">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="item-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initExpenseCategoriesPage } from './js/expense-categories.js';
+
+    await initApp({ activeHref: 'expense-categories.html', title: '支出項目庫' });
+    initExpenseCategoriesPage();
+  </script>
+</body>
+</html>
