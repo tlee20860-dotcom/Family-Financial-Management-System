@@ -1,9 +1,9 @@
 // ============================================
-// pwa.js — PWA 初始化（manifest / theme-color / Service Worker）
+// pwa.js — PWA 初始化
 // ============================================
 
 export function initPWA() {
-  // 動態注入 manifest link
+  // manifest
   if (!document.querySelector('link[rel="manifest"]')) {
     const link = document.createElement('link');
     link.rel = 'manifest';
@@ -11,7 +11,7 @@ export function initPWA() {
     document.head.appendChild(link);
   }
 
-  // theme-color meta
+  // theme-color
   if (!document.querySelector('meta[name="theme-color"]')) {
     const meta = document.createElement('meta');
     meta.name = 'theme-color';
@@ -19,7 +19,7 @@ export function initPWA() {
     document.head.appendChild(meta);
   }
 
-  // apple-mobile-web-app-capable（iOS 加到主畫面體驗）
+  // iOS 專屬 meta
   if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
     const meta = document.createElement('meta');
     meta.name = 'apple-mobile-web-app-capable';
@@ -37,7 +37,7 @@ export function initPWA() {
     document.head.appendChild(meta3);
   }
 
-  // 註冊 Service Worker
+  // 註冊 Service Worker（安全包裹）
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
