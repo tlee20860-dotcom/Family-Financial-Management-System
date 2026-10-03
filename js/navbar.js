@@ -21,10 +21,17 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
     window._navbarEventBound = true;
 
     document.addEventListener('click', (e) => {
-      const btn = e.target.closest('#hamburger-btn');
-      if (btn) {
-        console.log('✅ 漢堡按鈕被點擊了');
+      // 1. 點擊漢堡按鈕 ➜ 切換側邊欄
+      const hamburgerBtn = e.target.closest('#hamburger-btn');
+      if (hamburgerBtn) {
         toggleSidebar();
+        return;
+      }
+
+      // 2. 點擊背景遮罩 ➜ 關閉手機版側邊欄
+      const backdrop = e.target.closest('.sidebar-backdrop');
+      if (backdrop && backdrop.classList.contains('active')) {
+        closeMobileSidebar();
       }
     });
 
@@ -34,26 +41,17 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
 
 function toggleSidebar() {
   const sidebar = document.querySelector('.sidebar');
-  if (!sidebar) {
-    console.warn('❌ 找不到 .sidebar 元素');
-    return;
-  }
+  if (!sidebar) return;
 
   const isMobile = window.innerWidth < 640;
-  console.log('📱 切換模式：', isMobile ? '手機' : '桌面');
 
   if (isMobile) {
     sidebar.classList.toggle('mobile-open');
-    console.log('📱 sidebar classList：', sidebar.className);
 
     let backdrop = document.querySelector('.sidebar-backdrop');
     if (!backdrop) {
       backdrop = document.createElement('div');
       backdrop.className = 'sidebar-backdrop';
-      backdrop.addEventListener('click', () => {
-        sidebar.classList.remove('mobile-open');
-        backdrop.classList.remove('active');
-      });
       document.body.appendChild(backdrop);
     }
     backdrop.classList.toggle('active');
@@ -64,4 +62,11 @@ function toggleSidebar() {
       sidebar.classList.contains('collapsed') ? 'true' : 'false'
     );
   }
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const backdrop = document.querySelector('.sidebar-backdrop');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (backdrop) backdrop.classList.remove('active');
 }
