@@ -593,3 +593,66 @@ export async function saveIncomeV2(year, month, data) {
   });
   await set(ref(db, `family_income/${year}/${month}`), clean);
 }
+/* ---------- 銀行帳戶與每月結餘 ---------- */
+
+export function listenBanks(callback) {
+  const r = ref(db, 'family_banks');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, b]) => ({ id, ...b }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addBank(name) {
+  const r = ref(db, 'family_banks');
+  const newRef = push(r);
+  await set(newRef, { name: name || '', createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function removeBank(id) {
+  await remove(ref(db, `family_banks/${id}`));
+}
+
+export function listenBankBalances(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `bank_balances/${year}/${month}`);
+  return onValue(r, (snap) => {
+    callback(snap.val() || {});
+  });
+}
+
+export async function saveBankBalance(year, month, bankId, amount) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  await update(ref(db, `bank_balances/${year}/${month}`), {
+    [bankId]: { amount: Number(amount) || 0, updatedAt: Date.now() },
+  });
+}
+
+/**
+ * 取得上個月的銀行結餘總額（用於計算當月可用金額）
+ */
+export async function getPrevMonthBankTotal(year, month) {
+  const y = Number(year);
+  const m = Number(month);
+  let prevY = y;
+  let prevM = m - 1;
+  if (prevM < 1) {
+    prevY = y - 1;
+    prevM = 12;
+  }
+  const prevMonthStr = String(prevM).padStart(2, '0');
+  const snap = await get(ref(db, `bank_balances/${prevY}/${prevMonthStr}`));
+  const val = snap.val() || {};
+  return Object.values(val).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+}
