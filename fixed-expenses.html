@@ -1,167 +1,110 @@
-// ============================================
-// fixed-expenses.js — 家庭固定支出（模板 + 每月狀態）
-// ============================================
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>固定支出 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
 
-import {
-  listenFixedTemplates, addFixedTemplate, updateFixedTemplate, removeFixedTemplate,
-  listenFixedStatus, saveFixedStatus,
-} from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
-import { AppState } from './state.js';
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">家庭固定支出</h1>
+            <p class="page-subtitle" id="fixed-month"></p>
+          </div>
+          <button class="btn btn-primary" id="add-fixed-btn">
+            <i data-lucide="plus"></i> 新增固定支出
+          </button>
+        </div>
 
-let templates = [];
-let statuses = {};
-let editingId = null;
-let unsubStatus = null;
+        <div class="banner">
+          ℹ️ 固定支出新增後會自動套用到每個月，只需在對應月份勾選付款狀態即可。
+        </div>
 
-export function initFixedExpensesPage() {
-  const tbody = document.getElementById('fixed-tbody');
-  const modal = document.getElementById('fixed-modal');
-  const modalTitle = document.getElementById('fixed-modal-title');
-  const form = document.getElementById('fixed-form');
+        <div class="grid grid-2" style="margin-bottom:20px;">
+          <div class="glass-card">
+            <div class="glass-card-title">本月固定支出總額</div>
+            <div class="glass-card-value red mono" id="fixed-total">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">尚未付款筆數</div>
+            <div class="glass-card-value orange mono" id="fixed-pending-count">0 筆</div>
+          </div>
+        </div>
 
-  const nameInput = document.getElementById('fixed-name');
-  const amountInput = document.getElementById('fixed-amount');
-  const cycleSelect = document.getElementById('fixed-cycle');
-  const noteInput = document.getElementById('fixed-note');
+        <div class="glass-card">
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>項目名稱</th>
+                  <th style="text-align:right;">金額</th>
+                  <th>週期</th>
+                  <th>狀態</th>
+                  <th>已付款</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="fixed-tbody">
+                <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
 
-  // 1. 監聽所有固定支出模板（排除成員個人模板）
-  listenFixedTemplates((list) => {
-    templates = list.filter((t) => !t.memberId && t.type !== 'member');
-    render();
-  });
+  <!-- Modal -->
+  <div class="modal-overlay" id="fixed-modal">
+    <div class="modal">
+      <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
+      <form id="fixed-form">
+        <div class="field">
+          <label class="field-label" for="fixed-name">項目名稱</label>
+          <input class="input" id="fixed-name" required maxlength="40" placeholder="例如：水費">
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-amount">金額（HK$）</label>
+          <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-cycle">付款週期</label>
+          <select class="select" id="fixed-cycle">
+            <option value="每月">每月</option>
+            <option value="每2個月">每2個月</option>
+            <option value="每季">每季</option>
+            <option value="每年">每年</option>
+            <option value="一次性">一次性</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-note">備註（可選）</label>
+          <input class="input" id="fixed-note" maxlength="60" placeholder="例如：每期調整">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
-  // 2. 監聽當前月份的付款狀態
-  const loadStatus = () => {
-    const { year, month } = AppState.getYearMonth();
-    document.getElementById('fixed-month').textContent = `${year} 年 ${month} 月`;
-    if (unsubStatus) unsubStatus();
-    unsubStatus = listenFixedStatus(year, month, (val) => {
-      statuses = val || {};
-      render();
-    });
-  };
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initFixedExpensesPage } from './js/fixed-expenses.js';
 
-  loadStatus();
-  AppState.on('ym-change', loadStatus);
-
-  // 3. 新增模板
-  document.getElementById('add-fixed-btn').addEventListener('click', () => {
-    editingId = null;
-    modalTitle.textContent = '新增固定支出';
-    form.reset();
-    modal.classList.add('active');
-    setTimeout(() => nameInput.focus(), 50);
-  });
-
-  document.getElementById('fixed-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const payload = {
-      name: nameInput.value.trim(),
-      amount: Number(amountInput.value) || 0,
-      cycle: cycleSelect.value,
-      note: noteInput.value.trim(),
-      type: 'family',
-    };
-    if (!payload.name) return;
-
-    if (editingId) {
-      await updateFixedTemplate(editingId, payload);
-    } else {
-      await addFixedTemplate(payload);
-    }
-    modal.classList.remove('active');
-  });
-
-  // 4. 表格事件委派（編輯 / 刪除 / 勾選付款）
-  tbody.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-action]');
-    if (!btn) return;
-
-    const id = btn.dataset.id;
-    const action = btn.dataset.action;
-    const t = templates.find((x) => x.id === id);
-    if (!t) return;
-
-    if (action === 'edit') {
-      editingId = id;
-      modalTitle.textContent = '編輯固定支出';
-      nameInput.value = t.name || '';
-      amountInput.value = t.amount || '';
-      cycleSelect.value = t.cycle || '每月';
-      noteInput.value = t.note || '';
-      modal.classList.add('active');
-      setTimeout(() => nameInput.focus(), 50);
-    } else if (action === 'delete') {
-      if (confirm(`確定要刪除「${t.name}」嗎？\n（過去月份的付款紀錄不會被刪除）`)) {
-        await removeFixedTemplate(id);
-      }
-    }
-  });
-
-  tbody.addEventListener('change', async (e) => {
-    const checkbox = e.target;
-    if (checkbox.dataset.action !== 'toggle-paid') return;
-
-    const { year, month } = AppState.getYearMonth();
-    const tmplId = checkbox.dataset.id;
-    const isPaid = checkbox.checked;
-
-    await saveFixedStatus(year, month, tmplId, {
-      status: isPaid ? '已付款' : '未付款',
-      paidDate: isPaid ? new Date().toISOString().slice(0, 10) : '',
-    });
-  });
-
-  function render() {
-    const total = templates.reduce((s, t) => s + (Number(t.amount) || 0), 0);
-    const pending = templates.filter((t) => {
-      const st = statuses[t.id];
-      return !st || st.status !== '已付款';
-    }).length;
-
-    document.getElementById('fixed-total').textContent = formatHKD(total);
-    document.getElementById('fixed-pending-count').textContent = `${pending} 筆`;
-
-    if (!templates.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="empty-state">尚無固定支出，請點擊「新增固定支出」開始。新增後會自動套用到每個月。</td></tr>`;
-      return;
-    }
-
-    tbody.innerHTML = templates.map((t) => {
-      const st = statuses[t.id] || {};
-      const isPaid = st.status === '已付款';
-      return `
-        <tr>
-          <td>
-            ${escapeHtml(t.name)}
-            ${t.note ? `<div class="glass-card-hint" style="margin-top:4px;">${escapeHtml(t.note)}</div>` : ''}
-          </td>
-          <td class="num">${formatHKD(t.amount)}</td>
-          <td>${escapeHtml(t.cycle || '每月')}</td>
-          <td>${isPaid
-            ? '<span class="badge badge-success">已付款</span>'
-            : '<span class="badge badge-pending">未付款</span>'}
-          </td>
-          <td>
-            <input type="checkbox" ${isPaid ? 'checked' : ''}
-              data-action="toggle-paid" data-id="${t.id}"
-              style="width:auto; cursor:pointer;">
-          </td>
-          <td>
-            <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${t.id}">編輯</button>
-            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${t.id}">刪除</button>
-          </td>
-        </tr>
-      `;
-    }).join('');
-
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
-  }
-}
+    await initApp({ activeHref: 'fixed-expenses.html', title: '家庭固定支出' });
+    initFixedExpensesPage();
+  </script>
+</body>
+</html>
