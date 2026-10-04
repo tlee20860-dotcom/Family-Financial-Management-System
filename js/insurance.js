@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 年度明細切換）
+// insurance.js — 保險付款（年度化重構 + 年度明細）
 // ============================================
 
 import {
@@ -49,10 +49,7 @@ function getPeriodRange(policy, periodIndex) {
   const eY = endDate.getFullYear();
   const eM = String(endDate.getMonth() + 1).padStart(2, '0');
 
-  return {
-    startY: sY, startM: sM, endY: eY, endM: eM,
-    rangeText: `${sY}-${sM} ~ ${eY}-${eM}`
-  };
+  return { startY: sY, startM: sM, endY: eY, endM: eM, rangeText: `${sY}-${sM} ~ ${eY}-${eM}` };
 }
 
 function getPeriodInfo(policy, curYear, curMonth) {
@@ -107,7 +104,6 @@ async function renderDetailBody(policy, periodIndex) {
     `;
   }
 
-  // 組合年度下拉選單
   const totalYears = policy.totalPolicyYears || 1;
   let periodOptions = '';
   for (let i = 1; i <= totalYears; i++) {
@@ -128,16 +124,12 @@ async function renderDetailBody(policy, periodIndex) {
     </div>
   `;
 
-  // 綁定年度切換事件
   document.getElementById('detail-period-select').addEventListener('change', (e) => {
     const newPeriodIndex = Number(e.target.value);
     renderDetailBody(policy, newPeriodIndex);
   });
 }
 
-/* ============================================
-   打開明細彈窗
-   ============================================ */
 async function openDetailModal(p) {
   let curY, curM;
   if (AppState.month === 'all') {
@@ -164,7 +156,7 @@ async function openDetailModal(p) {
 }
 
 /* ============================================
-   以下是原有邏輯，保持不變
+   原有邏輯
    ============================================ */
 
 function bindPolicyModalEvents() {
@@ -274,22 +266,37 @@ function bindDetailModalEvents() {
     const rows = document.querySelectorAll('.insurance-detail-row');
     const promises = [];
 
+    // 先確保拿到當前的期間資訊，以便呼叫 API
+    const firstY = Number(p.firstStartYear);
+    const firstM = Number(p.firstStartMonth);
+    const currentDate = new Date(firstY, firstM - 1, 1);
+
     rows.forEach((row) => {
       const month = row.dataset.month;
       const amount = Number(row.querySelector('.ins-amount').value) || 0;
       const isPaid = row.querySelector('.ins-paid').checked;
       const [yearStr, monthStr] = month.split('-');
 
+      // 同步寫入 insurance_payments
       if (isPaid) {
         promises.push(saveInsurancePaymentBatch(p.id, yearStr, monthStr, { status: '已扣款', amount }));
+        // 🆕 同步寫入 family_expenses
+        promises.push(api.insuranceSync({
+          policyId: p.id, memberId: p.memberId, policyName: p.name,
+          monthlyAverage: amount, year: yearStr, month: monthStr
+        }));
       } else {
         promises.push(removeInsurancePaymentBatch(p.id, yearStr, monthStr));
+        // 🆕 同步移除 family_expenses
+        promises.push(api.insuranceUnsync({
+          policyId: p.id, memberId: p.memberId, year: yearStr, month: monthStr
+        }));
       }
     });
 
     try {
       await Promise.all(promises);
-      alert('✅ 已批次更新扣款狀態');
+      alert('✅ 已批次更新扣款狀態與連動支出');
       modal.classList.remove('active');
       renderGrid();
     } catch (err) {
