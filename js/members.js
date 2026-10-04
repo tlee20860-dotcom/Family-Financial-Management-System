@@ -5,7 +5,7 @@
 import {
   listenMembers, addMember, updateMember, removeMember, updateMemberOrders,
 } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, sortMembers } from './utils.js';
 
 const ROLE_LABEL = {
   husband: '老公 / 丈夫',
@@ -25,7 +25,6 @@ export function initMembersPage() {
   const nameInput = document.getElementById('member-name-input');
   const roleSelect = document.getElementById('member-role-input');
 
-  // 監聽成員（含排序）
   listenMembers((members) => {
     currentMembers = sortMembers(members);
     renderGrid();
@@ -56,8 +55,8 @@ export function initMembersPage() {
       const maxOrder = currentMembers.reduce(
         (max, m) => Math.max(max, m.order != null ? m.order : -1), -1
       );
-      await addMember({ name, role });
-      // 新成員預設會排在最後（因為沒有 order，排序時會 fallback 到 createdAt）
+      // 建立新成員時直接設定 order，確保排序穩定
+      await addMember({ name, role, order: maxOrder + 1 });
     }
     modal.classList.remove('active');
   });
@@ -89,25 +88,18 @@ export function initMembersPage() {
     }
   });
 
-  /**
-   * 移動成員順序
-   */
   async function moveMember(memberId, direction) {
     const sorted = [...currentMembers];
     const idx = sorted.findIndex((m) => m.id === memberId);
     if (idx < 0) return;
 
     const newIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= sorted.length) return; // 已在邊界
+    if (newIdx < 0 || newIdx >= sorted.length) return;
 
-    // 交換
     [sorted[idx], sorted[newIdx]] = [sorted[newIdx], sorted[idx]];
 
-    // 重新分配 order（從 0 開始，連續整數）
     const orderMap = {};
-    sorted.forEach((m, i) => {
-      orderMap[m.id] = i;
-    });
+    sorted.forEach((m, i) => { orderMap[m.id] = i; });
 
     try {
       await updateMemberOrders(orderMap);
@@ -132,7 +124,6 @@ export function initMembersPage() {
 
       return `
         <div class="glass-card" style="position:relative;">
-          <!-- 排序按鈕（右上角） -->
           <div style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px;">
             <button class="btn btn-sm btn-ghost" data-action="move-up" data-id="${m.id}"
               ${isFirst ? 'disabled' : ''} title="上移"
@@ -161,19 +152,4 @@ export function initMembersPage() {
       window.lucide.createIcons();
     }
   }
-}
-
-/**
- * 成員排序邏輯：
- * 1. 優先使用 order 欄位（數字越小越前）
- * 2. 沒有 order 的成員排在最後
- * 3. 同 order 時按 createdAt 排序
- */
-function sortMembers(members) {
-  return [...members].sort((a, b) => {
-    const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
-    const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
-    if (oa !== ob) return oa - ob;
-    return (a.createdAt || 0) - (b.createdAt || 0);
-  });
 }
