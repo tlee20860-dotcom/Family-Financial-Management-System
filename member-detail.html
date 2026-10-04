@@ -20,48 +20,73 @@
           <p class="page-subtitle" id="member-id-label"></p>
         </div>
 
-        <div class="glass-card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
-            <div>
-              <div class="glass-card-title" style="margin:0;">個人支出細項</div>
-              <div class="glass-card-hint" id="expense-month-label"></div>
-            </div>
-            <div style="display:flex; align-items:center; gap:14px;">
-              <div style="text-align:right;">
-                <div class="glass-card-title" style="margin:0;">本月合計</div>
-                <div class="mono text-cyan" id="expense-total" style="font-size:18px; font-weight:700;">HK$ 0</div>
-              </div>
-              <button class="btn btn-primary" id="add-expense-btn">
-                <i data-lucide="plus"></i> 新增個人支出
-              </button>
-            </div>
+        <!-- ===== 全年模式 ===== -->
+        <div id="annual-view" style="display:none;">
+          <div class="glass-card" style="margin-bottom:20px;">
+            <div class="glass-card-title">全年總支出</div>
+            <div class="glass-card-value red mono" id="annual-total">HK$ 0</div>
+            <div class="glass-card-hint">依月份折疊顯示明細</div>
           </div>
+          <div id="annual-monthly-cards"></div>
+        </div>
 
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>項目名稱</th>
-                  <th style="text-align:right;">金額</th>
-                  <th>狀態</th>
-                  <th>處理日期</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="expense-tbody">
-                <tr><td colspan="5" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
+        <!-- ===== 單月模式 ===== -->
+        <div id="monthly-view" style="display:none;">
+          <div class="glass-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
+              <div>
+                <div class="glass-card-title" style="margin:0;">個人支出細項</div>
+                <div class="glass-card-hint" id="expense-month-label"></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:14px;">
+                <div style="text-align:right;">
+                  <div class="glass-card-title" style="margin:0;">本月合計</div>
+                  <div class="mono text-cyan" id="expense-total" style="font-size:18px; font-weight:700;">HK$ 0</div>
+                </div>
+                <button class="btn btn-primary" id="add-expense-btn">
+                  <i data-lucide="plus"></i> 新增個人支出
+                </button>
+              </div>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>項目名稱</th>
+                    <th style="text-align:right;">金額</th>
+                    <th>狀態</th>
+                    <th>處理日期</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="expense-tbody">
+                  <tr><td colspan="5" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
     </div>
   </div>
 
+  <!-- Modal -->
   <div class="modal-overlay" id="expense-modal">
     <div class="modal" style="max-width:520px;">
       <h2 class="modal-title" id="expense-modal-title">新增支出</h2>
       <form id="expense-form">
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="expense-year">歸屬年份</label>
+            <select class="select" id="expense-year"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="expense-month">歸屬月份</label>
+            <select class="select" id="expense-month"></select>
+          </div>
+        </div>
+
         <div class="field">
           <label class="field-label" for="expense-date-input">支出日期</label>
           <input class="input" id="expense-date-input" type="text" placeholder="例如：2026-10-03" maxlength="20">
@@ -86,7 +111,6 @@
           <input class="input mono" id="expense-amount-input" type="number" min="0" step="0.01" required placeholder="0">
         </div>
 
-        <!-- 🆕 狀態下拉選單 -->
         <div class="field">
           <label class="field-label" for="expense-status-input">狀態</label>
           <select class="select" id="expense-status-input">
@@ -132,8 +156,6 @@
 
     if (!id) {
       document.getElementById('member-name').textContent = '未指定成員';
-      document.getElementById('expense-tbody').innerHTML =
-        '<tr><td colspan="5" class="empty-state">請從「成員管理」進入。</td></tr>';
     } else {
       initMemberDetailPage(id);
     }
