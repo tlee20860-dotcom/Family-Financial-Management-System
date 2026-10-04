@@ -237,3 +237,37 @@
     font-size: 12px !important;
   }
 }
+/* ================= 可折疊導覽選單 ================= */
+.nav-group-title.collapsible {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.nav-group-title.collapsible:hover {
+  color: var(--neon-cyan);
+}
+
+.nav-group-title.collapsible .nav-group-arrow {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.25s ease;
+  color: var(--text-muted);
+}
+
+.nav-group-title.collapsible:hover .nav-group-arrow {
+  color: var(--neon-cyan);
+}
+
+/* 展開時箭頭旋轉向上 */
+.nav-group-title.collapsible.open .nav-group-arrow {
+  transform: rotate(180deg);
+}
+
+/* 折疊時隱藏子清單（搭配 JS 控制 display） */
+.nav-sub {
+  transition: opacity 0.2s ease;
+}
