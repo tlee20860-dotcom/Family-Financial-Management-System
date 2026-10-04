@@ -1,10 +1,11 @@
 // ============================================
-// income.js — 每月收入獨立頁面邏輯
+// income.js — 每月收入（全年 / 單月）
 // ============================================
 
 import { listenMembers, listenIncomeV2, saveIncomeV2 } from './db.js';
-import { escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
+import { api } from './api.js';
 
 let members = [];
 let currentIncome = {};
@@ -16,62 +17,118 @@ export function initIncomePage() {
   const form = document.getElementById('income-form');
   const statusEl = document.getElementById('income-status');
 
-  // 1. 監聽成員
   listenMembers((list) => {
     members = list;
     renderMemberInputs(container);
     applyIncomeToInputs();
   });
 
-  // 2. 監聽當前年月收入
-  const reloadIncome = () => {
+  const reloadIncome = async () => {
     const { year, month } = AppState.getYearMonth();
-    document.getElementById('income-month').textContent = `${year} 年 ${month} 月`;
-    if (unsubscribeIncome) unsubscribeIncome();
-    unsubscribeIncome = listenIncomeV2(year, month, (data) => {
-      currentIncome = data || {};
-      extraInput.value = data.extra ?? '';
-      applyIncomeToInputs();
-    });
+    const isAnnual = month === 'all';
+
+    document.getElementById('annual-view').style.display = isAnnual ? 'block' : 'none';
+    document.getElementById('monthly-view').style.display = isAnnual ? 'none' : 'block';
+    document.getElementById('income-month').textContent = isAnnual
+      ? `${year} 年 全年總覽`
+      : `${year} 年 ${month} 月`;
+
+    if (isAnnual) {
+      if (unsubscribeIncome) { unsubscribeIncome(); unsubscribeIncome = null; }
+      await loadAnnual(year);
+    } else {
+      if (unsubscribeIncome) unsubscribeIncome();
+      unsubscribeIncome = listenIncomeV2(year, month, (data) => {
+        currentIncome = data || {};
+        extraInput.value = data.extra ?? '';
+        applyIncomeToInputs();
+      });
+    }
   };
 
   reloadIncome();
   AppState.on('ym-change', reloadIncome);
 
-  // 3. 儲存
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (members.length === 0) {
-      alert('成員資料載入中，請稍後再試。');
-      return;
-    }
+    if (members.length === 0) return;
 
     const { year, month } = AppState.getYearMonth();
     const payload = {};
-
     members.forEach((m) => {
       const input = document.getElementById(`income-${m.id}`);
-      if (input) {
-        const val = Number(input.value) || 0;
-        payload[m.id] = val; // 即使為 0 也存入，方便後續修改
-      }
+      if (input) payload[m.id] = Number(input.value) || 0;
     });
-
-    const extra = Number(extraInput.value) || 0;
-    payload.extra = extra;
+    payload.extra = Number(extraInput.value) || 0;
 
     try {
       await saveIncomeV2(year, month, payload);
-      console.log('✅ 收入已儲存：', payload);
       statusEl.textContent = '✅ 收入已儲存';
       statusEl.style.display = 'block';
       setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
     } catch (err) {
-      console.error('儲存失敗：', err);
       statusEl.textContent = '❌ 儲存失敗：' + err.message;
       statusEl.style.display = 'block';
     }
   });
+
+  async function loadAnnual(year) {
+    try {
+      const data = await api.fetchAnnualSummary(year);
+      renderAnnual(data);
+    } catch (err) {
+      console.error('全年收入載入失敗：', err);
+    }
+  }
+
+  function renderAnnual(data) {
+    let totalAll = 0;
+    const container = document.getElementById('annual-monthly-cards');
+
+    const cards = data.monthly.map((m) => {
+      const breakdown = m.incomeBreakdown || {};
+      if (m.totalIncome === 0) return '';
+
+      totalAll += m.totalIncome;
+
+      const lines = Object.entries(breakdown).map(([key, amount]) => {
+        if (!amount) return '';
+        const name = key === 'extra'
+          ? '額外收入'
+          : (members.find((x) => x.id === key)?.name || key);
+        return `
+          <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;">
+            <span>${escapeHtml(name)}</span>
+            <span class="mono text-emerald">${formatHKD(amount)}</span>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="glass-card" style="margin-bottom:10px; padding:14px;">
+          <div class="month-toggle" style="display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; user-select:none;">
+            <div style="font-weight:700; font-size:15px; color:var(--neon-cyan);">${m.monthNum} 月</div>
+            <div class="mono text-emerald" style="font-weight:700;">${formatHKD(m.totalIncome)}</div>
+          </div>
+          <div class="month-detail" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1);">
+            ${lines || '<div style="font-size:12px; color:var(--text-muted);">本月無收入紀錄</div>'}
+          </div>
+        </div>
+      `;
+    }).filter(Boolean).join('');
+
+    document.getElementById('annual-income').textContent = formatHKD(totalAll);
+    container.innerHTML = cards || '<div class="glass-card"><div class="empty-state">本年度尚無收入紀錄</div></div>';
+
+    container.querySelectorAll('.month-toggle').forEach((el) => {
+      el.addEventListener('click', () => {
+        const d = el.nextElementSibling;
+        d.style.display = d.style.display === 'none' ? 'block' : 'none';
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
+  }
 
   function renderMemberInputs(container) {
     if (!members.length) {
