@@ -17,22 +17,31 @@ export async function onRequestGet({ request }) {
 
 export async function onRequestPost({ request }) {
   try {
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+
     const body = await request.json();
     const { action, uid, name, email } = body || {};
 
     if (action === 'add') {
       if (!uid || !name) return jsonResponse({ ok: false, error: '缺少 uid 或 name' }, 400);
-      await dbPut(`platform/families/${uid}`, {
+      
+      const success = await dbPut(`platform/families/${uid}`, {
         name,
         ownerEmail: email || '',
         createdAt: Date.now(),
-      });
+      }, token);
+
+      if (!success) {
+        return jsonResponse({ ok: false, error: 'Firebase 寫入失敗，請檢查規則或 Token' }, 500);
+      }
       return jsonResponse({ ok: true });
     }
 
     if (action === 'remove') {
       if (!uid) return jsonResponse({ ok: false, error: '缺少 uid' }, 400);
-      await dbDelete(`platform/families/${uid}`);
+      const success = await dbDelete(`platform/families/${uid}`);
+      if (!success) return jsonResponse({ ok: false, error: '刪除失敗' }, 500);
       return jsonResponse({ ok: true });
     }
 
