@@ -1,20 +1,28 @@
 // ============================================
-// state.js — 全域狀態中心（含持久化）
+// state.js — 全域狀態中心（多家庭版）
 // ============================================
 
 export const AppState = {
+  // ---------- 使用者 ----------
+  currentUser: null,
+  isSuperAdmin: false,
+
+  // ---------- 家庭 ----------
+  currentFamilyId: '',
+  currentFamilyName: '',
+
+  // ---------- 年月 ----------
   year: '',
   month: '',
-  user: null,
+
+  // ---------- 事件總線 ----------
   _listeners: {},
 
-  /**
-   * 初始化：讀取 localStorage，若無則使用當前日期
-   * 月份預設為 'all'（全年）
-   */
   init() {
     const savedYear = localStorage.getItem('fin_year');
     const savedMonth = localStorage.getItem('fin_month');
+    const savedFamilyId = localStorage.getItem('fin_family_id');
+    const savedFamilyName = localStorage.getItem('fin_family_name');
 
     if (savedYear) {
       this.year = savedYear;
@@ -26,24 +34,57 @@ export const AppState = {
     if (savedMonth) {
       this.month = savedMonth;
     } else {
-      this.month = 'all'; // 預設全年
+      this.month = 'all';
+    }
+
+    if (savedFamilyId) {
+      this.currentFamilyId = savedFamilyId;
+      this.currentFamilyName = savedFamilyName || '';
     }
   },
 
-  /**
-   * 設定當前年月（支援 'all'）
-   */
+  /* ---------- 使用者 ---------- */
+  setUser(user) {
+    this.currentUser = user;
+    this.emit('user-change', user);
+  },
+
+  setSuperAdmin(isSuper) {
+    this.isSuperAdmin = !!isSuper;
+    this.emit('superadmin-change', this.isSuperAdmin);
+  },
+
+  /* ---------- 家庭 ---------- */
+  setFamily(familyId, familyName) {
+    this.currentFamilyId = familyId || '';
+    this.currentFamilyName = familyName || '';
+    localStorage.setItem('fin_family_id', this.currentFamilyId);
+    localStorage.setItem('fin_family_name', this.currentFamilyName);
+    this.emit('family-change', { familyId: this.currentFamilyId, familyName: this.currentFamilyName });
+  },
+
+  getFamilyId() {
+    return this.currentFamilyId;
+  },
+
+  getFamilyName() {
+    return this.currentFamilyName;
+  },
+
+  clearFamily() {
+    this.currentFamilyId = '';
+    this.currentFamilyName = '';
+    localStorage.removeItem('fin_family_id');
+    localStorage.removeItem('fin_family_name');
+  },
+
+  /* ---------- 年月 ---------- */
   setYearMonth(year, month) {
     this.year = String(year);
-    this.month = String(month); // 可以是 '01' ~ '12' 或 'all'
+    this.month = String(month);
     localStorage.setItem('fin_year', this.year);
     localStorage.setItem('fin_month', this.month);
     this.emit('ym-change', { year: this.year, month: this.month });
-  },
-
-  setUser(user) {
-    this.user = user;
-    this.emit('user-change', user);
   },
 
   getYearMonth() {
@@ -54,6 +95,7 @@ export const AppState = {
     return this.month === 'all';
   },
 
+  /* ---------- 事件總線 ---------- */
   on(event, callback) {
     if (!this._listeners[event]) this._listeners[event] = [];
     this._listeners[event].push(callback);
