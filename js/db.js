@@ -518,8 +518,14 @@ export async function markMemberExpenseRepaid(year, month, memberId, expId, isRe
 }
 /* ---------- 成員排序 ---------- */
 
-export async function updateMemberOrder(id, order) {
-  await update(ref(db, `family_members/${id}`), {
-    order: Number(order) || 0,
+/**
+ * 批量更新成員排序
+ * @param {Object} orderMap - { memberId1: 0, memberId2: 1, ... }
+ */
+export async function updateMemberOrders(orderMap) {
+  const updates = {};
+  Object.entries(orderMap).forEach(([id, order]) => {
+    updates[`family_members/${id}/order`] = Number(order);
   });
+  await update(ref(db), updates);
 }
