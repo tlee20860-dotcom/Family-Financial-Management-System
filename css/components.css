@@ -347,3 +347,69 @@
   flex-wrap: wrap;
   margin-top: 4px;
 }
+/* ================= 手機版優化 ================= */
+@media (max-width: 640px) {
+  /* 表格優化：讓內容不擁擠 */
+  .data-table th, .data-table td {
+    padding: 8px 6px;
+    font-size: 12px;
+  }
+  .data-table .badge {
+    padding: 2px 6px;
+    font-size: 10px;
+    white-space: nowrap;
+  }
+  
+  /* 保險卡片優化 */
+  .policy-info-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .policy-info-value {
+    font-size: 12px;
+    word-break: break-all;
+  }
+  .policy-name {
+    font-size: 14px;
+  }
+  .policy-company {
+    font-size: 10px;
+  }
+  
+  /* 按鈕優化 */
+  .btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  
+  /* 解決「已還款」垂直排列的問題 */
+  .badge {
+    display: inline-block;
+    white-space: nowrap;
+  }
+  
+  /* Modal 優化 */
+  .modal {
+    padding: 16px;
+    max-height: 85vh;
+  }
+  .modal-title {
+    font-size: 16px;
+  }
+  
+  /* 年度明細彈窗的輸入框 */
+  .insurance-detail-row input[type="number"],
+  .fixed-detail-row input[type="number"] {
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+  }
+  .insurance-detail-row .ins-paid,
+  .fixed-detail-row .fix-paid,
+  .fixed-detail-row .fix-skip {
+    transform: scale(0.9);
+  }
+}
