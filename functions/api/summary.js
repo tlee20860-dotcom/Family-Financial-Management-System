@@ -1,5 +1,5 @@
 // ============================================
-// summary.js — GET /api/summary?year=YYYY&month=MM
+// summary.js — GET /api/summary?familyId=...&year=YYYY&month=MM
 // ============================================
 
 import { dbGet, jsonResponse } from './_config.js';
@@ -7,8 +7,15 @@ import { dbGet, jsonResponse } from './_config.js';
 export async function onRequestGet({ request }) {
   try {
     const url = new URL(request.url);
+    const familyId = url.searchParams.get('familyId');
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
+
+    if (!familyId) {
+      return jsonResponse({ ok: false, error: '缺少 familyId' }, 400);
+    }
+
+    const basePath = `families/${familyId}`;
 
     let prevY = Number(year);
     let prevM = Number(month) - 1;
@@ -16,17 +23,17 @@ export async function onRequestGet({ request }) {
     const prevMonthStr = String(prevM).padStart(2, '0');
 
     const [members, policies, expenses, income, funds, fixed, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
-      dbGet('family_members'),
-      dbGet('insurance_policies'),
-      year && month ? dbGet(`family_expenses/${year}/${month}/member_expenses`) : null,
-      year && month ? dbGet(`family_income/${year}/${month}`) : null,
-      dbGet('investment_funds'),
-      year && month ? dbGet(`fixed_expenses/${year}/${month}`) : null,
-      dbGet('expense_categories'),
-      dbGet('expense_items'),
-      year && month ? dbGet(`bank_balances/${year}/${month}`) : null,
-      dbGet(`bank_balances/${prevY}/${prevMonthStr}`),
-      dbGet('family_banks'),
+      dbGet(`${basePath}/members`),
+      dbGet(`${basePath}/insurance_policies`),
+      year && month ? dbGet(`${basePath}/expenses/${year}/${month}/member_expenses`) : null,
+      year && month ? dbGet(`${basePath}/income/${year}/${month}`) : null,
+      dbGet(`${basePath}/funds`),
+      year && month ? dbGet(`${basePath}/fixed_expenses/${year}/${month}`) : null,
+      dbGet(`${basePath}/expense_categories`),
+      dbGet(`${basePath}/expense_items`),
+      year && month ? dbGet(`${basePath}/bank_balances/${year}/${month}`) : null,
+      dbGet(`${basePath}/bank_balances/${prevY}/${prevMonthStr}`),
+      dbGet(`${basePath}/banks`),
     ]);
 
     const membersObj = members || {};
@@ -91,7 +98,7 @@ export async function onRequestGet({ request }) {
       }
     });
 
-    /* ---------- 🆕 保險匯總（年度化） ---------- */
+    /* ---------- 保險匯總 ---------- */
     const policyList = Object.values(policiesObj);
     let yearlyInsuranceTotal = 0;
     let monthlyInsuranceAverage = 0;
@@ -106,14 +113,13 @@ export async function onRequestGet({ request }) {
         return;
       }
 
-      // 找出當前年月屬於哪個年度
       const firstY = Number(p.firstStartYear) || 0;
       const firstM = Number(p.firstStartMonth) || 1;
       const totalMonths = (curY - firstY) * 12 + (curM - firstM);
 
-      if (totalMonths < 0) return; // 還沒開始
+      if (totalMonths < 0) return;
       const periodIndex = Math.floor(totalMonths / 12) + 1;
-      if (p.totalPolicyYears && periodIndex > p.totalPolicyYears) return; // 已供完
+      if (p.totalPolicyYears && periodIndex > p.totalPolicyYears) return;
 
       const periodData = (p.periods || {})[String(periodIndex)];
       if (periodData) {
