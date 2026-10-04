@@ -33,7 +33,6 @@ export function initInsurancePage() {
   const annualInput = document.getElementById('policy-annual');
   const monthlyInput = document.getElementById('policy-monthly');
   const totalPeriodsInput = document.getElementById('policy-total-periods');
-  const completedPeriodsInput = document.getElementById('policy-completed-periods');
   const monthlyPremiumInput = document.getElementById('policy-monthly-premium');
   const currentValueInput = document.getElementById('policy-current-value');
   const accountInput = document.getElementById('policy-account');
@@ -52,7 +51,6 @@ export function initInsurancePage() {
     renderMemberOptions();
   });
 
-  // 切換保單類型
   typeSelect.addEventListener('change', () => {
     if (typeSelect.value === 'fund_insurance') {
       normalFields.style.display = 'none';
@@ -64,13 +62,10 @@ export function initInsurancePage() {
     }
   });
 
-  // 付款類型連動總期數
   paymentTypeSelect.addEventListener('change', () => {
     if (paymentTypeSelect.value === '年繳') {
       totalPeriodsInput.value = 12;
       totalPeriodsInput.disabled = true;
-    } else if (paymentTypeSelect.value === '月繳') {
-      totalPeriodsInput.disabled = false;
     } else {
       totalPeriodsInput.disabled = false;
     }
@@ -83,7 +78,6 @@ export function initInsurancePage() {
   function autoCalcMonthly() {
     const type = typeSelect.value;
     if (type === 'fund_insurance') return;
-
     const annual = Number(annualInput.value) || 0;
     const periods = Number(totalPeriodsInput.value) || 0;
     const monthlyPrem = Number(monthlyPremiumInput.value) || 0;
@@ -118,53 +112,56 @@ export function initInsurancePage() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const isFund = typeSelect.value === 'fund_insurance';
-
     const totalP = Number(totalPeriodsInput.value) || 0;
     const annual = Number(annualInput.value) || 0;
     const monthlyPrem = Number(monthlyPremiumInput.value) || 0;
 
     let monthlyAvg = 0;
-    if (isFund) {
-      monthlyAvg = monthlyPrem;
-    } else if (paymentTypeSelect.value === '年繳') {
-      monthlyAvg = annual / 12;
-    } else if (paymentTypeSelect.value === '一次付款') {
-      monthlyAvg = totalP > 0 ? annual / totalP : 0;
-    } else {
-      monthlyAvg = monthlyPrem;
-    }
+    if (isFund) { monthlyAvg = monthlyPrem; }
+    else if (paymentTypeSelect.value === '年繳') { monthlyAvg = annual / 12; }
+    else if (paymentTypeSelect.value === '一次付款') { monthlyAvg = totalP > 0 ? annual / totalP : 0; }
+    else { monthlyAvg = monthlyPrem; }
 
     const payload = {
-      type: typeSelect.value,
-      memberId: memberSelect.value,
-      name: nameInput.value.trim(),
-      company: companySelect.value,
-      startDate: startInput.value.trim(),
-      paymentType: paymentTypeSelect.value,
-      annualPremium: annual,
-      monthlyPremium: monthlyPrem,
+      type: typeSelect.value, memberId: memberSelect.value,
+      name: nameInput.value.trim(), company: companySelect.value,
+      startDate: startInput.value.trim(), paymentType: paymentTypeSelect.value,
+      annualPremium: annual, monthlyPremium: monthlyPrem,
       monthlyAverage: Number(monthlyAvg.toFixed(2)),
-      totalPeriods: totalP,
-      remainingPeriods: totalP,
-      isCompleted: false,
+      totalPeriods: totalP, remainingPeriods: totalP, isCompleted: false,
       account: accountInput.value.trim(),
       currentValue: isFund ? Number(currentValueInput.value) || 0 : 0,
-      totalInvested: isFund ? Number(annualInput.value) || 0 : 0,
-      monthlyHistory: isFund ? {} : {},
+      totalInvested: isFund ? annual : 0,
+      monthlyHistory: {},
     };
 
     if (!payload.name || !payload.memberId) return;
 
-    if (editingId) {
-      await updateInsurancePolicyV2(editingId, payload);
-    } else {
-      await addInsurancePolicyV2(payload);
-    }
+    if (editingId) { await updateInsurancePolicyV2(editingId, payload); }
+    else { await addInsurancePolicyV2(payload); }
     modal.classList.remove('active');
   });
 
+  // 卡片上的點擊事件（編輯 / 刪除 / 勾選扣款）
   grid.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
+    const checkbox = e.target.closest('input[type="checkbox"][data-action]');
+
+    if (checkbox) {
+      const { year, month } = AppState.getYearMonth();
+      if (month === 'all') { alert('請切換到特定月份再操作扣款狀態。'); return; }
+      const p = policies.find((x) => x.id === checkbox.dataset.id);
+      if (!p) return;
+      if (checkbox.checked) {
+        try { await api.insuranceSync({ policyId: p.id, memberId: p.memberId, policyName: p.name, monthlyAverage: p.monthlyAverage, year, month }); }
+        catch (err) { console.warn('同步失敗：', err); }
+      } else {
+        try { await api.insuranceUnsync({ policyId: p.id, memberId: p.memberId, year, month }); }
+        catch (err) { console.warn('取消連動失敗：', err); }
+      }
+      return;
+    }
+
     if (!btn) return;
     const id = btn.dataset.id;
     const action = btn.dataset.action;
@@ -190,33 +187,7 @@ export function initInsurancePage() {
       completedCheck.checked = p.isCompleted || false;
       modal.classList.add('active');
     } else if (action === 'delete') {
-      if (confirm(`確定要刪除保單「${p.name}」嗎？`)) {
-        await removeInsurancePolicy(id);
-      }
-    } else if (action === 'toggle-paid') {
-      const { year, month } = AppState.getYearMonth();
-      if (month === 'all') {
-        alert('請切換到特定月份再操作扣款狀態。');
-        return;
-      }
-      const isPaid = btn.dataset.paid === 'true';
-      if (isPaid) {
-        // 取消扣款
-        try {
-          await api.insuranceUnsync({
-            policyId: id, memberId: p.memberId, year, month,
-          });
-        } catch (err) { console.warn('取消連動失敗：', err); }
-      } else {
-        // 標記扣款
-        try {
-          await api.insuranceSync({
-            policyId: id, memberId: p.memberId,
-            policyName: p.name, monthlyAverage: p.monthlyAverage,
-            year, month,
-          });
-        } catch (err) { console.warn('同步失敗：', err); }
-      }
+      if (confirm(`確定要刪除保單「${p.name}」嗎？`)) { await removeInsurancePolicy(id); }
     }
   });
 
@@ -230,9 +201,7 @@ export function initInsurancePage() {
   function renderGrid() {
     const { year, month } = AppState.getYearMonth();
     const isAnnual = month === 'all';
-    document.getElementById('insurance-month').textContent = isAnnual
-      ? `${year} 年 全年總覽`
-      : `${year} 年 ${month} 月`;
+    document.getElementById('insurance-month').textContent = isAnnual ? `${year} 年 全年總覽` : `${year} 年 ${month} 月`;
 
     if (!policies.length) {
       grid.innerHTML = `
@@ -253,7 +222,6 @@ export function initInsurancePage() {
       const done = p.completedPeriods || 0;
       const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
       const isFund = p.type === 'fund_insurance';
-
       const invested = Number(p.totalInvested) || 0;
       const current = Number(p.currentValue) || 0;
       const pnl = current - invested;
@@ -262,99 +230,46 @@ export function initInsurancePage() {
 
       const fundBlock = isFund ? `
         <div class="policy-info-grid" style="grid-template-columns: 1fr 1fr; margin-top:10px;">
-          <div class="policy-info-item">
-            <span class="policy-info-label">已供款總額</span>
-            <span class="policy-info-value">${formatHKD(invested)}</span>
-          </div>
-          <div class="policy-info-item">
-            <span class="policy-info-label">目前基金總值</span>
-            <span class="policy-info-value text-cyan">${formatHKD(current)}</span>
-          </div>
-          <div class="policy-info-item">
-            <span class="policy-info-label">總體盈虧</span>
-            <span class="policy-info-value text-${pnlClass}">${pnl >= 0 ? '+' : ''}${formatHKD(pnl)}</span>
-          </div>
-          <div class="policy-info-item">
-            <span class="policy-info-label">報酬率</span>
-            <span class="policy-info-value text-${pnlClass}">${pnlPct}%</span>
-          </div>
-        </div>
-      ` : '';
+          <div class="policy-info-item"><span class="policy-info-label">已供款總額</span><span class="policy-info-value">${formatHKD(invested)}</span></div>
+          <div class="policy-info-item"><span class="policy-info-label">目前基金總值</span><span class="policy-info-value text-cyan">${formatHKD(current)}</span></div>
+          <div class="policy-info-item"><span class="policy-info-label">總體盈虧</span><span class="policy-info-value text-${pnlClass}">${pnl >= 0 ? '+' : ''}${formatHKD(pnl)}</span></div>
+          <div class="policy-info-item"><span class="policy-info-label">報酬率</span><span class="policy-info-value text-${pnlClass}">${pnlPct}%</span></div>
+        </div>` : '';
 
       return `
         <div class="glass-card policy-card">
-          <div class="policy-header">
-            <div>
-              <div class="policy-name">${escapeHtml(p.name)}</div>
-              <div class="policy-company">${escapeHtml(p.company || '—')} · ${isFund ? '基金保險' : '普通保險'}</div>
-            </div>
-          </div>
-
+          <div class="policy-header"><div><div class="policy-name">${escapeHtml(p.name)}</div><div class="policy-company">${escapeHtml(p.company || '—')} · ${isFund ? '基金保險' : '普通保險'}</div></div></div>
           <div class="policy-info-grid">
-            <div class="policy-info-item">
-              <span class="policy-info-label">受保成員</span>
-              <span class="policy-info-value">${escapeHtml(memberName)}</span>
-            </div>
-            <div class="policy-info-item">
-              <span class="policy-info-label">付款類型</span>
-              <span class="policy-info-value">${escapeHtml(p.paymentType || '—')}</span>
-            </div>
-            <div class="policy-info-item">
-              <span class="policy-info-label">開始日期</span>
-              <span class="policy-info-value">${escapeHtml(p.startDate || '—')}</span>
-            </div>
-            <div class="policy-info-item">
-              <span class="policy-info-label">每月分攤</span>
-              <span class="policy-info-value text-cyan">${formatHKD(p.monthlyAverage)}</span>
-            </div>
+            <div class="policy-info-item"><span class="policy-info-label">受保成員</span><span class="policy-info-value">${escapeHtml(memberName)}</span></div>
+            <div class="policy-info-item"><span class="policy-info-label">付款類型</span><span class="policy-info-value">${escapeHtml(p.paymentType || '—')}</span></div>
+            <div class="policy-info-item"><span class="policy-info-label">開始日期</span><span class="policy-info-value">${escapeHtml(p.startDate || '—')}</span></div>
+            <div class="policy-info-item"><span class="policy-info-label">每月分攤</span><span class="policy-info-value text-cyan">${formatHKD(p.monthlyAverage)}</span></div>
           </div>
-
           ${fundBlock}
-
-          <div class="policy-progress">
-            <div class="policy-progress-text">
-              <span>供款進度</span>
-              <span>${done} / ${total} 期 (${pct}%)</span>
-            </div>
-            <div class="progress">
-              <div class="progress-bar" style="width:${pct}%;"></div>
-            </div>
-          </div>
-
+          <div class="policy-progress"><div class="policy-progress-text"><span>供款進度</span><span>${done} / ${total} 期 (${pct}%)</span></div><div class="progress"><div class="progress-bar" style="width:${pct}%;"></div></div></div>
           <div class="policy-actions">
             ${isAnnual ? '' : `
               <label style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-muted); cursor:pointer; margin-right:10px;">
-                <input type="checkbox" class="policy-paid-checkbox"
-                  data-action="toggle-paid" data-id="${p.id}"
-                  style="width:auto; cursor:pointer;">
+                <input type="checkbox" class="policy-paid-checkbox" data-action="toggle-paid" data-id="${p.id}" style="width:auto; cursor:pointer;">
                 本月已扣款
-              </label>
-            `}
+              </label>`}
             <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button>
             <button class="btn btn-sm btn-danger" data-action="delete" data-id="${p.id}">刪除</button>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join('');
 
-    // 綁定「已扣款」勾選框
+    // 綁定扣款狀態
     if (!isAnnual) {
       const { year, month } = AppState.getYearMonth();
       grid.querySelectorAll('.policy-paid-checkbox').forEach((cb) => {
         const policyId = cb.dataset.id;
-        const p = policies.find((x) => x.id === policyId);
-        if (!p) return;
-
-        // 監聽該月的扣款紀錄
         listenInsurancePayment(policyId, year, month, (data) => {
           cb.checked = data.status === '已扣款';
-          cb.dataset.paid = cb.checked;
         });
       });
     }
 
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
+    if (window.lucide && typeof window.lucide.createIcons === 'function') { window.lucide.createIcons(); }
   }
 }
