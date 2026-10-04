@@ -204,8 +204,34 @@ function bindEvents() {
     modal.classList.remove('active');
   });
 
+  // 在 bindEvents 函式中，找到這一行：
   categorySel.addEventListener('change', renderItemOptions);
 
+// 在它下方加入：
+  // 🆕 新增項目按鈕
+  document.getElementById('add-expense-item-btn').addEventListener('click', async () => {
+    const catId = categorySel.value;
+    if (!catId) {
+      alert('請先選擇一個類別，再新增項目。');
+      return;
+    }
+    const name = prompt('請輸入新項目名稱（例如：看病-濕疹）：');
+    if (!name || !name.trim()) return;
+
+    try {
+      const { addItem } = await import('./db.js');
+      await addItem({ name: name.trim(), categoryId: catId });
+      // 等待 items 更新後自動選中
+      setTimeout(() => {
+        const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId);
+        if (newItem) {
+          itemSel.value = newItem.id;
+        }
+      }, 500);
+    } catch (err) {
+      alert('新增項目失敗：' + err.message);
+    }
+  });
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
