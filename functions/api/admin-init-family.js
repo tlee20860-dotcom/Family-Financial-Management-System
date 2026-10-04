@@ -1,6 +1,5 @@
 // ============================================
 // admin-init-family.js — POST /api/admin-init-family
-// 為指定家庭初始化預設成員、類別、項目
 // ============================================
 
 import { dbGet, dbPut, jsonResponse } from './_config.js';
@@ -24,15 +23,15 @@ export async function onRequestPost({ request }) {
 
     const now = Date.now();
 
-    // 預設成員
-    await dbPut(`${basePath}/members`, {
+    const membersOk = await dbPut(`${basePath}/members`, {
       mem_husband:  { name: '老公',  role: 'husband', order: 0, createdAt: now + 1 },
       mem_wife:     { name: '老婆',  role: 'wife',    order: 1, createdAt: now + 2 },
       mem_son:      { name: '梓舜',  role: 'child',   order: 2, createdAt: now + 3 },
       mem_daughter: { name: '梓言',  role: 'child',   order: 3, createdAt: now + 4 },
     }, token);
 
-    // 預設類別
+    if (!membersOk) return jsonResponse({ ok: false, error: '寫入成員失敗，請檢查 Firebase 規則' }, 500);
+
     await dbPut(`${basePath}/expense_categories`, {
       cat_medical:   { name: '醫療類',     order: 1, createdAt: now + 1 },
       cat_school:    { name: '學校類',     order: 2, createdAt: now + 2 },
@@ -41,7 +40,6 @@ export async function onRequestPost({ request }) {
       cat_other:     { name: '其他',       order: 5, createdAt: now + 5 },
     }, token);
 
-    // 預設項目
     await dbPut(`${basePath}/expense_items`, {
       item_med_01: { categoryId: 'cat_medical',   name: '看病-一般',   createdAt: now + 1 },
       item_med_02: { categoryId: 'cat_medical',   name: '看病-專科',   createdAt: now + 2 },
