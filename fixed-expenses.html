@@ -26,7 +26,8 @@
         </div>
 
         <div class="banner">
-          ℹ️ 固定支出新增後會自動套用到每個月，只需在對應月份勾選付款狀態即可。
+          ℹ️ 每月固定支出獨立儲存。當月若無資料，系統會自動從上個月帶入。<br>
+          若某項本月不適用，請勾選「不適用本月」。
         </div>
 
         <div class="grid grid-2" style="margin-bottom:20px;">
@@ -50,11 +51,12 @@
                   <th>週期</th>
                   <th>狀態</th>
                   <th>已付款</th>
+                  <th>不適用本月</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody id="fixed-tbody">
-                <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+                <tr><td colspan="7" class="empty-state">載入中…</td></tr>
               </tbody>
             </table>
           </div>
