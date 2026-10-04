@@ -6,6 +6,9 @@ import { dbPut, dbDelete, jsonResponse } from './_config.js';
 
 export async function onRequestPost({ request }) {
   try {
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+
     const body = await request.json();
     const {
       action, familyId, policyId, memberId, policyName, monthlyAverage, year, month,
@@ -21,8 +24,8 @@ export async function onRequestPost({ request }) {
     const paymentPath = `${basePath}/insurance_payments/${policyId}/${year}/${month}`;
 
     if (action === 'delete') {
-      await dbDelete(expensePath);
-      await dbDelete(paymentPath);
+      await dbDelete(expensePath, token);
+      await dbDelete(paymentPath, token);
       return jsonResponse({ ok: true, deleted: true });
     }
 
@@ -35,12 +38,12 @@ export async function onRequestPost({ request }) {
       policyId,
       createdAt: Date.now(),
     };
-    await dbPut(expensePath, expense);
+    await dbPut(expensePath, expense, token);
     await dbPut(paymentPath, {
       status: '已扣款',
       amount: Number(monthlyAverage) || 0,
       date: new Date().toISOString().slice(0, 10),
-    });
+    }, token);
 
     return jsonResponse({ ok: true, path: expensePath });
   } catch (err) {
