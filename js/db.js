@@ -529,3 +529,38 @@ export async function updateMemberOrders(orderMap) {
   });
   await update(ref(db), updates);
 }
+/* ---------- 全年一次性讀取（供全年模式使用） ---------- */
+
+export async function getFixedExpensesOnce(year, month) {
+  const snap = await get(ref(db, `fixed_expenses/${year}/${month}`));
+  const val = snap.val() || {};
+  const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
+  list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return list;
+}
+
+export async function getBankBalancesOnce(year, month) {
+  const snap = await get(ref(db, `bank_balances/${year}/${month}`));
+  return snap.val() || {};
+}
+
+export async function getFixedRepaymentsOnce(year, month) {
+  const snap = await get(ref(db, `fixed_repayments/${year}/${month}`));
+  const val = snap.val() || {};
+  const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
+  list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return list;
+}
+
+export async function getAllMemberExpensesOnce(year, month) {
+  const snap = await get(ref(db, `family_expenses/${year}/${month}/member_expenses`));
+  const val = snap.val() || {};
+  const flat = [];
+  Object.entries(val).forEach(([memberId, items]) => {
+    Object.entries(items || {}).forEach(([id, exp]) => {
+      flat.push({ id, memberId, ...exp });
+    });
+  });
+  flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  return flat;
+}
