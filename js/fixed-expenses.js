@@ -1,10 +1,10 @@
 // ============================================
-// fixed-expenses.js — 家庭固定支出邏輯
+// fixed-expenses.js — 家庭固定支出（按月獨立 + 自動帶入上月）
 // ============================================
 
 import {
-  listenFixedExpenses, addFixedExpense, updateFixedExpense, removeFixedExpense,
-  generateFixedExpensesFromTemplates,
+  listenFixedExpensesV2, addFixedExpenseV2, updateFixedExpenseV2, removeFixedExpenseV2,
+  copyFixedExpensesFromPrevMonth,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
@@ -12,6 +12,7 @@ import { AppState } from './state.js';
 let list = [];
 let editingId = null;
 let unsubscribe = null;
+let lastLoadedYM = '';
 
 export function initFixedExpensesPage() {
   const tbody = document.getElementById('fixed-tbody');
@@ -22,22 +23,39 @@ export function initFixedExpensesPage() {
   const nameInput = document.getElementById('fixed-name');
   const amountInput = document.getElementById('fixed-amount');
   const cycleSelect = document.getElementById('fixed-cycle');
-  const dueInput = document.getElementById('fixed-due');
   const noteInput = document.getElementById('fixed-note');
 
-  const loadAll = () => {
+  const loadAll = async () => {
     const { year, month } = AppState.getYearMonth();
     document.getElementById('fixed-month').textContent = `${year} 年 ${month} 月`;
 
+    // 避免重複載入同一月份
+    const ymKey = `${year}-${month}`;
+    if (lastLoadedYM === ymKey) return;
+    lastLoadedYM = ymKey;
+
+    // 若本月沒有資料，嘗試從上月複製
+    try {
+      const copied = await copyFixedExpensesFromPrevMonth(year, month);
+      if (copied > 0) {
+        console.log(`✅ 已從上個月帶入 ${copied} 筆固定支出`);
+      }
+    } catch (err) {
+      console.warn('從上月複製失敗：', err);
+    }
+
     if (unsubscribe) unsubscribe();
-    unsubscribe = listenFixedExpenses(year, month, (l) => {
+    unsubscribe = listenFixedExpensesV2(year, month, (l) => {
       list = l;
       render();
     });
   };
 
   loadAll();
-  AppState.on('ym-change', loadAll);
+  AppState.on('ym-change', () => {
+    lastLoadedYM = ''; // 重置，讓新月份可以重新載入
+    loadAll();
+  });
 
   // 新增
   document.getElementById('add-fixed-btn').addEventListener('click', () => {
@@ -48,18 +66,6 @@ export function initFixedExpensesPage() {
     setTimeout(() => nameInput.focus(), 50);
   });
 
-  // 從模板生成
-  document.getElementById('generate-btn').addEventListener('click', async () => {
-    const { year, month } = AppState.getYearMonth();
-    if (!confirm('確定要從固定支出模板生成本月的項目嗎？\n（已存在的同名項目不會重複新增）')) return;
-    try {
-      const added = await generateFixedExpensesFromTemplates(year, month);
-      alert(added > 0 ? `✅ 已生成 ${added} 筆固定支出` : 'ℹ️ 本月已無需新增的項目');
-    } catch (err) {
-      alert('生成失敗：' + err.message);
-    }
-  });
-
   document.getElementById('fixed-cancel-btn').addEventListener('click', () => {
     modal.classList.remove('active');
   });
@@ -67,20 +73,18 @@ export function initFixedExpensesPage() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const { year, month } = AppState.getYearMonth();
-
     const payload = {
       name: nameInput.value.trim(),
       amount: Number(amountInput.value) || 0,
       cycle: cycleSelect.value,
-      dueDate: dueInput.value.trim(),
       note: noteInput.value.trim(),
     };
     if (!payload.name) return;
 
     if (editingId) {
-      await updateFixedExpense(year, month, editingId, payload);
+      await updateFixedExpenseV2(year, month, editingId, payload);
     } else {
-      await addFixedExpense(year, month, payload);
+      await addFixedExpenseV2(year, month, payload);
     }
     modal.classList.remove('active');
   });
@@ -101,60 +105,75 @@ export function initFixedExpensesPage() {
       nameInput.value = x.name || '';
       amountInput.value = x.amount || '';
       cycleSelect.value = x.cycle || '每月';
-      dueInput.value = x.dueDate || '';
       noteInput.value = x.note || '';
       modal.classList.add('active');
       setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
-      if (confirm(`確定要刪除「${x.name}」嗎？`)) {
+      if (confirm(`確定要刪除「${x.name}」嗎？（僅刪除本月）`)) {
         const { year, month } = AppState.getYearMonth();
-        await removeFixedExpense(year, month, id);
+        await removeFixedExpenseV2(year, month, id);
       }
     }
   });
 
-  // 勾選已付款
+  // 勾選已付款 / 本月不適用
   tbody.addEventListener('change', async (e) => {
-    const checkbox = e.target;
-    if (checkbox.dataset.action !== 'toggle-paid') return;
-
+    const el = e.target;
     const { year, month } = AppState.getYearMonth();
-    const id = checkbox.dataset.id;
-    const isPaid = checkbox.checked;
+    const id = el.dataset.id;
+    if (!id) return;
 
-    await updateFixedExpense(year, month, id, {
-      status: isPaid ? '已付款' : '未付款',
-      paidDate: isPaid ? new Date().toISOString().slice(0, 10) : '',
-    });
+    if (el.dataset.action === 'toggle-paid') {
+      await updateFixedExpenseV2(year, month, id, {
+        status: el.checked ? '已付款' : '未付款',
+        paidDate: el.checked ? new Date().toISOString().slice(0, 10) : '',
+      });
+    } else if (el.dataset.action === 'toggle-skip') {
+      await updateFixedExpenseV2(year, month, id, {
+        isSkipped: el.checked,
+      });
+    }
   });
 
   function render() {
-    const total = list.reduce((s, x) => s + (Number(x.amount) || 0), 0);
-    const pending = list.filter((x) => x.status !== '已付款').length;
+    // 計算本月總額（排除不適用）
+    const activeList = list.filter((x) => !x.isSkipped);
+    const total = activeList.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const pending = activeList.filter((x) => x.status !== '已付款').length;
 
     document.getElementById('fixed-total').textContent = formatHKD(total);
     document.getElementById('fixed-pending-count').textContent = `${pending} 筆`;
 
     if (!list.length) {
-      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">本月尚無固定支出，請點擊「新增」或「從模板生成」。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">本月尚無固定支出，請點擊「新增固定支出」。</td></tr>`;
       return;
     }
 
     tbody.innerHTML = list.map((x) => {
       const isPaid = x.status === '已付款';
+      const isSkipped = !!x.isSkipped;
+      const rowStyle = isSkipped ? 'opacity:0.4; text-decoration:line-through;' : '';
+      const statusBadge = isSkipped
+        ? '<span class="badge badge-info">本月不適用</span>'
+        : (isPaid
+          ? '<span class="badge badge-success">已付款</span>'
+          : '<span class="badge badge-pending">未付款</span>');
+
       return `
-        <tr>
+        <tr style="${rowStyle}">
           <td>${escapeHtml(x.name)}${x.note ? `<div class="glass-card-hint" style="margin-top:4px;">${escapeHtml(x.note)}</div>` : ''}</td>
           <td class="num">${formatHKD(x.amount)}</td>
           <td>${escapeHtml(x.cycle || '每月')}</td>
-          <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x.dueDate || '—')}</td>
-          <td>${isPaid
-            ? '<span class="badge badge-success">已付款</span>'
-            : '<span class="badge badge-pending">未付款</span>'}
+          <td>${statusBadge}</td>
+          <td>
+            <input type="checkbox" ${isPaid ? 'checked' : ''} ${isSkipped ? 'disabled' : ''}
+              data-action="toggle-paid" data-id="${x.id}"
+              style="width:auto; cursor:pointer;">
           </td>
           <td>
-            <input type="checkbox" ${isPaid ? 'checked' : ''}
-              data-action="toggle-paid" data-id="${x.id}"
+            <input type="checkbox" ${isSkipped ? 'checked' : ''}
+              data-action="toggle-skip" data-id="${x.id}"
+              title="勾選後，本月不計入總支出"
               style="width:auto; cursor:pointer;">
           </td>
           <td>
