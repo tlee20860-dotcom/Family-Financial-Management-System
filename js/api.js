@@ -1,6 +1,8 @@
 // ============================================
-// api.js — 前端呼叫 Cloudflare Functions 的封裝
+// api.js — Cloudflare Functions 呼叫封裝（多家庭版）
 // ============================================
+
+import { AppState } from './state.js';
 
 async function callApi(path, options = {}) {
   const res = await fetch(path, options);
@@ -11,17 +13,22 @@ async function callApi(path, options = {}) {
   return res.json();
 }
 
-export const api = {
-  initFamily: () => callApi('/api/init-family', { method: 'POST' }),
+function getFamilyId() {
+  const id = AppState.getFamilyId();
+  if (!id) throw new Error('尚未選擇家庭');
+  return id;
+}
 
+export const api = {
   summary: (year, month) =>
-    callApi(`/api/summary?year=${year}&month=${month}`),
+    callApi(`/api/summary?familyId=${getFamilyId()}&year=${year}&month=${month}`),
 
   fetchAnnualSummary: async (year) => {
+    const familyId = getFamilyId();
     const promises = [];
     for (let m = 1; m <= 12; m++) {
       const mm = String(m).padStart(2, '0');
-      promises.push(api.summary(year, mm));
+      promises.push(callApi(`/api/summary?familyId=${familyId}&year=${year}&month=${mm}`));
     }
     const results = await Promise.all(promises);
 
@@ -46,11 +53,8 @@ export const api = {
     const netBalance = totalIncome - totalExpense;
 
     return {
-      year,
-      monthly,
-      totalIncome,
-      totalExpense,
-      netBalance,
+      year, monthly,
+      totalIncome, totalExpense, netBalance,
       yearlyInsuranceTotal: results[0]?.yearlyInsuranceTotal || 0,
       totalAssets: results[11]?.totalAssets || results[0]?.totalAssets || 0,
       bankBalance: results[11]?.bankBalance || 0,
@@ -62,13 +66,37 @@ export const api = {
     callApi('/api/insurance-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, action: 'upsert' }),
+      body: JSON.stringify({ ...payload, familyId: getFamilyId(), action: 'upsert' }),
     }),
 
   insuranceUnsync: (payload) =>
     callApi('/api/insurance-sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...payload, action: 'delete' }),
+      body: JSON.stringify({ ...payload, familyId: getFamilyId(), action: 'delete' }),
+    }),
+
+  /* ---------- 平台管理 API ---------- */
+  adminListFamilies: () => callApi('/api/admin-families?action=list'),
+
+  adminAddFamily: (uid, name, email) =>
+    callApi('/api/admin-families', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add', uid, name, email }),
+    }),
+
+  adminRemoveFamily: (uid) =>
+    callApi('/api/admin-families', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'remove', uid }),
+    }),
+
+  adminInitFamily: (uid) =>
+    callApi('/api/admin-init-family', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid }),
     }),
 };
