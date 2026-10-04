@@ -10,20 +10,19 @@ export async function onRequestGet({ request }) {
     const year = url.searchParams.get('year');
     const month = url.searchParams.get('month');
 
-    // 計算上個月
     let prevY = Number(year);
     let prevM = Number(month) - 1;
     if (prevM < 1) { prevY -= 1; prevM = 12; }
     const prevMonthStr = String(prevM).padStart(2, '0');
 
-    const [members, policies, expenses, income, assets, funds, fixed, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
+    const [members, policies, expenses, income, funds, fixedTemplates, fixedStatus, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
       dbGet('family_members'),
       dbGet('insurance_policies'),
       year && month ? dbGet(`family_expenses/${year}/${month}/member_expenses`) : null,
       year && month ? dbGet(`family_income/${year}/${month}`) : null,
-      dbGet('family_assets'),
       dbGet('investment_funds'),
-      year && month ? dbGet(`fixed_expenses/${year}/${month}`) : null,
+      dbGet('fixed_expense_templates'),
+      year && month ? dbGet(`fixed_expense_status/${year}/${month}`) : null,
       dbGet('expense_categories'),
       dbGet('expense_items'),
       year && month ? dbGet(`bank_balances/${year}/${month}`) : null,
@@ -35,16 +34,16 @@ export async function onRequestGet({ request }) {
     const policiesObj = policies || {};
     const expensesObj = expenses || {};
     const incomeObj = income || {};
-    const assetsObj = assets || {};
     const fundsObj = funds || {};
-    const fixedObj = fixed || {};
+    const fixedTemplatesObj = fixedTemplates || {};
+    const fixedStatusObj = fixedStatus || {};
     const categoriesObj = categories || {};
     const itemsObj = items || {};
     const bankBalancesObj = bankBalances || {};
     const prevBankBalancesObj = prevBankBalances || {};
     const banksObj = banks || {};
 
-    /* ---------- 支出匯總（含明細） ---------- */
+    /* ---------- 支出匯總 ---------- */
     const perMember = {};
     let totalExpense = 0;
 
@@ -69,12 +68,25 @@ export async function onRequestGet({ request }) {
       totalExpense += sum;
     });
 
-    /* ---------- 固定支出匯總 ---------- */
-    const fixedList = Object.entries(fixedObj).map(([id, x]) => ({
-      id, name: x.name || '', amount: Number(x.amount) || 0,
-      status: x.status || '未付款', dueDate: x.dueDate || '', cycle: x.cycle || '每月',
-    }));
-    const fixedTotal = fixedList.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    /* ---------- 🆕 固定支出匯總（模板 + 每月狀態） ---------- */
+    const familyTemplates = Object.entries(fixedTemplatesObj)
+      .filter(([id, t]) => !t.memberId && t.type !== 'member')
+      .map(([id, t]) => ({ id, ...t }));
+
+    const fixedList = familyTemplates.map((t) => {
+      const st = fixedStatusObj[t.id] || {};
+      return {
+        id: t.id,
+        name: t.name || '',
+        amount: Number(t.amount) || 0,
+        cycle: t.cycle || '每月',
+        note: t.note || '',
+        status: st.status || '未付款',
+        paidDate: st.paidDate || '',
+      };
+    });
+
+    const fixedTotal = fixedList.reduce((s, x) => s + x.amount, 0);
     const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
     totalExpense += fixedTotal;
 
@@ -82,22 +94,12 @@ export async function onRequestGet({ request }) {
     const incomeBreakdown = {};
     let totalIncome = 0;
     Object.entries(incomeObj).forEach(([key, val]) => {
-      const num = Number(val) || 0;
-      incomeBreakdown[key] = num;
-      totalIncome += num;
+      if (key === 'extra' || key.startsWith('mem_')) {
+        const num = Number(val) || 0;
+        incomeBreakdown[key] = num;
+        totalIncome += num;
+      }
     });
-    if (incomeObj.husbandContribution) {
-      incomeBreakdown.mem_husband = (incomeBreakdown.mem_husband || 0) + Number(incomeObj.husbandContribution);
-      totalIncome += Number(incomeObj.husbandContribution);
-    }
-    if (incomeObj.wifeContribution) {
-      incomeBreakdown.mem_wife = (incomeBreakdown.mem_wife || 0) + Number(incomeObj.wifeContribution);
-      totalIncome += Number(incomeObj.wifeContribution);
-    }
-    if (incomeObj.extraIncome) {
-      incomeBreakdown.extra = (incomeBreakdown.extra || 0) + Number(incomeObj.extraIncome);
-      totalIncome += Number(incomeObj.extraIncome);
-    }
 
     /* ---------- 保險匯總 ---------- */
     const policyList = Object.values(policiesObj);
@@ -119,7 +121,7 @@ export async function onRequestGet({ request }) {
     const fundValue = fundList.reduce((s, f) => s + (Number(f.currentValue) || 0), 0);
     const totalAssets = bankBalanceTotal + fundValue;
 
-    /* ---------- 🆕 當月可用金額 ---------- */
+    /* ---------- 當月可用金額 ---------- */
     const prevBankTotal = Object.values(prevBankBalancesObj).reduce((s, b) => s + (Number(b.amount) || 0), 0);
     const availableFunds = prevBankTotal + totalIncome;
 
