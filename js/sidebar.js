@@ -1,5 +1,5 @@
 // ============================================
-// sidebar.js — 左側導覽選單（動態讀取成員）
+// sidebar.js — 左側導覽選單（動態讀取成員，含自訂排序）
 // ============================================
 
 import { listenMembers } from './db.js';
@@ -18,6 +18,7 @@ const STATIC_BOTTOM = [
   { icon: 'file-text',    label: '固定支出',   href: 'fixed-expenses.html' },
   { icon: 'tags',         label: '支出項目庫', href: 'expense-categories.html' },
   { icon: 'line-chart',   label: '基金投資',   href: 'portfolio.html' },
+  { icon: 'bar-chart-3',  label: '年度報表',   href: 'annual-report.html' }, // 預留給 P19-B
   { icon: 'settings',     label: '系統設定',   href: 'settings.html' },
 ];
 
@@ -37,7 +38,8 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
 
   const nav = root.querySelector('#sidebar-nav-inner');
   listenMembers((members) => {
-    nav.innerHTML = renderNavContent(members, activeHref);
+    const sorted = sortMembers(members);
+    nav.innerHTML = renderNavContent(sorted, activeHref);
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
     }
@@ -71,4 +73,13 @@ function renderNavItem(item, activeHref) {
       <span class="nav-label">${escapeHtml(item.label)}</span>
     </a>
   `;
+}
+
+function sortMembers(members) {
+  return [...members].sort((a, b) => {
+    const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
+    const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
 }
