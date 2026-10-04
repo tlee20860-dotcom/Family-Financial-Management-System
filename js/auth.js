@@ -1,5 +1,5 @@
 // ============================================
-// auth.js — 自訂帳號登入 / 登出 封裝
+// auth.js — 自訂帳號登入 / 登出 封裝（多家庭版）
 // ============================================
 
 import { auth } from './firebase-config.js';
@@ -10,6 +10,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const DOMAIN = '@familyfin.local';
+const SUPERADMIN_EMAIL = `superadmin${DOMAIN}`;
 
 function toEmail(account) {
   if (!account) return '';
@@ -29,6 +30,8 @@ export async function loginWithCustomAccount(account, password) {
 
 export async function logout() {
   await signOut(auth);
+  localStorage.removeItem('fin_family_id');
+  localStorage.removeItem('fin_family_name');
   window.location.href = 'login.html';
 }
 
@@ -40,4 +43,8 @@ export function getDisplayName(user) {
   return user ? toAccount(user.email) : '';
 }
 
-export { toAccount, toEmail };
+export function isSuperAdmin(user) {
+  return !!user && user.email === SUPERADMIN_EMAIL;
+}
+
+export { toAccount, toEmail, SUPERADMIN_EMAIL, DOMAIN };
