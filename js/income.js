@@ -10,6 +10,7 @@ import { api } from './api.js';
 let members = [];
 let currentIncome = {};
 let unsubscribeIncome = null;
+let pendingAnnualData = null; // 🆕 暫存全年資料，等 members 載入後重繪
 
 export function initIncomePage() {
   const container = document.getElementById('member-inputs');
@@ -21,6 +22,11 @@ export function initIncomePage() {
     members = list;
     renderMemberInputs(container);
     applyIncomeToInputs();
+
+    // 🆕 若已有全年資料且當前為全年模式，重新渲染（解決成員名字顯示問題）
+    if (pendingAnnualData && AppState.isAnnualMode()) {
+      renderAnnual(pendingAnnualData);
+    }
   });
 
   const reloadIncome = async () => {
@@ -37,6 +43,7 @@ export function initIncomePage() {
       if (unsubscribeIncome) { unsubscribeIncome(); unsubscribeIncome = null; }
       await loadAnnual(year);
     } else {
+      pendingAnnualData = null; // 切換到單月模式時清空
       if (unsubscribeIncome) unsubscribeIncome();
       unsubscribeIncome = listenIncomeV2(year, month, (data) => {
         currentIncome = data || {};
@@ -54,6 +61,11 @@ export function initIncomePage() {
     if (members.length === 0) return;
 
     const { year, month } = AppState.getYearMonth();
+    if (month === 'all') {
+      alert('請先切換到特定月份，再輸入收入。');
+      return;
+    }
+
     const payload = {};
     members.forEach((m) => {
       const input = document.getElementById(`income-${m.id}`);
@@ -75,6 +87,7 @@ export function initIncomePage() {
   async function loadAnnual(year) {
     try {
       const data = await api.fetchAnnualSummary(year);
+      pendingAnnualData = data;
       renderAnnual(data);
     } catch (err) {
       console.error('全年收入載入失敗：', err);
@@ -84,6 +97,10 @@ export function initIncomePage() {
   function renderAnnual(data) {
     let totalAll = 0;
     const container = document.getElementById('annual-monthly-cards');
+
+    // 建立成員 ID → 名稱 的對照表
+    const memberNameMap = {};
+    members.forEach((m) => { memberNameMap[m.id] = m.name; });
 
     const cards = data.monthly.map((m) => {
       const breakdown = m.incomeBreakdown || {};
@@ -95,7 +112,7 @@ export function initIncomePage() {
         if (!amount) return '';
         const name = key === 'extra'
           ? '額外收入'
-          : (members.find((x) => x.id === key)?.name || key);
+          : (memberNameMap[key] || `（未知成員 ${key}）`);
         return `
           <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;">
             <span>${escapeHtml(name)}</span>
