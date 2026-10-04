@@ -11,8 +11,9 @@ export async function dbGet(path) {
   return res.json();
 }
 
-export async function dbPut(path, data) {
-  const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+export async function dbPut(path, data, token = '') {
+  const url = `${FIREBASE_DB_URL}/${path}.json${token ? `?auth=${token}` : ''}`;
+  const res = await fetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
