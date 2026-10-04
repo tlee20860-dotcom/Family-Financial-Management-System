@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構）v29
+// insurance.js — 保險付款（年度化重構 + 全年模式優化）
 // ============================================
 
 import {
@@ -41,6 +41,11 @@ export function initInsurancePage() {
     members = list;
     renderMemberOptions();
   });
+
+  // 🆕 切換年月時，自動重新渲染
+  AppState.on('ym-change', () => {
+    renderGrid();
+  });
 }
 
 function bindPolicyModalEvents() {
@@ -70,7 +75,7 @@ function bindPolicyModalEvents() {
     const now = new Date();
     startYearInput.value = now.getFullYear();
     startMonthSel.value = String(now.getMonth() + 1).padStart(2, '0');
-    currentPeriodInput.value = 1; // 預設為第一年度
+    currentPeriodInput.value = 1;
     totalYearsInput.value = 5;
     monthlyInput.value = '';
     modal.classList.add('active');
@@ -83,11 +88,9 @@ function bindPolicyModalEvents() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const annual = Number(annualInput.value) || 0;
     const monthlyAvg = annual / 12;
 
-    // 🆕 嚴格校驗開始年月
     const firstY = Number(startYearInput.value);
     const firstM = Number(startMonthSel.value);
     if (firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) {
@@ -95,7 +98,6 @@ function bindPolicyModalEvents() {
       return;
     }
 
-    // 🆕 嚴格校驗目前第幾年度
     const currentPeriod = Number(currentPeriodInput.value);
     if (currentPeriod < 1 || currentPeriod > 100) {
       alert('「目前是第幾年度」請填寫合理數字（例如：1、2、3...）。');
@@ -117,7 +119,6 @@ function bindPolicyModalEvents() {
       periods: {},
     };
 
-    // 寫入當前年度的保費
     const cp = payload.currentPeriodIndex;
     const startY = payload.firstStartYear + Math.floor((cp - 1) / 12);
     const startM = String(((Number(payload.firstStartMonth) - 1 + (cp - 1) % 12) % 12) + 1).padStart(2, '0');
@@ -193,23 +194,21 @@ function renderMemberOptions() {
 
 /**
  * 根據當前年月計算所屬的保單年度
- * 🆕 加入防呆校驗，避免錯誤資料導致算出離譜數字
  */
 function getPeriodInfo(policy, curYear, curMonth) {
   const firstY = Number(policy.firstStartYear);
   const firstM = Number(policy.firstStartMonth);
 
-  // 🆕 防呆：若開始年月無效，直接回傳 null（不顯示）
   if (!firstY || !firstM || firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) {
     console.warn('保單開始年月無效：', policy.id, policy.firstStartYear, policy.firstStartMonth);
     return null;
   }
 
   const totalMonths = (curYear - firstY) * 12 + (curMonth - firstM);
-  if (totalMonths < 0) return null; // 尚未開始
+  if (totalMonths < 0) return null;
 
   const periodIndex = Math.floor(totalMonths / 12) + 1;
-  if (policy.totalPolicyYears && periodIndex > policy.totalPolicyYears) return null; // 已供完
+  if (policy.totalPolicyYears && periodIndex > policy.totalPolicyYears) return null;
 
   const startY = firstY + Math.floor((periodIndex - 1) / 12);
   const startM = String(((firstM - 1 + (periodIndex - 1) % 12) % 12) + 1).padStart(2, '0');
@@ -230,22 +229,106 @@ function renderGrid() {
   const grid = document.getElementById('policy-grid');
   const { year, month } = AppState.getYearMonth();
   const isAnnual = month === 'all';
+  const curY = Number(year);
+  const curM = Number(month);
+
   document.getElementById('insurance-month').textContent = isAnnual
     ? `${year} 年 全年總覽`
     : `${year} 年 ${month} 月`;
 
+  // ========== 全年模式 ==========
   if (isAnnual) {
-    grid.innerHTML = `
-      <div class="glass-card" style="grid-column:1/-1;">
-        <div class="empty-state">請切換到單月模式查看保險扣款狀態。</div>
-      </div>`;
+    if (!policies.length) {
+      grid.innerHTML = `
+        <div class="glass-card" style="grid-column:1/-1;">
+          <div class="empty-state">
+            <i data-lucide="shield" style="width:48px;height:48px;opacity:0.4;"></i>
+            <p style="margin-top:12px;">尚無保單資料，點擊「新增保單」開始。</p>
+          </div>
+        </div>`;
+      if (window.lucide) window.lucide.createIcons();
+      return;
+    }
+
+    grid.innerHTML = policies.map((p) => {
+      const member = members.find((m) => m.id === p.memberId);
+      const memberName = member ? member.name : '（未指定）';
+      const isFund = p.type === 'fund_insurance';
+      const totalPeriods = p.totalPolicyPeriods || 0;
+
+      // 計算本年度總保費（累加該年度的所有 periods）
+      let yearlyPremium = 0;
+      Object.values(p.periods || {}).forEach((per) => {
+        if (per.startYear === curY) yearlyPremium += Number(per.annualPremium) || 0;
+      });
+
+      if (isFund) {
+        return `
+          <div class="glass-card policy-card">
+            <div class="policy-header">
+              <div><div class="policy-name">${escapeHtml(p.name)}</div><div class="policy-company">${escapeHtml(p.company)} · 基金保險</div></div>
+            </div>
+            <div class="policy-info-grid">
+              <div class="policy-info-item"><span class="policy-info-label">受保成員</span><span class="policy-info-value">${escapeHtml(memberName)}</span></div>
+              <div class="policy-info-item"><span class="policy-info-label">每月供款</span><span class="policy-info-value text-cyan">${formatHKD(p.monthlyPremium)}</span></div>
+            </div>
+            <div class="policy-actions">
+              <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button>
+              <button class="btn btn-sm btn-danger" data-action="delete" data-id="${p.id}">刪除</button>
+            </div>
+          </div>`;
+      }
+
+      return `
+        <div class="glass-card policy-card">
+          <div class="policy-header">
+            <div><div class="policy-name">${escapeHtml(p.name)}</div><div class="policy-company">${escapeHtml(p.company)} · 普通保險</div></div>
+          </div>
+          <div class="policy-info-grid">
+            <div class="policy-info-item"><span class="policy-info-label">受保成員</span><span class="policy-info-value">${escapeHtml(memberName)}</span></div>
+            <div class="policy-info-item"><span class="policy-info-label">本年度保費</span><span class="policy-info-value text-cyan">${formatHKD(yearlyPremium)}</span></div>
+          </div>
+          <div class="policy-progress" style="margin-top:12px;">
+            <div class="policy-progress-text"><span>整體供款進度</span><span id="overall-${p.id}">- / ${totalPeriods} 期</span></div>
+            <div class="progress"><div class="progress-bar" id="overall-bar-${p.id}" style="width:0%;"></div></div>
+          </div>
+          <div class="policy-actions" style="margin-top:10px;">
+            <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button>
+            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${p.id}">刪除</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    // 計算全年模式的整體進度
+    policies.forEach((p) => {
+      if (p.type === 'fund_insurance') return;
+      import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, get }) => {
+        import('./firebase-config.js').then(({ db }) => {
+          get(ref(db, `insurance_payments/${p.id}`)).then((snap) => {
+            const all = snap.val() || {};
+            let overallDone = 0;
+            Object.values(all).forEach((yearData) => {
+              Object.values(yearData || {}).forEach((mData) => {
+                if (mData.status === '已扣款') overallDone++;
+              });
+            });
+            const totalP = p.totalPolicyPeriods || 0;
+            const overallPct = totalP > 0 ? Math.round((overallDone / totalP) * 100) : 0;
+
+            const overallEl = document.getElementById(`overall-${p.id}`);
+            const overallBar = document.getElementById(`overall-bar-${p.id}`);
+            if (overallEl) overallEl.textContent = `${overallDone} / ${totalP} 期 (${overallPct}%)`;
+            if (overallBar) overallBar.style.width = `${overallPct}%`;
+          });
+        });
+      });
+    });
+
+    if (window.lucide) window.lucide.createIcons();
     return;
   }
 
-  const curY = Number(year);
-  const curM = Number(month);
-
-  // 過濾出當前應顯示的保單
+  // ========== 單月模式 ==========
   const visiblePolicies = policies.filter((p) => {
     if (p.type === 'fund_insurance') return true;
     const info = getPeriodInfo(p, curY, curM);
@@ -270,7 +353,6 @@ function renderGrid() {
     const isFund = p.type === 'fund_insurance';
 
     if (isFund) {
-      // 基金保險（略，與上版相同）
       return `
         <div class="glass-card policy-card">
           <div class="policy-header">
@@ -287,7 +369,6 @@ function renderGrid() {
         </div>`;
     }
 
-    // 普通保險
     const info = getPeriodInfo(p, curY, curM);
     const periodData = (p.periods || {})[String(info.periodIndex)];
 
@@ -342,7 +423,7 @@ function renderGrid() {
       </div>`;
   }).join('');
 
-  // 綁定扣款與進度計算
+  // 綁定單月模式的扣款與進度計算
   visiblePolicies.forEach((p) => {
     if (p.type === 'fund_insurance') return;
     const info = getPeriodInfo(p, curY, curM);
@@ -357,7 +438,6 @@ function renderGrid() {
       });
     }
 
-    // 進度計算
     import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, get }) => {
       import('./firebase-config.js').then(({ db }) => {
         get(ref(db, `insurance_payments/${p.id}`)).then((snap) => {
@@ -379,8 +459,7 @@ function renderGrid() {
             });
           });
 
-          const totalP = p.totalPolicyPeriods || 0;
-          const overallPct = totalP > 0 ? Math.round((overallDone / totalP) * 100) : 0;
+          const overallPct = totalPeriods > 0 ? Math.round((overallDone / totalPeriods) * 100) : 0;
           const yearlyPct = Math.round((yearlyDone / 12) * 100);
 
           const overallEl = document.getElementById(`overall-${p.id}`);
@@ -388,7 +467,7 @@ function renderGrid() {
           const yearlyEl = document.getElementById(`yearly-${p.id}`);
           const yearlyBar = document.getElementById(`yearly-bar-${p.id}`);
 
-          if (overallEl) overallEl.textContent = `${overallDone} / ${totalP} 期 (${overallPct}%)`;
+          if (overallEl) overallEl.textContent = `${overallDone} / ${totalPeriods} 期 (${overallPct}%)`;
           if (overallBar) overallBar.style.width = `${overallPct}%`;
           if (yearlyEl) yearlyEl.textContent = `${yearlyDone} / 12 期 (${yearlyPct}%)`;
           if (yearlyBar) yearlyBar.style.width = `${yearlyPct}%`;
@@ -400,7 +479,7 @@ function renderGrid() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-// 事件委派（補上編輯按鈕邏輯）
+// 事件委派
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('button[data-action]');
   if (!btn) return;
@@ -423,7 +502,6 @@ document.addEventListener('click', async (e) => {
     document.getElementById('add-period-monthly').value = prevData ? prevData.monthlyAverage : '';
     document.getElementById('add-period-modal').classList.add('active');
   } else if (action === 'edit') {
-    // 🆕 補上編輯邏輯
     editingId = id;
     document.getElementById('policy-modal-title').textContent = '編輯保單';
     document.getElementById('policy-type').value = p.type || 'normal';
