@@ -1,5 +1,5 @@
 // ============================================
-// sidebar.js — 左側導覽選單（動態讀取成員，含自訂排序）
+// sidebar.js — 左側導覽選單（成員版面可折疊）
 // ============================================
 
 import { listenMembers } from './db.js';
@@ -18,11 +18,14 @@ const STATIC_BOTTOM = [
   { icon: 'file-text',    label: '固定支出',   href: 'fixed-expenses.html' },
   { icon: 'tags',         label: '支出項目庫', href: 'expense-categories.html' },
   { icon: 'line-chart',   label: '基金投資',   href: 'portfolio.html' },
-  { icon: 'bar-chart-3',  label: '年度報表',   href: 'annual-report.html' }, // 預留給 P19-B
+  { icon: 'bar-chart-3',  label: '年度報表',   href: 'annual-report.html' },
   { icon: 'settings',     label: '系統設定',   href: 'settings.html' },
 ];
 
 const ROLE_ICON = { husband: 'user', wife: 'user', child: 'user', other: 'user' };
+
+// 🆕 全域折疊狀態
+let isMembersGroupOpen = null;
 
 export async function renderSidebar(containerId = 'sidebar-root', activeHref = '') {
   const root = document.getElementById(containerId);
@@ -37,9 +40,33 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
   `;
 
   const nav = root.querySelector('#sidebar-nav-inner');
+
+  // 初始化折疊狀態（從 localStorage 讀取，預設為展開）
+  if (isMembersGroupOpen === null) {
+    const saved = localStorage.getItem('members-group-open');
+    isMembersGroupOpen = saved === 'true'; // 預設 false（折疊）
+  }
+
+  // 若當前頁面是成員相關，強制展開
+  const isMemberPage = activeHref.includes('member-detail') || activeHref.includes('members.html');
+  if (isMemberPage) isMembersGroupOpen = true;
+
+  // 綁定折疊事件（事件委派，只綁定一次）
+  if (!window._sidebarEventBound) {
+    window._sidebarEventBound = true;
+    document.addEventListener('click', (e) => {
+      const title = e.target.closest('#members-group-title');
+      if (!title) return;
+
+      isMembersGroupOpen = !isMembersGroupOpen;
+      localStorage.setItem('members-group-open', String(isMembersGroupOpen));
+      updateMembersGroupUI();
+    });
+  }
+
   listenMembers((members) => {
-    const sorted = sortMembers(members);
-    nav.innerHTML = renderNavContent(sorted, activeHref);
+    nav.innerHTML = renderNavContent(members, activeHref);
+    updateMembersGroupUI();
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
     }
@@ -52,8 +79,12 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
 function renderNavContent(members, activeHref) {
   return `
     ${STATIC_TOP.map((item) => renderNavItem(item, activeHref)).join('')}
-    <div class="nav-group-title">成員版面</div>
-    <div class="nav-sub">
+
+    <div class="nav-group-title collapsible" id="members-group-title">
+      <span>成員版面</span>
+      <i data-lucide="chevron-down" class="nav-group-arrow"></i>
+    </div>
+    <div class="nav-sub" id="members-group-sub">
       ${members.map((m) => renderNavItem({
         icon: ROLE_ICON[m.role] || 'user',
         label: m.name,
@@ -61,6 +92,7 @@ function renderNavContent(members, activeHref) {
       }, activeHref)).join('')}
       ${renderNavItem({ icon: 'plus', label: '管理成員', href: 'members.html' }, activeHref)}
     </div>
+
     ${STATIC_BOTTOM.map((item) => renderNavItem(item, activeHref)).join('')}
   `;
 }
@@ -75,11 +107,19 @@ function renderNavItem(item, activeHref) {
   `;
 }
 
-function sortMembers(members) {
-  return [...members].sort((a, b) => {
-    const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
-    const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
-    if (oa !== ob) return oa - ob;
-    return (a.createdAt || 0) - (b.createdAt || 0);
-  });
+/**
+ * 更新成員版面的 UI 狀態（展開 / 折疊）
+ */
+function updateMembersGroupUI() {
+  const title = document.getElementById('members-group-title');
+  const sub = document.getElementById('members-group-sub');
+  if (!title || !sub) return;
+
+  if (isMembersGroupOpen) {
+    title.classList.add('open');
+    sub.style.display = 'block';
+  } else {
+    title.classList.remove('open');
+    sub.style.display = 'none';
+  }
 }
