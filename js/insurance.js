@@ -185,8 +185,24 @@ function getPeriodInfo(policy, curYear, curMonth) {
 }
 
 async function openDetailModal(p) {
-  const info = getPeriodInfo(p, Number(AppState.year), Number(AppState.month));
-  if (!info) return;
+  // 🆕 若處於全年模式，改用 currentPeriodIndex 來推算當前年度
+  let curY, curM;
+  if (AppState.month === 'all') {
+    const firstY = Number(p.firstStartYear);
+    const firstM = Number(p.firstStartMonth);
+    const cp = Number(p.currentPeriodIndex) || 1;
+    curY = firstY + Math.floor((cp - 1) / 12);
+    curM = ((firstM - 1 + (cp - 1) % 12) % 12) + 1;
+  } else {
+    curY = Number(AppState.year);
+    curM = Number(AppState.month);
+  }
+
+  const info = getPeriodInfo(p, curY, curM);
+  if (!info) {
+    alert('無法計算保單年度，請確認保單開始日期是否正確。');
+    return;
+  }
 
   currentDetailPolicy = p;
   document.getElementById('insurance-detail-title').textContent = `${p.name} - 第 ${info.periodIndex} 年度付款明細`;
@@ -227,7 +243,6 @@ async function openDetailModal(p) {
 
   document.getElementById('insurance-detail-modal').classList.add('active');
 }
-
 function renderGrid() {
   const grid = document.getElementById('policy-grid');
   const { year, month } = AppState.getYearMonth();
