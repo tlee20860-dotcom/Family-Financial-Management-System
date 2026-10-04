@@ -516,3 +516,10 @@ export async function markMemberExpenseRepaid(year, month, memberId, expId, isRe
     }
   );
 }
+/* ---------- 成員排序 ---------- */
+
+export async function updateMemberOrder(id, order) {
+  await update(ref(db, `family_members/${id}`), {
+    order: Number(order) || 0,
+  });
+}
