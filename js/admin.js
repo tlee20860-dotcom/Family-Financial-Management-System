@@ -79,17 +79,21 @@ export function initAdminPage() {
   let familiesCache = [];
 
   async function loadFamilies() {
-    try {
-      const data = await api.adminListFamilies();
-      familiesCache = data.families || [];
-      render();
-    } catch (err) {
-      console.error('載入家庭失敗：', err);
-      showError('無法載入家庭清單：' + err.message);
-      if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-state text-red">載入失敗：${err.message}</td></tr>`;
-      }
-    }
+  const tbody = document.getElementById('family-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="5" class="empty-state">載入中…</td></tr>`;
+
+  try {
+    const data = await api.adminListFamilies();
+    familiesCache = data.families || [];
+    render();
+  } catch (err) {
+    console.error('載入家庭失敗：', err);
+    showError('無法載入家庭清單：' + err.message);
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state text-red">載入失敗：${err.message}</td></tr>`;
+  }
+  }
   }
 
   function render() {
