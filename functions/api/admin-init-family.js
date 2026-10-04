@@ -24,10 +24,10 @@ export async function onRequestPost({ request }) {
     const now = Date.now();
 
     const membersOk = await dbPut(`${basePath}/members`, {
-      mem_husband:  { name: '老公',  role: 'husband', order: 0, createdAt: now + 1 },
-      mem_wife:     { name: '老婆',  role: 'wife',    order: 1, createdAt: now + 2 },
-      mem_son:      { name: '梓舜',  role: 'child',   order: 2, createdAt: now + 3 },
-      mem_daughter: { name: '梓言',  role: 'child',   order: 3, createdAt: now + 4 },
+      mem_husband:  { name: '成員1',  role: 'husband', order: 0, createdAt: now + 1 },
+      mem_wife:     { name: '成員2',  role: 'wife',    order: 1, createdAt: now + 2 },
+      mem_son:      { name: '成員3',  role: 'child',   order: 2, createdAt: now + 3 },
+      mem_daughter: { name: '成員4',  role: 'child',   order: 3, createdAt: now + 4 },
     }, token);
 
     if (!membersOk) return jsonResponse({ ok: false, error: '寫入成員失敗，請檢查 Firebase 規則' }, 500);
