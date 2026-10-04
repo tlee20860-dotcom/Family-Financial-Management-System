@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v31'; // ⚠️ 升級
+const CACHE_NAME = 'family-fin-v32'; // ⚠️ 升級
 
 const STATIC_ASSETS = [
   './css/theme.css', './css/layout.css', './css/components.css',
@@ -14,6 +14,9 @@ const STATIC_ASSETS = [
   './js/settlements.js', './js/fixed-expenses.js', './js/income.js',
   './js/banks.js', './js/annual-report.js', './js/pwa.js',
   './manifest.json', './icons/icon.svg',
+  // ... 原本的內容 ...
+  './js/admin.js',   // 🆕 新增
+  // ...
 ];
 
 self.addEventListener('install', (e) => {
