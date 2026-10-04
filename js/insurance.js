@@ -1,12 +1,12 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 全年模式優化）
+// insurance.js — 保險付款（多家庭版）
 // ============================================
 
 import {
   listenInsurancePolicies,
   addInsurancePolicyV2, updateInsurancePolicyV2, removeInsurancePolicy,
   listenMembers, listenInsurancePayment,
-  addInsurancePeriod,
+  addInsurancePeriod, getInsurancePaymentsOnce,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
@@ -21,7 +21,6 @@ let editingId = null;
 export function initInsurancePage() {
   const grid = document.getElementById('policy-grid');
 
-  // 初始化月份下拉
   const monthSel = document.getElementById('policy-start-month');
   let monthOpts = '';
   for (let m = 1; m <= 12; m++) {
@@ -42,7 +41,6 @@ export function initInsurancePage() {
     renderMemberOptions();
   });
 
-  // 🆕 切換年月時，自動重新渲染
   AppState.on('ym-change', () => {
     renderGrid();
   });
@@ -192,15 +190,11 @@ function renderMemberOptions() {
   if (current) sel.value = current;
 }
 
-/**
- * 根據當前年月計算所屬的保單年度
- */
 function getPeriodInfo(policy, curYear, curMonth) {
   const firstY = Number(policy.firstStartYear);
   const firstM = Number(policy.firstStartMonth);
 
   if (!firstY || !firstM || firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) {
-    console.warn('保單開始年月無效：', policy.id, policy.firstStartYear, policy.firstStartMonth);
     return null;
   }
 
@@ -236,7 +230,6 @@ function renderGrid() {
     ? `${year} 年 全年總覽`
     : `${year} 年 ${month} 月`;
 
-  // ========== 全年模式 ==========
   if (isAnnual) {
     if (!policies.length) {
       grid.innerHTML = `
@@ -256,7 +249,6 @@ function renderGrid() {
       const isFund = p.type === 'fund_insurance';
       const totalPeriods = p.totalPolicyPeriods || 0;
 
-      // 計算本年度總保費（累加該年度的所有 periods）
       let yearlyPremium = 0;
       Object.values(p.periods || {}).forEach((per) => {
         if (per.startYear === curY) yearlyPremium += Number(per.annualPremium) || 0;
@@ -299,36 +291,27 @@ function renderGrid() {
         </div>`;
     }).join('');
 
-    // 計算全年模式的整體進度
-    policies.forEach((p) => {
+    policies.forEach(async (p) => {
       if (p.type === 'fund_insurance') return;
-      import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, get }) => {
-        import('./firebase-config.js').then(({ db }) => {
-          get(ref(db, `insurance_payments/${p.id}`)).then((snap) => {
-            const all = snap.val() || {};
-            let overallDone = 0;
-            Object.values(all).forEach((yearData) => {
-              Object.values(yearData || {}).forEach((mData) => {
-                if (mData.status === '已扣款') overallDone++;
-              });
-            });
-            const totalP = p.totalPolicyPeriods || 0;
-            const overallPct = totalP > 0 ? Math.round((overallDone / totalP) * 100) : 0;
-
-            const overallEl = document.getElementById(`overall-${p.id}`);
-            const overallBar = document.getElementById(`overall-bar-${p.id}`);
-            if (overallEl) overallEl.textContent = `${overallDone} / ${totalP} 期 (${overallPct}%)`;
-            if (overallBar) overallBar.style.width = `${overallPct}%`;
-          });
+      const all = await getInsurancePaymentsOnce(p.id);
+      let overallDone = 0;
+      Object.values(all).forEach((yearData) => {
+        Object.values(yearData || {}).forEach((mData) => {
+          if (mData.status === '已扣款') overallDone++;
         });
       });
+      const totalP = p.totalPolicyPeriods || 0;
+      const overallPct = totalP > 0 ? Math.round((overallDone / totalP) * 100) : 0;
+      const overallEl = document.getElementById(`overall-${p.id}`);
+      const overallBar = document.getElementById(`overall-bar-${p.id}`);
+      if (overallEl) overallEl.textContent = `${overallDone} / ${totalP} 期 (${overallPct}%)`;
+      if (overallBar) overallBar.style.width = `${overallPct}%`;
     });
 
     if (window.lucide) window.lucide.createIcons();
     return;
   }
 
-  // ========== 單月模式 ==========
   const visiblePolicies = policies.filter((p) => {
     if (p.type === 'fund_insurance') return true;
     const info = getPeriodInfo(p, curY, curM);
@@ -423,8 +406,7 @@ function renderGrid() {
       </div>`;
   }).join('');
 
-  // 綁定單月模式的扣款與進度計算
-  visiblePolicies.forEach((p) => {
+  visiblePolicies.forEach(async (p) => {
     if (p.type === 'fund_insurance') return;
     const info = getPeriodInfo(p, curY, curM);
     if (!info) return;
@@ -438,48 +420,42 @@ function renderGrid() {
       });
     }
 
-    import('https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js').then(({ ref, get }) => {
-      import('./firebase-config.js').then(({ db }) => {
-        get(ref(db, `insurance_payments/${p.id}`)).then((snap) => {
-          const all = snap.val() || {};
-          let overallDone = 0;
-          Object.values(all).forEach((yearData) => {
-            Object.values(yearData || {}).forEach((mData) => {
-              if (mData.status === '已扣款') overallDone++;
-            });
-          });
-
-          let yearlyDone = 0;
-          Object.entries(all).forEach(([y, months]) => {
-            Object.entries(months || {}).forEach(([m, data]) => {
-              if (data.status === '已扣款') {
-                const tmpInfo = getPeriodInfo(p, Number(y), Number(m));
-                if (tmpInfo && tmpInfo.periodIndex === info.periodIndex) yearlyDone++;
-              }
-            });
-          });
-
-          const overallPct = totalPeriods > 0 ? Math.round((overallDone / totalPeriods) * 100) : 0;
-          const yearlyPct = Math.round((yearlyDone / 12) * 100);
-
-          const overallEl = document.getElementById(`overall-${p.id}`);
-          const overallBar = document.getElementById(`overall-bar-${p.id}`);
-          const yearlyEl = document.getElementById(`yearly-${p.id}`);
-          const yearlyBar = document.getElementById(`yearly-bar-${p.id}`);
-
-          if (overallEl) overallEl.textContent = `${overallDone} / ${totalPeriods} 期 (${overallPct}%)`;
-          if (overallBar) overallBar.style.width = `${overallPct}%`;
-          if (yearlyEl) yearlyEl.textContent = `${yearlyDone} / 12 期 (${yearlyPct}%)`;
-          if (yearlyBar) yearlyBar.style.width = `${yearlyPct}%`;
-        });
+    const all = await getInsurancePaymentsOnce(p.id);
+    let overallDone = 0;
+    Object.values(all).forEach((yearData) => {
+      Object.values(yearData || {}).forEach((mData) => {
+        if (mData.status === '已扣款') overallDone++;
       });
     });
+
+    let yearlyDone = 0;
+    Object.entries(all).forEach(([y, months]) => {
+      Object.entries(months || {}).forEach(([m, data]) => {
+        if (data.status === '已扣款') {
+          const tmpInfo = getPeriodInfo(p, Number(y), Number(m));
+          if (tmpInfo && tmpInfo.periodIndex === info.periodIndex) yearlyDone++;
+        }
+      });
+    });
+
+    const totalP = p.totalPolicyPeriods || 0;
+    const overallPct = totalP > 0 ? Math.round((overallDone / totalP) * 100) : 0;
+    const yearlyPct = Math.round((yearlyDone / 12) * 100);
+
+    const overallEl = document.getElementById(`overall-${p.id}`);
+    const overallBar = document.getElementById(`overall-bar-${p.id}`);
+    const yearlyEl = document.getElementById(`yearly-${p.id}`);
+    const yearlyBar = document.getElementById(`yearly-bar-${p.id}`);
+
+    if (overallEl) overallEl.textContent = `${overallDone} / ${totalP} 期 (${overallPct}%)`;
+    if (overallBar) overallBar.style.width = `${overallPct}%`;
+    if (yearlyEl) yearlyEl.textContent = `${yearlyDone} / 12 期 (${yearlyPct}%)`;
+    if (yearlyBar) yearlyBar.style.width = `${yearlyPct}%`;
   });
 
   if (window.lucide) window.lucide.createIcons();
 }
 
-// 事件委派
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('button[data-action]');
   if (!btn) return;
@@ -527,7 +503,6 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// 勾選扣款
 document.addEventListener('change', async (e) => {
   const cb = e.target.closest('input[data-action="toggle-paid"]');
   if (!cb) return;
