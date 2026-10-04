@@ -76,18 +76,19 @@ export async function onRequestGet({ request }) {
         paidDate: x.paidDate || '',
         isSkipped: !!x.isSkipped,
       }))
-      .filter((x) => !x.isSkipped); // 過濾掉不適用
+      .filter((x) => !x.isSkipped);
 
     const fixedTotal = fixedList.reduce((s, x) => s + x.amount, 0);
     const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
     totalExpense += fixedTotal;
 
-    /* ---------- 收入匯總 ---------- */
+    /* ---------- 🆕 收入匯總（支援自訂成員 ID） ---------- */
     const incomeBreakdown = {};
     let totalIncome = 0;
     Object.entries(incomeObj).forEach(([key, val]) => {
-      if (key === 'extra' || key.startsWith('mem_')) {
-        const num = Number(val) || 0;
+      const num = Number(val) || 0;
+      // 只要是成員清單中的 ID，或者是額外收入，就計入
+      if (key === 'extra' || membersObj[key]) {
         incomeBreakdown[key] = num;
         totalIncome += num;
       }
