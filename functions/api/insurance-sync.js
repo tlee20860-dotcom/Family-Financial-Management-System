@@ -1,30 +1,24 @@
 // ============================================
 // insurance-sync.js — POST /api/insurance-sync
-// 處理保險扣款 / 取消扣款
 // ============================================
 
-import { dbGet, dbPut, dbDelete, jsonResponse } from './_config.js';
+import { dbPut, dbDelete, jsonResponse } from './_config.js';
 
 export async function onRequestPost({ request }) {
   try {
     const body = await request.json();
     const {
-      action,        // 'upsert' | 'delete'
-      policyId,
-      memberId,
-      policyName,
-      monthlyAverage,
-      year,
-      month,
+      action, familyId, policyId, memberId, policyName, monthlyAverage, year, month,
     } = body || {};
 
-    if (!policyId || !memberId || !year || !month) {
+    if (!familyId || !policyId || !memberId || !year || !month) {
       return jsonResponse({ ok: false, error: '缺少必要欄位' }, 400);
     }
 
+    const basePath = `families/${familyId}`;
     const linkedKey = `linked_${policyId}`;
-    const expensePath = `family_expenses/${year}/${month}/member_expenses/${memberId}/${linkedKey}`;
-    const paymentPath = `insurance_payments/${policyId}/${year}/${month}`;
+    const expensePath = `${basePath}/expenses/${year}/${month}/member_expenses/${memberId}/${linkedKey}`;
+    const paymentPath = `${basePath}/insurance_payments/${policyId}/${year}/${month}`;
 
     if (action === 'delete') {
       await dbDelete(expensePath);
