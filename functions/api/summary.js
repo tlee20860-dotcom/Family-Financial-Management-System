@@ -45,23 +45,8 @@ export async function onRequestGet({ request }) {
     const perMember = {};
     let totalExpense = 0;
 
-    // 🆕 成員排序函式（雲端獨立定義，因為無法 import utils.js）
-    const sortByOrder = (arr) => arr.sort((a, b) => {
-      const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
-      const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
-      if (oa !== ob) return oa - ob;
-      return (a.createdAt || 0) - (b.createdAt || 0);
-    });
-
-    // 先按排序處理成員
-    const orderedMembers = sortByOrder(
-      Object.entries(membersObj).map(([id, m]) => ({ id, ...m }))
-    );
-
-    orderedMembers.forEach((m) => {
-      const memberId = m.id;
-      const list = expensesObj[memberId] || {};
-      const itemsArr = Object.entries(list).map(([id, e]) => {
+    Object.entries(expensesObj).forEach(([memberId, list]) => {
+      const itemsArr = Object.entries(list || {}).map(([id, e]) => {
         const catId = e.categoryId || '';
         const itemId = e.itemId || '';
         return {
@@ -75,8 +60,7 @@ export async function onRequestGet({ request }) {
       itemsArr.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
       const sum = itemsArr.reduce((s, e) => s + (Number(e.amount) || 0), 0);
       perMember[memberId] = {
-        memberName: m.name || '（未知成員）',
-        order: m.order != null ? m.order : Number.MAX_SAFE_INTEGER,
+        memberName: membersObj[memberId]?.name || '（未知成員）',
         itemCount: itemsArr.length, sum, items: itemsArr,
       };
       totalExpense += sum;
@@ -86,10 +70,8 @@ export async function onRequestGet({ request }) {
     const fixedList = Object.entries(fixedObj)
       .map(([id, x]) => ({
         id, name: x.name || '', amount: Number(x.amount) || 0,
-        cycle: x.cycle || '每月',
-        note: x.note || '',
-        status: x.status || '未付款',
-        paidDate: x.paidDate || '',
+        cycle: x.cycle || '每月', note: x.note || '',
+        status: x.status || '未付款', paidDate: x.paidDate || '',
         isSkipped: !!x.isSkipped,
       }))
       .filter((x) => !x.isSkipped);
@@ -98,7 +80,7 @@ export async function onRequestGet({ request }) {
     const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
     totalExpense += fixedTotal;
 
-    /* ---------- 收入匯總（支援自訂成員 ID） ---------- */
+    /* ---------- 收入匯總 ---------- */
     const incomeBreakdown = {};
     let totalIncome = 0;
     Object.entries(incomeObj).forEach(([key, val]) => {
@@ -109,18 +91,35 @@ export async function onRequestGet({ request }) {
       }
     });
 
-    /* ---------- 保險匯總 ---------- */
+    /* ---------- 🆕 保險匯總（年度化） ---------- */
     const policyList = Object.values(policiesObj);
     let yearlyInsuranceTotal = 0;
     let monthlyInsuranceAverage = 0;
-    policyList.forEach((p) => {
-      if (p.monthlyAverage != null) monthlyInsuranceAverage += Number(p.monthlyAverage) || 0;
-      else if (p.monthlyPremium != null) monthlyInsuranceAverage += Number(p.monthlyPremium) || 0;
-      else if (p.annualPremium != null) monthlyInsuranceAverage += (Number(p.annualPremium) || 0) / 12;
+    const curY = Number(year);
+    const curM = Number(month);
 
-      if (p.annualPremium != null) yearlyInsuranceTotal += Number(p.annualPremium) || 0;
-      else if (p.monthlyPremium != null) yearlyInsuranceTotal += (Number(p.monthlyPremium) || 0) * 12;
-      else if (p.totalPremium != null && p.totalPeriods) yearlyInsuranceTotal += (Number(p.totalPremium) || 0) / p.totalPeriods;
+    policyList.forEach((p) => {
+      if (p.type === 'fund_insurance') {
+        const mp = Number(p.monthlyPremium) || 0;
+        monthlyInsuranceAverage += mp;
+        yearlyInsuranceTotal += mp * 12;
+        return;
+      }
+
+      // 找出當前年月屬於哪個年度
+      const firstY = Number(p.firstStartYear) || 0;
+      const firstM = Number(p.firstStartMonth) || 1;
+      const totalMonths = (curY - firstY) * 12 + (curM - firstM);
+
+      if (totalMonths < 0) return; // 還沒開始
+      const periodIndex = Math.floor(totalMonths / 12) + 1;
+      if (p.totalPolicyYears && periodIndex > p.totalPolicyYears) return; // 已供完
+
+      const periodData = (p.periods || {})[String(periodIndex)];
+      if (periodData) {
+        monthlyInsuranceAverage += Number(periodData.monthlyAverage) || 0;
+        yearlyInsuranceTotal += Number(periodData.annualPremium) || 0;
+      }
     });
 
     /* ---------- 資產匯總 ---------- */
