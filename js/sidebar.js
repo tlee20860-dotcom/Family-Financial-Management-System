@@ -3,7 +3,7 @@
 // ============================================
 
 import { listenMembers } from './db.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, sortMembers } from './utils.js';
 
 const STATIC_TOP = [
   { icon: 'home', label: '總覽儀表板', href: 'index.html' },
@@ -24,7 +24,6 @@ const STATIC_BOTTOM = [
 
 const ROLE_ICON = { husband: 'user', wife: 'user', child: 'user', other: 'user' };
 
-// 🆕 全域折疊狀態
 let isMembersGroupOpen = null;
 
 export async function renderSidebar(containerId = 'sidebar-root', activeHref = '') {
@@ -41,23 +40,19 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
 
   const nav = root.querySelector('#sidebar-nav-inner');
 
-  // 初始化折疊狀態（從 localStorage 讀取，預設為展開）
   if (isMembersGroupOpen === null) {
     const saved = localStorage.getItem('members-group-open');
-    isMembersGroupOpen = saved === 'true'; // 預設 false（折疊）
+    isMembersGroupOpen = saved === 'true';
   }
 
-  // 若當前頁面是成員相關，強制展開
   const isMemberPage = activeHref.includes('member-detail') || activeHref.includes('members.html');
   if (isMemberPage) isMembersGroupOpen = true;
 
-  // 綁定折疊事件（事件委派，只綁定一次）
   if (!window._sidebarEventBound) {
     window._sidebarEventBound = true;
     document.addEventListener('click', (e) => {
       const title = e.target.closest('#members-group-title');
       if (!title) return;
-
       isMembersGroupOpen = !isMembersGroupOpen;
       localStorage.setItem('members-group-open', String(isMembersGroupOpen));
       updateMembersGroupUI();
@@ -65,7 +60,8 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
   }
 
   listenMembers((members) => {
-    nav.innerHTML = renderNavContent(members, activeHref);
+    const sorted = sortMembers(members);
+    nav.innerHTML = renderNavContent(sorted, activeHref);
     updateMembersGroupUI();
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
@@ -107,9 +103,6 @@ function renderNavItem(item, activeHref) {
   `;
 }
 
-/**
- * 更新成員版面的 UI 狀態（展開 / 折疊）
- */
 function updateMembersGroupUI() {
   const title = document.getElementById('members-group-title');
   const sub = document.getElementById('members-group-sub');
