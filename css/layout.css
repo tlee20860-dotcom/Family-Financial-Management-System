@@ -271,3 +271,41 @@
 .nav-sub {
   transition: opacity 0.2s ease;
 }
+/* ================= 時間篩選欄 ================= */
+#date-filter-root {
+  padding: 0 24px;
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.date-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+
+.date-filter .select {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 13px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.date-filter .select:focus {
+  outline: none;
+  background: rgba(0, 240, 255, 0.05);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 640px) {
+  #date-filter-root { padding: 0 16px; }
+}
