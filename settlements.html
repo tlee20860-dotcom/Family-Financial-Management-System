@@ -21,58 +21,66 @@
             <p class="page-subtitle" id="settlement-month"></p>
           </div>
           <div style="text-align:right;">
-            <div class="glass-card-title" style="margin:0;">本月待還款總額</div>
+            <div class="glass-card-title" style="margin:0;">本期待還款總額</div>
             <div class="mono text-magenta" id="settlement-pending-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
           </div>
         </div>
 
-        <div class="glass-card" style="margin-bottom:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
-            <div class="glass-card-title" style="margin:0;">每月固定還款項目</div>
-            <button class="btn btn-sm btn-primary" id="add-fixed-repayment-btn">
-              <i data-lucide="plus"></i> 新增固定還款
-            </button>
-          </div>
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>成員</th>
-                  <th>項目名稱</th>
-                  <th style="text-align:right;">金額</th>
-                  <th>狀態</th>
-                  <th>已轉回</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="fixed-repayment-tbody">
-                <tr><td colspan="6" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <!-- 全年模式 -->
+        <div id="annual-view" style="display:none;">
+          <div id="annual-monthly-cards"></div>
         </div>
 
-        <div class="glass-card">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <div class="glass-card-title" style="margin:0;">本月成員代墊支出</div>
+        <!-- 單月模式 -->
+        <div id="monthly-view" style="display:none;">
+          <div class="glass-card" style="margin-bottom:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
+              <div class="glass-card-title" style="margin:0;">每月固定還款項目</div>
+              <button class="btn btn-sm btn-primary" id="add-fixed-repayment-btn">
+                <i data-lucide="plus"></i> 新增固定還款
+              </button>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>成員</th>
+                    <th>項目名稱</th>
+                    <th style="text-align:right;">金額</th>
+                    <th>狀態</th>
+                    <th>已轉回</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="fixed-repayment-tbody">
+                  <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>成員</th>
-                  <th>項目名稱</th>
-                  <th style="text-align:right;">金額</th>
-                  <th>日期</th>
-                  <th>狀態</th>
-                  <th>已轉回</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="member-repayment-tbody">
-                <tr><td colspan="7" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
+
+          <div class="glass-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+              <div class="glass-card-title" style="margin:0;">本月成員代墊支出</div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>成員</th>
+                    <th>項目名稱</th>
+                    <th style="text-align:right;">金額</th>
+                    <th>日期</th>
+                    <th>狀態</th>
+                    <th>已轉回</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="member-repayment-tbody">
+                  <tr><td colspan="7" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
@@ -84,6 +92,16 @@
     <div class="modal">
       <h2 class="modal-title">新增固定還款項目</h2>
       <form id="fixed-repayment-form">
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="fixed-repayment-year">歸屬年份</label>
+            <select class="select" id="fixed-repayment-year"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="fixed-repayment-month">歸屬月份</label>
+            <select class="select" id="fixed-repayment-month"></select>
+          </div>
+        </div>
         <div class="field">
           <label class="field-label" for="fixed-member">還款成員</label>
           <select class="select" id="fixed-member" required>
@@ -106,13 +124,15 @@
     </div>
   </div>
 
-  <!-- 🆕 編輯代墊支出 Modal -->
+  <!-- 編輯代墊支出 Modal -->
   <div class="modal-overlay" id="edit-expense-modal">
     <div class="modal">
       <h2 class="modal-title">修改支出內容</h2>
       <form id="edit-expense-form">
         <input type="hidden" id="edit-member-id">
         <input type="hidden" id="edit-expense-id">
+        <input type="hidden" id="edit-expense-year">
+        <input type="hidden" id="edit-expense-month">
         <div class="field">
           <label class="field-label" for="edit-expense-name">項目名稱</label>
           <input class="input" id="edit-expense-name" required maxlength="60">
