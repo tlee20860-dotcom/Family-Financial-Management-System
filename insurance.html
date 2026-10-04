@@ -26,7 +26,7 @@
         </div>
 
         <div class="banner">
-          ℹ️ 每張保單會依「開始日期」與「付款類型」自動產生每月分攤。請在對應月份勾選「已扣款」，系統會自動計算已供期數與保費。
+          ℹ️ 每張保單依「保單年度」自動產生每月分攤。每當進入新年度，請輸入該年度的年繳保費。
         </div>
 
         <div class="grid grid-3" id="policy-grid">
@@ -38,7 +38,7 @@
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- 新增保單 Modal -->
   <div class="modal-overlay" id="policy-modal">
     <div class="modal" style="max-width:560px; max-height:90vh; overflow-y:auto;">
       <h2 class="modal-title" id="policy-modal-title">新增保單</h2>
@@ -73,9 +73,27 @@
 
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
-            <label class="field-label" for="policy-start">保險開始日期</label>
-            <input class="input" id="policy-start" type="text" placeholder="例如：2026-06-01" required>
+            <label class="field-label" for="policy-start-year">保單開始年份</label>
+            <input class="input mono" id="policy-start-year" type="number" min="2000" max="2100" placeholder="2026" required>
           </div>
+          <div class="field">
+            <label class="field-label" for="policy-start-month">保單開始月份</label>
+            <select class="select" id="policy-start-month" required></select>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="policy-current-period">目前是第幾年度</label>
+            <input class="input mono" id="policy-current-period" type="number" min="1" max="50" placeholder="1" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-total-years">總供款年期</label>
+            <input class="input mono" id="policy-total-years" type="number" min="1" max="50" placeholder="5" required>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="gap:12px;">
           <div class="field">
             <label class="field-label" for="policy-payment-type">付款類型</label>
             <select class="select" id="policy-payment-type">
@@ -84,60 +102,52 @@
               <option value="一次付款">一次付款</option>
             </select>
           </div>
-        </div>
-
-        <!-- 普通保險：年繳 / 月繳 -->
-        <div id="normal-fields">
-          <div class="grid grid-2" style="gap:12px;">
-            <div class="field">
-              <label class="field-label" for="policy-annual">年繳保費（HK$）</label>
-              <input class="input mono" id="policy-annual" type="number" min="0" step="0.01" placeholder="0">
-            </div>
-            <div class="field">
-              <label class="field-label" for="policy-monthly">每月分攤（自動）</label>
-              <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
-            </div>
-          </div>
-          <div class="grid grid-2" style="gap:12px;">
-            <div class="field">
-              <label class="field-label" for="policy-total-periods">總期數</label>
-              <input class="input mono" id="policy-total-periods" type="number" min="0" placeholder="12">
-            </div>
-            <div class="field">
-              <label class="field-label" for="policy-completed-periods">已供期數（自動）</label>
-              <input class="input mono" id="policy-completed-periods" type="number" disabled placeholder="0">
-            </div>
+          <div class="field">
+            <label class="field-label" for="policy-account">扣款帳戶</label>
+            <input class="input" id="policy-account" maxlength="60" placeholder="例如：匯豐扣數">
           </div>
         </div>
 
-        <!-- 基金保險專屬 -->
-        <div id="fund-fields" style="display:none;">
-          <div class="grid grid-2" style="gap:12px;">
-            <div class="field">
-              <label class="field-label" for="policy-monthly-premium">每月供款（HK$）</label>
-              <input class="input mono" id="policy-monthly-premium" type="number" min="0" step="0.01" placeholder="2000">
-            </div>
-            <div class="field">
-              <label class="field-label" for="policy-current-value">目前基金總值（HK$）</label>
-              <input class="input mono" id="policy-current-value" type="number" min="0" step="0.01" placeholder="52000">
-            </div>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label>
+            <input class="input mono" id="policy-annual" type="number" min="0" step="0.01" placeholder="0" required>
           </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="policy-account">扣款帳戶</label>
-          <input class="input" id="policy-account" maxlength="60" placeholder="例如：年繳匯豐扣數">
-        </div>
-
-        <div class="field">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-secondary); font-size:13px;">
-            <input type="checkbox" id="policy-completed" style="width:auto;">
-            是否已供款完畢
-          </label>
+          <div class="field">
+            <label class="field-label" for="policy-monthly">每月分攤（自動）</label>
+            <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
+          </div>
         </div>
 
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="policy-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 新增年度保費 Modal -->
+  <div class="modal-overlay" id="add-period-modal">
+    <div class="modal">
+      <h2 class="modal-title" id="add-period-title">新增年度保費</h2>
+      <form id="add-period-form">
+        <input type="hidden" id="add-period-policy-id">
+        <input type="hidden" id="add-period-index">
+        <div class="field">
+          <label class="field-label">年度區間</label>
+          <input class="input" id="add-period-range" disabled>
+        </div>
+        <div class="field">
+          <label class="field-label" for="add-period-annual">年繳保費（HK$）</label>
+          <input class="input mono" id="add-period-annual" type="number" min="0" step="0.01" required placeholder="0">
+        </div>
+        <div class="field">
+          <label class="field-label" for="add-period-monthly">每月分攤（自動）</label>
+          <input class="input mono" id="add-period-monthly" disabled placeholder="自動計算">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="add-period-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>
       </form>
