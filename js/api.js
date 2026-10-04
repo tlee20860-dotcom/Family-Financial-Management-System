@@ -3,7 +3,7 @@
 // ============================================
 
 import { AppState } from './state.js';
-import { auth } from './firebase-config.js'; // 🆕 新增
+import { auth } from './firebase-config.js';
 
 async function callApi(path, options = {}) {
   const user = auth.currentUser;
@@ -85,7 +85,6 @@ export const api = {
       body: JSON.stringify({ ...payload, familyId: getFamilyId(), action: 'delete' }),
     }),
 
-  /* ---------- 平台管理 API ---------- */
   adminListFamilies: () => callApi('/api/admin-families?action=list'),
 
   adminAddFamily: (uid, name, email) =>
