@@ -1,5 +1,5 @@
 // ============================================
-// db.js — Firebase Realtime Database 讀寫封裝（v30 重整版）
+// db.js — Firebase Realtime Database 讀寫封裝（多家庭版）
 // ============================================
 
 import { db } from './firebase-config.js';
@@ -8,13 +8,26 @@ import {
   ref, onValue, push, set, update, remove, get
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
+/* ---------- 路徑工具 ---------- */
+
+function familyPath(subpath) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+  return `families/${familyId}/${subpath}`;
+}
+
+function familyRef(subpath) {
+  return ref(db, familyPath(subpath));
+}
+
+export { familyPath, familyRef };
+
 /* ============================================
    成員
    ============================================ */
 
 export function listenMembers(callback) {
-  const r = ref(db, 'family_members');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('members'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, m]) => ({ id, ...m }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -23,13 +36,13 @@ export function listenMembers(callback) {
 }
 
 export async function getMembersOnce() {
-  const snap = await get(ref(db, 'family_members'));
+  const snap = await get(familyRef('members'));
   const val = snap.val() || {};
   return Object.entries(val).map(([id, m]) => ({ id, ...m }));
 }
 
 export async function addMember(member) {
-  const r = ref(db, 'family_members');
+  const r = familyRef('members');
   const newRef = push(r);
   await set(newRef, {
     name: member.name,
@@ -41,27 +54,27 @@ export async function addMember(member) {
 }
 
 export async function updateMember(id, patch) {
-  await update(ref(db, `family_members/${id}`), patch);
+  await update(familyRef(`members/${id}`), patch);
 }
 
 export async function removeMember(id) {
-  await remove(ref(db, `family_members/${id}`));
+  await remove(familyRef(`members/${id}`));
 }
 
 export async function updateMemberOrders(orderMap) {
   const updates = {};
   Object.entries(orderMap).forEach(([id, order]) => {
-    updates[`family_members/${id}/order`] = Number(order);
+    updates[familyPath(`members/${id}/order`)] = Number(order);
   });
   await update(ref(db), updates);
 }
 
 /* ============================================
-   成員支出（代墊）
+   成員支出
    ============================================ */
 
 function expensePath(year, month, memberId) {
-  return `family_expenses/${year}/${month}/member_expenses/${memberId}`;
+  return `expenses/${year}/${month}/member_expenses/${memberId}`;
 }
 
 export function listenExpenses(year, month, memberId, callback) {
@@ -69,8 +82,7 @@ export function listenExpenses(year, month, memberId, callback) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, expensePath(year, month, memberId));
-  return onValue(r, (snap) => {
+  return onValue(familyRef(expensePath(year, month, memberId)), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, e]) => ({ id, ...e }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -83,7 +95,7 @@ export async function addExpense(year, month, memberId, expense) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, expensePath(year, month, memberId));
+  const r = familyRef(expensePath(year, month, memberId));
   const newRef = push(r);
   await set(newRef, {
     name: expense.name,
@@ -103,7 +115,7 @@ export async function updateExpense(year, month, memberId, expId, patch) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  await update(ref(db, `${expensePath(year, month, memberId)}/${expId}`), patch);
+  await update(familyRef(`${expensePath(year, month, memberId)}/${expId}`), patch);
 }
 
 export async function removeExpense(year, month, memberId, expId) {
@@ -111,16 +123,15 @@ export async function removeExpense(year, month, memberId, expId) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  await remove(ref(db, `${expensePath(year, month, memberId)}/${expId}`));
+  await remove(familyRef(`${expensePath(year, month, memberId)}/${expId}`));
 }
 
 /* ============================================
-   保險（v22 年度化重構）
+   保險
    ============================================ */
 
 export function listenInsurancePolicies(callback) {
-  const r = ref(db, 'insurance_policies');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('insurance_policies'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, p]) => ({ id, ...p }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -128,11 +139,8 @@ export function listenInsurancePolicies(callback) {
   });
 }
 
-/**
- * 新增保單（年度化新結構）
- */
 export async function addInsurancePolicyV2(policy) {
-  const r = ref(db, 'insurance_policies');
+  const r = familyRef('insurance_policies');
   const newRef = push(r);
   await set(newRef, {
     type: policy.type || 'normal',
@@ -152,11 +160,8 @@ export async function addInsurancePolicyV2(policy) {
   return newRef.key;
 }
 
-/**
- * 更新保單（年度化新結構）
- */
 export async function updateInsurancePolicyV2(id, patch) {
-  await update(ref(db, `insurance_policies/${id}`), {
+  await update(familyRef(`insurance_policies/${id}`), {
     type: patch.type || 'normal',
     memberId: patch.memberId || '',
     name: patch.name || '',
@@ -173,14 +178,11 @@ export async function updateInsurancePolicyV2(id, patch) {
 }
 
 export async function removeInsurancePolicy(id) {
-  await remove(ref(db, `insurance_policies/${id}`));
+  await remove(familyRef(`insurance_policies/${id}`));
 }
 
-/**
- * 新增年度保費紀錄
- */
 export async function addInsurancePeriod(policyId, periodIndex, periodData) {
-  await set(ref(db, `insurance_policies/${policyId}/periods/${periodIndex}`), {
+  await set(familyRef(`insurance_policies/${policyId}/periods/${periodIndex}`), {
     periodIndex: Number(periodIndex),
     startYear: Number(periodData.startYear),
     startMonth: String(periodData.startMonth).padStart(2, '0'),
@@ -189,16 +191,20 @@ export async function addInsurancePeriod(policyId, periodIndex, periodData) {
   });
 }
 
-/**
- * 監聽某月的保險扣款紀錄
- */
 export function listenInsurancePayment(policyId, year, month, callback) {
-  const r = ref(db, `insurance_payments/${policyId}/${year}/${month}`);
-  return onValue(r, (snap) => callback(snap.val() || {}));
+  return onValue(
+    familyRef(`insurance_payments/${policyId}/${year}/${month}`),
+    (snap) => callback(snap.val() || {})
+  );
+}
+
+export async function getInsurancePaymentsOnce(policyId) {
+  const snap = await get(familyRef(`insurance_payments/${policyId}`));
+  return snap.val() || {};
 }
 
 /* ============================================
-   每月收入
+   收入
    ============================================ */
 
 export function listenIncomeV2(year, month, callback) {
@@ -206,8 +212,7 @@ export function listenIncomeV2(year, month, callback) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `family_income/${year}/${month}`);
-  return onValue(r, (snap) => callback(snap.val() || {}));
+  return onValue(familyRef(`income/${year}/${month}`), (snap) => callback(snap.val() || {}));
 }
 
 export async function saveIncomeV2(year, month, data) {
@@ -220,16 +225,15 @@ export async function saveIncomeV2(year, month, data) {
     const num = Number(val) || 0;
     if (num > 0) clean[key] = num;
   });
-  await set(ref(db, `family_income/${year}/${month}`), clean);
+  await set(familyRef(`income/${year}/${month}`), clean);
 }
 
 /* ============================================
-   基金投資
+   基金
    ============================================ */
 
 export function listenFunds(callback) {
-  const r = ref(db, 'investment_funds');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('funds'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, f]) => ({ id, ...f }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -238,7 +242,7 @@ export function listenFunds(callback) {
 }
 
 export async function addFund(fund) {
-  const r = ref(db, 'investment_funds');
+  const r = familyRef('funds');
   const newRef = push(r);
   await set(newRef, {
     name: fund.name || '',
@@ -252,7 +256,7 @@ export async function addFund(fund) {
 }
 
 export async function updateFund(id, patch) {
-  await update(ref(db, `investment_funds/${id}`), {
+  await update(familyRef(`funds/${id}`), {
     name: patch.name || '',
     cost: Number(patch.cost) || 0,
     currentValue: Number(patch.currentValue) || 0,
@@ -262,7 +266,7 @@ export async function updateFund(id, patch) {
 }
 
 export async function removeFund(id) {
-  await remove(ref(db, `investment_funds/${id}`));
+  await remove(familyRef(`funds/${id}`));
 }
 
 /* ============================================
@@ -270,8 +274,7 @@ export async function removeFund(id) {
    ============================================ */
 
 export function listenCategories(callback) {
-  const r = ref(db, 'expense_categories');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('expense_categories'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, c]) => ({ id, ...c }));
     list.sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -280,18 +283,18 @@ export function listenCategories(callback) {
 }
 
 export async function addCategory(cat) {
-  const r = ref(db, 'expense_categories');
+  const r = familyRef('expense_categories');
   const newRef = push(r);
   await set(newRef, { name: cat.name || '', order: Number(cat.order) || 0, createdAt: Date.now() });
   return newRef.key;
 }
 
 export async function updateCategory(id, patch) {
-  await update(ref(db, `expense_categories/${id}`), { name: patch.name || '', order: Number(patch.order) || 0 });
+  await update(familyRef(`expense_categories/${id}`), { name: patch.name || '', order: Number(patch.order) || 0 });
 }
 
 export async function removeCategory(id) {
-  await remove(ref(db, `expense_categories/${id}`));
+  await remove(familyRef(`expense_categories/${id}`));
 }
 
 /* ============================================
@@ -299,8 +302,7 @@ export async function removeCategory(id) {
    ============================================ */
 
 export function listenItems(callback) {
-  const r = ref(db, 'expense_items');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('expense_items'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, i]) => ({ id, ...i }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -309,18 +311,18 @@ export function listenItems(callback) {
 }
 
 export async function addItem(item) {
-  const r = ref(db, 'expense_items');
+  const r = familyRef('expense_items');
   const newRef = push(r);
   await set(newRef, { name: item.name || '', categoryId: item.categoryId || '', createdAt: Date.now() });
   return newRef.key;
 }
 
 export async function updateItem(id, patch) {
-  await update(ref(db, `expense_items/${id}`), { name: patch.name || '', categoryId: patch.categoryId || '' });
+  await update(familyRef(`expense_items/${id}`), { name: patch.name || '', categoryId: patch.categoryId || '' });
 }
 
 export async function removeItem(id) {
-  await remove(ref(db, `expense_items/${id}`));
+  await remove(familyRef(`expense_items/${id}`));
 }
 
 /* ============================================
@@ -328,8 +330,7 @@ export async function removeItem(id) {
    ============================================ */
 
 export function listenFixedTemplates(callback) {
-  const r = ref(db, 'fixed_expense_templates');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('fixed_expense_templates'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, t]) => ({ id, ...t }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -338,7 +339,7 @@ export function listenFixedTemplates(callback) {
 }
 
 export async function addFixedTemplate(tmpl) {
-  const r = ref(db, 'fixed_expense_templates');
+  const r = familyRef('fixed_expense_templates');
   const newRef = push(r);
   await set(newRef, {
     name: tmpl.name || '',
@@ -360,8 +361,7 @@ export function listenFixedExpensesV2(year, month, callback) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `fixed_expenses/${year}/${month}`);
-  return onValue(r, (snap) => {
+  return onValue(familyRef(`fixed_expenses/${year}/${month}`), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -374,7 +374,7 @@ export async function addFixedExpenseV2(year, month, data) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `fixed_expenses/${year}/${month}`);
+  const r = familyRef(`fixed_expenses/${year}/${month}`);
   const newRef = push(r);
   await set(newRef, {
     name: data.name || '',
@@ -390,11 +390,11 @@ export async function addFixedExpenseV2(year, month, data) {
 }
 
 export async function updateFixedExpenseV2(year, month, id, patch) {
-  await update(ref(db, `fixed_expenses/${year}/${month}/${id}`), patch);
+  await update(familyRef(`fixed_expenses/${year}/${month}/${id}`), patch);
 }
 
 export async function removeFixedExpenseV2(year, month, id) {
-  await remove(ref(db, `fixed_expenses/${year}/${month}/${id}`));
+  await remove(familyRef(`fixed_expenses/${year}/${month}/${id}`));
 }
 
 export async function copyFixedExpensesFromPrevMonth(year, month) {
@@ -402,15 +402,15 @@ export async function copyFixedExpensesFromPrevMonth(year, month) {
   let prevY = y; let prevM = m - 1;
   if (prevM < 1) { prevY = y - 1; prevM = 12; }
   const prevMonthStr = String(prevM).padStart(2, '0');
-  const currentSnap = await get(ref(db, `fixed_expenses/${year}/${month}`));
+  const currentSnap = await get(familyRef(`fixed_expenses/${year}/${month}`));
   if (currentSnap.exists() && Object.keys(currentSnap.val() || {}).length > 0) return 0;
-  const prevSnap = await get(ref(db, `fixed_expenses/${prevY}/${prevMonthStr}`));
+  const prevSnap = await get(familyRef(`fixed_expenses/${prevY}/${prevMonthStr}`));
   const prevVal = prevSnap.val() || {};
   const prevList = Object.entries(prevVal);
   if (prevList.length === 0) return 0;
   let count = 0;
   for (const [id, item] of prevList) {
-    const newRef = push(ref(db, `fixed_expenses/${year}/${month}`));
+    const newRef = push(familyRef(`fixed_expenses/${year}/${month}`));
     await set(newRef, {
       name: item.name || '',
       amount: Number(item.amount) || 0,
@@ -428,7 +428,7 @@ export async function copyFixedExpensesFromPrevMonth(year, month) {
 }
 
 export async function getFixedExpensesOnce(year, month) {
-  const snap = await get(ref(db, `fixed_expenses/${year}/${month}`));
+  const snap = await get(familyRef(`fixed_expenses/${year}/${month}`));
   const val = snap.val() || {};
   const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
   list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -440,8 +440,7 @@ export async function getFixedExpensesOnce(year, month) {
    ============================================ */
 
 export function listenBanks(callback) {
-  const r = ref(db, 'family_banks');
-  return onValue(r, (snap) => {
+  return onValue(familyRef('banks'), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, b]) => ({ id, ...b }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -450,14 +449,14 @@ export function listenBanks(callback) {
 }
 
 export async function addBank(name) {
-  const r = ref(db, 'family_banks');
+  const r = familyRef('banks');
   const newRef = push(r);
   await set(newRef, { name: name || '', createdAt: Date.now() });
   return newRef.key;
 }
 
 export async function removeBank(id) {
-  await remove(ref(db, `family_banks/${id}`));
+  await remove(familyRef(`banks/${id}`));
 }
 
 export function listenBankBalances(year, month, callback) {
@@ -465,8 +464,7 @@ export function listenBankBalances(year, month, callback) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `bank_balances/${year}/${month}`);
-  return onValue(r, (snap) => callback(snap.val() || {}));
+  return onValue(familyRef(`bank_balances/${year}/${month}`), (snap) => callback(snap.val() || {}));
 }
 
 export async function saveBankBalance(year, month, bankId, amount) {
@@ -474,7 +472,7 @@ export async function saveBankBalance(year, month, bankId, amount) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  await update(ref(db, `bank_balances/${year}/${month}`), {
+  await update(familyRef(`bank_balances/${year}/${month}`), {
     [bankId]: { amount: Number(amount) || 0, updatedAt: Date.now() },
   });
 }
@@ -484,13 +482,13 @@ export async function getPrevMonthBankTotal(year, month) {
   let prevY = y; let prevM = m - 1;
   if (prevM < 1) { prevY = y - 1; prevM = 12; }
   const prevMonthStr = String(prevM).padStart(2, '0');
-  const snap = await get(ref(db, `bank_balances/${prevY}/${prevMonthStr}`));
+  const snap = await get(familyRef(`bank_balances/${prevY}/${prevMonthStr}`));
   const val = snap.val() || {};
   return Object.values(val).reduce((s, b) => s + (Number(b.amount) || 0), 0);
 }
 
 export async function getBankBalancesOnce(year, month) {
-  const snap = await get(ref(db, `bank_balances/${year}/${month}`));
+  const snap = await get(familyRef(`bank_balances/${year}/${month}`));
   return snap.val() || {};
 }
 
@@ -503,8 +501,7 @@ export function listenFixedRepayments(year, month, callback) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `fixed_repayments/${year}/${month}`);
-  return onValue(r, (snap) => {
+  return onValue(familyRef(`fixed_repayments/${year}/${month}`), (snap) => {
     const val = snap.val() || {};
     const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
     list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -517,7 +514,7 @@ export async function addFixedRepayment(year, month, data) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `fixed_repayments/${year}/${month}`);
+  const r = familyRef(`fixed_repayments/${year}/${month}`);
   const newRef = push(r);
   await set(newRef, {
     memberId: data.memberId || '',
@@ -531,11 +528,11 @@ export async function addFixedRepayment(year, month, data) {
 }
 
 export async function updateFixedRepayment(year, month, id, patch) {
-  await update(ref(db, `fixed_repayments/${year}/${month}/${id}`), patch);
+  await update(familyRef(`fixed_repayments/${year}/${month}/${id}`), patch);
 }
 
 export async function removeFixedRepayment(year, month, id) {
-  await remove(ref(db, `fixed_repayments/${year}/${month}/${id}`));
+  await remove(familyRef(`fixed_repayments/${year}/${month}/${id}`));
 }
 
 export function listenAllMemberExpenses(year, month, callback) {
@@ -543,8 +540,7 @@ export function listenAllMemberExpenses(year, month, callback) {
     const ym = AppState.getYearMonth();
     year = ym.year; month = ym.month;
   }
-  const r = ref(db, `family_expenses/${year}/${month}/member_expenses`);
-  return onValue(r, (snap) => {
+  return onValue(familyRef(`expenses/${year}/${month}/member_expenses`), (snap) => {
     const val = snap.val() || {};
     const flat = [];
     Object.entries(val).forEach(([memberId, items]) => {
@@ -558,14 +554,14 @@ export function listenAllMemberExpenses(year, month, callback) {
 }
 
 export async function markMemberExpenseRepaid(year, month, memberId, expId, isRepaid) {
-  await update(ref(db, `family_expenses/${year}/${month}/member_expenses/${memberId}/${expId}`), {
+  await update(familyRef(`expenses/${year}/${month}/member_expenses/${memberId}/${expId}`), {
     status: isRepaid ? '已還款' : '未還款',
     repaidDate: isRepaid ? new Date().toISOString().slice(0, 10) : '',
   });
 }
 
 export async function getFixedRepaymentsOnce(year, month) {
-  const snap = await get(ref(db, `fixed_repayments/${year}/${month}`));
+  const snap = await get(familyRef(`fixed_repayments/${year}/${month}`));
   const val = snap.val() || {};
   const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
   list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
@@ -573,7 +569,7 @@ export async function getFixedRepaymentsOnce(year, month) {
 }
 
 export async function getAllMemberExpensesOnce(year, month) {
-  const snap = await get(ref(db, `family_expenses/${year}/${month}/member_expenses`));
+  const snap = await get(familyRef(`expenses/${year}/${month}/member_expenses`));
   const val = snap.val() || {};
   const flat = [];
   Object.entries(val).forEach(([memberId, items]) => {
