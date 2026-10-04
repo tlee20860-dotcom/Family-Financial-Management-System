@@ -6,6 +6,9 @@ import { dbGet, jsonResponse } from './_config.js';
 
 export async function onRequestGet({ request }) {
   try {
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+
     const url = new URL(request.url);
     const familyId = url.searchParams.get('familyId');
     const year = url.searchParams.get('year');
@@ -23,17 +26,17 @@ export async function onRequestGet({ request }) {
     const prevMonthStr = String(prevM).padStart(2, '0');
 
     const [members, policies, expenses, income, funds, fixed, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
-      dbGet(`${basePath}/members`),
-      dbGet(`${basePath}/insurance_policies`),
-      year && month ? dbGet(`${basePath}/expenses/${year}/${month}/member_expenses`) : null,
-      year && month ? dbGet(`${basePath}/income/${year}/${month}`) : null,
-      dbGet(`${basePath}/funds`),
-      year && month ? dbGet(`${basePath}/fixed_expenses/${year}/${month}`) : null,
-      dbGet(`${basePath}/expense_categories`),
-      dbGet(`${basePath}/expense_items`),
-      year && month ? dbGet(`${basePath}/bank_balances/${year}/${month}`) : null,
-      dbGet(`${basePath}/bank_balances/${prevY}/${prevMonthStr}`),
-      dbGet(`${basePath}/banks`),
+      dbGet(`${basePath}/members`, token),
+      dbGet(`${basePath}/insurance_policies`, token),
+      year && month ? dbGet(`${basePath}/expenses/${year}/${month}/member_expenses`, token) : null,
+      year && month ? dbGet(`${basePath}/income/${year}/${month}`, token) : null,
+      dbGet(`${basePath}/funds`, token),
+      year && month ? dbGet(`${basePath}/fixed_expenses/${year}/${month}`, token) : null,
+      dbGet(`${basePath}/expense_categories`, token),
+      dbGet(`${basePath}/expense_items`, token),
+      year && month ? dbGet(`${basePath}/bank_balances/${year}/${month}`, token) : null,
+      dbGet(`${basePath}/bank_balances/${prevY}/${prevMonthStr}`, token),
+      dbGet(`${basePath}/banks`, token),
     ]);
 
     const membersObj = members || {};
