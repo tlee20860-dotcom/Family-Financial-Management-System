@@ -656,3 +656,129 @@ export async function getPrevMonthBankTotal(year, month) {
   const val = snap.val() || {};
   return Object.values(val).reduce((s, b) => s + (Number(b.amount) || 0), 0);
 }
+/* ---------- 固定支出模板：編輯與刪除 ---------- */
+
+export async function updateFixedTemplate(id, patch) {
+  await update(ref(db, `fixed_expense_templates/${id}`), {
+    name: patch.name || '',
+    amount: Number(patch.amount) || 0,
+    cycle: patch.cycle || '每月',
+    note: patch.note || '',
+  });
+}
+
+export async function removeFixedTemplate(id) {
+  await remove(ref(db, `fixed_expense_templates/${id}`));
+}
+
+/* ---------- 固定支出每月狀態 ---------- */
+
+export function listenFixedStatus(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_expense_status/${year}/${month}`);
+  return onValue(r, (snap) => callback(snap.val() || {}));
+}
+
+export async function saveFixedStatus(year, month, tmplId, data) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  await set(ref(db, `fixed_expense_status/${year}/${month}/${tmplId}`), {
+    status: data.status || '未付款',
+    paidDate: data.paidDate || '',
+  });
+}
+/* ---------- 每月固定支出（按月獨立） ---------- */
+
+export function listenFixedExpensesV2(year, month, callback) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_expenses/${year}/${month}`);
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addFixedExpenseV2(year, month, data) {
+  if (!year || !month) {
+    const ym = AppState.getYearMonth();
+    year = ym.year;
+    month = ym.month;
+  }
+  const r = ref(db, `fixed_expenses/${year}/${month}`);
+  const newRef = push(r);
+  await set(newRef, {
+    name: data.name || '',
+    amount: Number(data.amount) || 0,
+    cycle: data.cycle || '每月',
+    note: data.note || '',
+    status: data.status || '未付款',
+    paidDate: data.paidDate || '',
+    isSkipped: data.isSkipped || false,
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFixedExpenseV2(year, month, id, patch) {
+  await update(ref(db, `fixed_expenses/${year}/${month}/${id}`), patch);
+}
+
+export async function removeFixedExpenseV2(year, month, id) {
+  await remove(ref(db, `fixed_expenses/${year}/${month}/${id}`));
+}
+
+/**
+ * 從上一個月複製固定支出到當前月
+ * 若當前月已有資料則不執行
+ * 回傳：複製的筆數
+ */
+export async function copyFixedExpensesFromPrevMonth(year, month) {
+  const y = Number(year);
+  const m = Number(month);
+  let prevY = y;
+  let prevM = m - 1;
+  if (prevM < 1) { prevY = y - 1; prevM = 12; }
+  const prevMonthStr = String(prevM).padStart(2, '0');
+
+  const currentSnap = await get(ref(db, `fixed_expenses/${year}/${month}`));
+  if (currentSnap.exists() && Object.keys(currentSnap.val() || {}).length > 0) {
+    return 0; // 當前月已有資料，不複製
+  }
+
+  const prevSnap = await get(ref(db, `fixed_expenses/${prevY}/${prevMonthStr}`));
+  const prevVal = prevSnap.val() || {};
+  const prevList = Object.entries(prevVal);
+
+  if (prevList.length === 0) return 0;
+
+  let count = 0;
+  for (const [id, item] of prevList) {
+    const newRef = push(ref(db, `fixed_expenses/${year}/${month}`));
+    await set(newRef, {
+      name: item.name || '',
+      amount: Number(item.amount) || 0,
+      cycle: item.cycle || '每月',
+      note: item.note || '',
+      status: '未付款',        // 新月份重置為未付款
+      paidDate: '',
+      isSkipped: false,         // 新月份預設為不適用為 false
+      createdAt: Date.now() + count,
+      copiedFrom: `${prevY}-${prevMonthStr}`,
+    });
+    count++;
+  }
+  return count;
+}
