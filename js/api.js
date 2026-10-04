@@ -3,9 +3,18 @@
 // ============================================
 
 import { AppState } from './state.js';
+import { auth } from './firebase-config.js'; // 🆕 新增
 
 async function callApi(path, options = {}) {
-  const res = await fetch(path, options);
+  const user = auth.currentUser;
+  const token = user ? await user.getIdToken() : '';
+
+  const headers = {
+    ...(options.headers || {}),
+    'Authorization': `Bearer ${token}`,
+  };
+
+  const res = await fetch(path, { ...options, headers });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`API ${path} 失敗（${res.status}）：${text}`);
