@@ -15,14 +15,13 @@ export async function onRequestGet({ request }) {
     if (prevM < 1) { prevY -= 1; prevM = 12; }
     const prevMonthStr = String(prevM).padStart(2, '0');
 
-    const [members, policies, expenses, income, funds, fixedTemplates, fixedStatus, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
+    const [members, policies, expenses, income, funds, fixed, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
       dbGet('family_members'),
       dbGet('insurance_policies'),
       year && month ? dbGet(`family_expenses/${year}/${month}/member_expenses`) : null,
       year && month ? dbGet(`family_income/${year}/${month}`) : null,
       dbGet('investment_funds'),
-      dbGet('fixed_expense_templates'),
-      year && month ? dbGet(`fixed_expense_status/${year}/${month}`) : null,
+      year && month ? dbGet(`fixed_expenses/${year}/${month}`) : null,
       dbGet('expense_categories'),
       dbGet('expense_items'),
       year && month ? dbGet(`bank_balances/${year}/${month}`) : null,
@@ -35,8 +34,7 @@ export async function onRequestGet({ request }) {
     const expensesObj = expenses || {};
     const incomeObj = income || {};
     const fundsObj = funds || {};
-    const fixedTemplatesObj = fixedTemplates || {};
-    const fixedStatusObj = fixedStatus || {};
+    const fixedObj = fixed || {};
     const categoriesObj = categories || {};
     const itemsObj = items || {};
     const bankBalancesObj = bankBalances || {};
@@ -68,23 +66,17 @@ export async function onRequestGet({ request }) {
       totalExpense += sum;
     });
 
-    /* ---------- 🆕 固定支出匯總（模板 + 每月狀態） ---------- */
-    const familyTemplates = Object.entries(fixedTemplatesObj)
-      .filter(([id, t]) => !t.memberId && t.type !== 'member')
-      .map(([id, t]) => ({ id, ...t }));
-
-    const fixedList = familyTemplates.map((t) => {
-      const st = fixedStatusObj[t.id] || {};
-      return {
-        id: t.id,
-        name: t.name || '',
-        amount: Number(t.amount) || 0,
-        cycle: t.cycle || '每月',
-        note: t.note || '',
-        status: st.status || '未付款',
-        paidDate: st.paidDate || '',
-      };
-    });
+    /* ---------- 固定支出匯總（過濾不適用） ---------- */
+    const fixedList = Object.entries(fixedObj)
+      .map(([id, x]) => ({
+        id, name: x.name || '', amount: Number(x.amount) || 0,
+        cycle: x.cycle || '每月',
+        note: x.note || '',
+        status: x.status || '未付款',
+        paidDate: x.paidDate || '',
+        isSkipped: !!x.isSkipped,
+      }))
+      .filter((x) => !x.isSkipped); // 過濾掉不適用
 
     const fixedTotal = fixedList.reduce((s, x) => s + x.amount, 0);
     const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
