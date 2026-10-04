@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 年度明細）
+// insurance.js — 保險付款（年度化重構 + 年度明細切換）
 // ============================================
 
 import {
@@ -31,6 +31,141 @@ export function initInsurancePage() {
   listenMembers((list) => { members = list; renderMemberOptions(); });
   AppState.on('ym-change', () => renderGrid());
 }
+
+/* ============================================
+   年度區間計算工具
+   ============================================ */
+function getPeriodRange(policy, periodIndex) {
+  const firstY = Number(policy.firstStartYear);
+  const firstM = Number(policy.firstStartMonth);
+  const startDate = new Date(firstY, firstM - 1, 1);
+  startDate.setMonth(startDate.getMonth() + (periodIndex - 1) * 12);
+
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + 11);
+
+  const sY = startDate.getFullYear();
+  const sM = String(startDate.getMonth() + 1).padStart(2, '0');
+  const eY = endDate.getFullYear();
+  const eM = String(endDate.getMonth() + 1).padStart(2, '0');
+
+  return {
+    startY: sY, startM: sM, endY: eY, endM: eM,
+    rangeText: `${sY}-${sM} ~ ${eY}-${eM}`
+  };
+}
+
+function getPeriodInfo(policy, curYear, curMonth) {
+  const firstY = Number(policy.firstStartYear);
+  const firstM = Number(policy.firstStartMonth);
+  if (!firstY || !firstM || firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) return null;
+
+  const startDate = new Date(firstY, firstM - 1, 1);
+  const currentDate = new Date(curYear, curMonth - 1, 1);
+  const diffMonths = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
+
+  if (diffMonths < 0) return null;
+  const periodIndex = Math.floor(diffMonths / 12) + 1;
+  if (policy.totalPolicyYears && periodIndex > policy.totalPolicyYears) return null;
+
+  const range = getPeriodRange(policy, periodIndex);
+  return { periodIndex, ...range };
+}
+
+/* ============================================
+   彈窗內動態渲染明細
+   ============================================ */
+async function renderDetailBody(policy, periodIndex) {
+  const range = getPeriodRange(policy, periodIndex);
+  const payments = await getInsurancePaymentsOnce(policy.id);
+  const body = document.getElementById('insurance-detail-body');
+
+  let rows = '';
+  let totalPaid = 0;
+  const detailStartDate = new Date(range.startY, Number(range.startM) - 1, 1);
+
+  for (let i = 0; i < 12; i++) {
+    const current = new Date(detailStartDate);
+    current.setMonth(current.getMonth() + i);
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const monthKey = `${y}-${m}`;
+    const payment = payments[y]?.[m] || {};
+    const defaultAmount = (policy.periods?.[String(periodIndex)]?.monthlyAverage) || policy.monthlyAverage || 0;
+    const amount = payment.amount || defaultAmount;
+    const isPaid = payment.status === '已扣款';
+    if (isPaid) totalPaid += amount;
+
+    rows += `
+      <div class="insurance-detail-row" data-month="${monthKey}" style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
+        <div style="width:80px; font-family:var(--font-mono); font-size:12px;">${y}-${m}</div>
+        <input type="number" class="input ins-amount" value="${amount}" min="0" step="0.01" style="flex:1; padding:6px 10px; font-size:13px;">
+        <label style="display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap;">
+          <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''} style="width:auto;"> 已扣款
+        </label>
+      </div>
+    `;
+  }
+
+  // 組合年度下拉選單
+  const totalYears = policy.totalPolicyYears || 1;
+  let periodOptions = '';
+  for (let i = 1; i <= totalYears; i++) {
+    const r = getPeriodRange(policy, i);
+    periodOptions += `<option value="${i}" ${i === periodIndex ? 'selected' : ''}>第 ${i} 年度 (${r.rangeText})</option>`;
+  }
+
+  body.innerHTML = `
+    <div style="margin-bottom:12px;">
+      <label class="field-label" style="margin-bottom:6px;">選擇年度</label>
+      <select class="select" id="detail-period-select" style="width:100%; padding:8px 12px; font-size:14px;">
+        ${periodOptions}
+      </select>
+    </div>
+    <div style="max-height:50vh; overflow-y:auto;">${rows}</div>
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--glass-border); display:flex; justify-content:space-between;">
+      <span style="font-size:12px; color:var(--text-muted);">本期已扣款：${formatHKD(totalPaid)}</span>
+    </div>
+  `;
+
+  // 綁定年度切換事件
+  document.getElementById('detail-period-select').addEventListener('change', (e) => {
+    const newPeriodIndex = Number(e.target.value);
+    renderDetailBody(policy, newPeriodIndex);
+  });
+}
+
+/* ============================================
+   打開明細彈窗
+   ============================================ */
+async function openDetailModal(p) {
+  let curY, curM;
+  if (AppState.month === 'all') {
+    const firstY = Number(p.firstStartYear);
+    const firstM = Number(p.firstStartMonth);
+    const cp = Number(p.currentPeriodIndex) || 1;
+    const startDate = new Date(firstY, firstM - 1, 1);
+    startDate.setMonth(startDate.getMonth() + (cp - 1) * 12);
+    curY = startDate.getFullYear();
+    curM = startDate.getMonth() + 1;
+  } else {
+    curY = Number(AppState.year);
+    curM = Number(AppState.month);
+  }
+
+  const info = getPeriodInfo(p, curY, curM);
+  if (!info) return alert('無法計算保單年度，請確認保單開始日期是否正確。');
+
+  currentDetailPolicy = p;
+  document.getElementById('insurance-detail-title').textContent = `${p.name} - 付款明細`;
+
+  await renderDetailBody(p, info.periodIndex);
+  document.getElementById('insurance-detail-modal').classList.add('active');
+}
+
+/* ============================================
+   以下是原有邏輯，保持不變
+   ============================================ */
 
 function bindPolicyModalEvents() {
   const modal = document.getElementById('policy-modal');
@@ -79,11 +214,14 @@ function bindPolicyModalEvents() {
       account: document.getElementById('policy-account').value.trim(), periods: {},
     };
 
-    const startDate = new Date(firstY, firstM - 1, 1);
-    startDate.setMonth(startDate.getMonth() + (currentPeriod - 1) * 12);
-    const startY = startDate.getFullYear();
-    const startM = String(startDate.getMonth() + 1).padStart(2, '0');
-    payload.periods[String(currentPeriod)] = { periodIndex: currentPeriod, startYear: startY, startMonth: startM, annualPremium: annual, monthlyAverage: annual / 12 };
+    const range = getPeriodRange(payload, currentPeriod);
+    payload.periods[String(currentPeriod)] = {
+      periodIndex: currentPeriod,
+      startYear: range.startY,
+      startMonth: range.startM,
+      annualPremium: annual,
+      monthlyAverage: annual / 12
+    };
 
     if (!payload.name || !payload.memberId) return;
 
@@ -114,12 +252,13 @@ function bindAddPeriodModalEvents() {
     const p = policies.find((x) => x.id === policyId);
     if (!p) return;
 
-    const startDate = new Date(p.firstStartYear, Number(p.firstStartMonth) - 1, 1);
-    startDate.setMonth(startDate.getMonth() + (periodIndex - 1) * 12);
-    const startY = startDate.getFullYear();
-    const startM = String(startDate.getMonth() + 1).padStart(2, '0');
-
-    await addInsurancePeriod(policyId, periodIndex, { startYear: startY, startMonth: startM, annualPremium: annual, monthlyAverage: annual / 12 });
+    const range = getPeriodRange(p, periodIndex);
+    await addInsurancePeriod(policyId, periodIndex, {
+      startYear: range.startY,
+      startMonth: range.startM,
+      annualPremium: annual,
+      monthlyAverage: annual / 12
+    });
     modal.classList.remove('active');
     alert(`✅ 已設定第 ${periodIndex} 年度保費`);
   });
@@ -165,93 +304,6 @@ function renderMemberOptions() {
   const current = sel.value;
   sel.innerHTML = `<option value="">— 請選擇 —</option>` + members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
   if (current) sel.value = current;
-}
-
-function getPeriodInfo(policy, curYear, curMonth) {
-  const firstY = Number(policy.firstStartYear);
-  const firstM = Number(policy.firstStartMonth);
-  if (!firstY || !firstM || firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) return null;
-
-  const startDate = new Date(firstY, firstM - 1, 1);
-  const currentDate = new Date(curYear, curMonth - 1, 1);
-  const diffMonths = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
-
-  if (diffMonths < 0) return null;
-  const periodIndex = Math.floor(diffMonths / 12) + 1;
-  if (policy.totalPolicyYears && periodIndex > policy.totalPolicyYears) return null;
-
-  const thisStartDate = new Date(startDate);
-  thisStartDate.setMonth(thisStartDate.getMonth() + (periodIndex - 1) * 12);
-  const thisEndDate = new Date(thisStartDate);
-  thisEndDate.setMonth(thisEndDate.getMonth() + 11);
-
-  const startY = thisStartDate.getFullYear();
-  const startM = String(thisStartDate.getMonth() + 1).padStart(2, '0');
-  const endY = thisEndDate.getFullYear();
-  const endM = String(thisEndDate.getMonth() + 1).padStart(2, '0');
-
-  return { periodIndex, startYear: startY, startMonth: startM, endYear: endY, endMonth: endM, rangeText: `${startY}-${startM} ~ ${endY}-${endM}` };
-}
-
-async function openDetailModal(p) {
-  let curY, curM;
-  if (AppState.month === 'all') {
-    const firstY = Number(p.firstStartYear);
-    const firstM = Number(p.firstStartMonth);
-    const cp = Number(p.currentPeriodIndex) || 1;
-    const startDate = new Date(firstY, firstM - 1, 1);
-    startDate.setMonth(startDate.getMonth() + (cp - 1) * 12);
-    curY = startDate.getFullYear();
-    curM = startDate.getMonth() + 1;
-  } else {
-    curY = Number(AppState.year);
-    curM = Number(AppState.month);
-  }
-
-  const info = getPeriodInfo(p, curY, curM);
-  if (!info) return alert('無法計算保單年度，請確認保單開始日期是否正確。');
-
-  currentDetailPolicy = p;
-  document.getElementById('insurance-detail-title').textContent = `${p.name} - 第 ${info.periodIndex} 年度付款明細`;
-
-  const payments = await getInsurancePaymentsOnce(p.id);
-  const body = document.getElementById('insurance-detail-body');
-
-  let rows = '';
-  let totalPaid = 0;
-  const detailStartDate = new Date(info.startYear, Number(info.startMonth) - 1, 1);
-
-  for (let i = 0; i < 12; i++) {
-    const current = new Date(detailStartDate);
-    current.setMonth(current.getMonth() + i);
-    const y = current.getFullYear();
-    const m = String(current.getMonth() + 1).padStart(2, '0');
-    const monthKey = `${y}-${m}`;
-    const payment = payments[y]?.[m] || {};
-    const amount = payment.amount || p.monthlyAverage || 0;
-    const isPaid = payment.status === '已扣款';
-    if (isPaid) totalPaid += amount;
-
-    rows += `
-      <div class="insurance-detail-row" data-month="${monthKey}" style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-        <div style="width:80px; font-family:var(--font-mono); font-size:12px;">${y}-${m}</div>
-        <input type="number" class="input ins-amount" value="${amount}" min="0" step="0.01" style="flex:1; padding:6px 10px; font-size:13px;">
-        <label style="display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap;">
-          <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''} style="width:auto;"> 已扣款
-        </label>
-      </div>
-    `;
-  }
-
-  body.innerHTML = `
-    <div class="banner" style="margin-bottom:10px;">${info.rangeText}</div>
-    <div style="max-height:50vh; overflow-y:auto;">${rows}</div>
-    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--glass-border); display:flex; justify-content:space-between;">
-      <span style="font-size:12px; color:var(--text-muted);">本期已扣款：${formatHKD(totalPaid)}</span>
-    </div>
-  `;
-
-  document.getElementById('insurance-detail-modal').classList.add('active');
 }
 
 function renderGrid() {
@@ -371,19 +423,11 @@ document.addEventListener('click', async (e) => {
 
   if (action === 'add-period') {
     const periodIndex = Number(btn.dataset.index);
-    const startDate = new Date(p.firstStartYear, Number(p.firstStartMonth) - 1, 1);
-    startDate.setMonth(startDate.getMonth() + (periodIndex - 1) * 12);
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + 11);
-
-    const startY = startDate.getFullYear();
-    const startM = String(startDate.getMonth() + 1).padStart(2, '0');
-    const endY = endDate.getFullYear();
-    const endM = String(endDate.getMonth() + 1).padStart(2, '0');
+    const range = getPeriodRange(p, periodIndex);
 
     document.getElementById('add-period-policy-id').value = p.id;
     document.getElementById('add-period-index').value = periodIndex;
-    document.getElementById('add-period-range').value = `第 ${periodIndex} 年度 (${startY}-${startM} ~ ${endY}-${endM})`;
+    document.getElementById('add-period-range').value = `第 ${periodIndex} 年度 (${range.rangeText})`;
     const prevData = (p.periods || {})[String(periodIndex - 1)];
     document.getElementById('add-period-annual').value = prevData ? prevData.annualPremium : '';
     document.getElementById('add-period-monthly').value = prevData ? prevData.monthlyAverage : '';
