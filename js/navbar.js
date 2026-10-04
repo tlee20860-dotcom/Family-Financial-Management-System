@@ -12,15 +12,15 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
 
   const { year, month } = AppState.getYearMonth();
 
-  // 產生年份選項（前後 5 年）
+  // 年份選項（前後 5 年）
   const currentYear = Number(year);
   const yearOptions = [];
   for (let y = currentYear - 5; y <= currentYear + 5; y++) {
     yearOptions.push(`<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y} 年</option>`);
   }
 
-  // 產生月份選項
-  const monthOptions = [];
+  // 月份選項（加入「全年」）
+  const monthOptions = [`<option value="all" ${month === 'all' ? 'selected' : ''}>全年</option>`];
   for (let m = 1; m <= 12; m++) {
     const mm = String(m).padStart(2, '0');
     monthOptions.push(`<option value="${mm}" ${mm === month ? 'selected' : ''}>${m} 月</option>`);
@@ -42,7 +42,6 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
     <div class="navbar-user" id="navbar-user"></div>
   `;
 
-  // 綁定事件（只綁定一次）
   if (!window._navbarEventBound) {
     window._navbarEventBound = true;
 
@@ -65,7 +64,6 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
       }
     });
 
-    // 監聽登入者變化
     AppState.on('user-change', (user) => {
       const userBox = document.getElementById('navbar-user');
       if (userBox && user) {
