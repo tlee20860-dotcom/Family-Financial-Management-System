@@ -586,3 +586,28 @@ export async function getAllMemberExpensesOnce(year, month) {
   flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return flat;
 }
+/* ============================================
+   年度明細：批次讀取與寫入
+   ============================================ */
+
+export async function getIncomeOnce(year, month) {
+  const snap = await get(familyRef(`income/${year}/${month}`));
+  return snap.val() || {};
+}
+
+export async function getInsurancePaymentsOnce(policyId) {
+  const snap = await get(familyRef(`insurance_payments/${policyId}`));
+  return snap.val() || {};
+}
+
+export async function saveInsurancePaymentBatch(policyId, year, month, data) {
+  await set(familyRef(`insurance_payments/${policyId}/${year}/${month}`), {
+    status: data.status || '已扣款',
+    amount: Number(data.amount) || 0,
+    date: data.date || new Date().toISOString().slice(0, 10),
+  });
+}
+
+export async function removeInsurancePaymentBatch(policyId, year, month) {
+  await remove(familyRef(`insurance_payments/${policyId}/${year}/${month}`));
+}
