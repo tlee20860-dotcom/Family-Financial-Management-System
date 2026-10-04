@@ -1,5 +1,5 @@
 // ============================================
-// member-detail.js — 成員個人版面邏輯
+// member-detail.js — 成員個人版面（全年 / 單月）
 // ============================================
 
 import {
@@ -8,6 +8,7 @@ import {
 } from './db.js';
 import { formatHKD, todayISO, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
+import { api } from './api.js';
 
 let memberId = null;
 let memberName = '';
@@ -39,32 +40,111 @@ export async function initMemberDetailPage(id) {
     nameEl.textContent = '（無法讀取成員）';
   }
 
-  listenCategories((list) => {
-    categories = list;
-    renderCategoryOptions();
-  });
-  listenItems((list) => {
-    items = list;
-    renderItemOptions();
-  });
+  listenCategories((list) => { categories = list; renderCategoryOptions(); });
+  listenItems((list) => { items = list; renderItemOptions(); });
 
   bindEvents();
-  await loadExpenses();
+  initYearMonthSelects();
+  await loadData();
 
-  AppState.on('ym-change', () => {
-    loadExpenses();
-  });
+  AppState.on('ym-change', () => loadData());
 }
 
-async function loadExpenses() {
+async function loadData() {
   const { year, month } = AppState.getYearMonth();
-  document.getElementById('expense-month-label').textContent = `${year} 年 ${month} 月`;
+  const isAnnual = month === 'all';
 
+  document.getElementById('annual-view').style.display = isAnnual ? 'block' : 'none';
+  document.getElementById('monthly-view').style.display = isAnnual ? 'none' : 'block';
+
+  if (isAnnual) {
+    await loadAnnual(year);
+  } else {
+    await loadMonthly(year, month);
+  }
+}
+
+async function loadAnnual(year) {
+  try {
+    const data = await api.fetchAnnualSummary(year);
+    renderAnnual(data);
+  } catch (err) {
+    console.error('全年資料載入失敗：', err);
+  }
+}
+
+function renderAnnual(data) {
+  let total = 0;
+  const container = document.getElementById('annual-monthly-cards');
+  const cards = data.monthly.map((m) => {
+    const md = m.perMember[memberId];
+    if (!md || md.itemCount === 0) return '';
+
+    total += md.sum;
+    const rows = md.items.map((it) => `
+      <tr>
+        <td>${escapeHtml(it.name)}</td>
+        <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(it.categoryName || '—')}</td>
+        <td class="mono" style="font-size:11px; color:var(--text-muted);">${escapeHtml(it.date || '—')}</td>
+        <td class="num">${formatHKD(it.amount)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div class="glass-card" style="margin-bottom:10px; padding:14px;">
+        <div class="month-toggle" style="display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; user-select:none;">
+          <div style="font-weight:700; font-size:15px; color:var(--neon-cyan);">${m.monthNum} 月</div>
+          <div class="mono text-magenta" style="font-weight:700;">${formatHKD(md.sum)}</div>
+        </div>
+        <div class="month-detail" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1);">
+          <table class="data-table" style="font-size:12px;">
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+
+  document.getElementById('annual-total').textContent = formatHKD(total);
+  container.innerHTML = cards || '<div class="glass-card"><div class="empty-state">本年度尚無支出紀錄</div></div>';
+
+  container.querySelectorAll('.month-toggle').forEach((el) => {
+    el.addEventListener('click', () => {
+      const d = el.nextElementSibling;
+      d.style.display = d.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function loadMonthly(year, month) {
+  document.getElementById('expense-month-label').textContent = `${year} 年 ${month} 月`;
   if (unsubscribeExpenses) unsubscribeExpenses();
   unsubscribeExpenses = listenExpenses(year, month, memberId, (list) => {
     expenses = list;
     renderExpenses();
   });
+}
+
+function initYearMonthSelects() {
+  const yearSel = document.getElementById('expense-year');
+  const monthSel = document.getElementById('expense-month');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  let yearOpts = '';
+  for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+    yearOpts += `<option value="${y}">${y} 年</option>`;
+  }
+  yearSel.innerHTML = yearOpts;
+
+  let monthOpts = '';
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, '0');
+    monthOpts += `<option value="${mm}">${m} 月</option>`;
+  }
+  monthSel.innerHTML = monthOpts;
 }
 
 function renderCategoryOptions() {
@@ -80,15 +160,13 @@ function renderItemOptions() {
   const sel = document.getElementById('expense-item-input');
   if (!sel) return;
   const catId = document.getElementById('expense-category-input').value;
-
   if (!catId) {
     sel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
     return;
   }
-
   const filtered = items.filter((i) => i.categoryId === catId);
   sel.innerHTML = `<option value="">— 請選擇項目 —</option>` +
-    filtered.map((i) => `<option value="${i.id}" data-name="${escapeHtml(i.name)}">${escapeHtml(i.name)}</option>`).join('');
+    filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
 }
 
 function bindEvents() {
@@ -102,11 +180,16 @@ function bindEvents() {
   const statusSel = document.getElementById('expense-status-input');
   const memberInput = document.getElementById('expense-member-input');
   const fixedCheck = document.getElementById('expense-fixed-input');
+  const yearSel = document.getElementById('expense-year');
+  const monthSel = document.getElementById('expense-month');
 
   document.getElementById('add-expense-btn').addEventListener('click', () => {
     editingId = null;
     modalTitle.textContent = '新增支出';
     form.reset();
+    const { year, month } = AppState.getYearMonth();
+    yearSel.value = year;
+    monthSel.value = month === 'all' ? String(new Date().getMonth() + 1).padStart(2, '0') : month;
     dateInput.value = todayISO();
     statusSel.value = '未處理';
     memberInput.value = memberName;
@@ -125,19 +208,20 @@ function bindEvents() {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const { year, month } = AppState.getYearMonth();
+
+    const targetYear = yearSel.value;
+    const targetMonth = monthSel.value;
 
     const catId = categorySel.value;
     const itemId = itemSel.value;
     const catName = categories.find((c) => c.id === catId)?.name || '';
     const itemName = items.find((i) => i.id === itemId)?.name || '';
-
     const displayName = itemName || catName || '未命名支出';
 
     const payload = {
       name: displayName,
       amount: Number(amountInput.value) || 0,
-      status: statusSel.value, // 🆕 使用下拉選單的值
+      status: statusSel.value,
       date: dateInput.value.trim() || todayISO(),
       categoryId: catId,
       itemId: itemId,
@@ -146,9 +230,9 @@ function bindEvents() {
     if (!payload.name || !payload.amount) return;
 
     if (editingId) {
-      await updateExpense(year, month, memberId, editingId, payload);
+      await updateExpense(targetYear, targetMonth, memberId, editingId, payload);
     } else {
-      await addExpense(year, month, memberId, payload);
+      await addExpense(targetYear, targetMonth, memberId, payload);
 
       if (fixedCheck.checked) {
         await addFixedTemplate({
@@ -158,16 +242,17 @@ function bindEvents() {
           memberId: memberId,
           amount: payload.amount,
         });
-        console.log('✅ 已加入固定支出模板');
       }
     }
+
     modal.classList.remove('active');
+    // ✅ 僅彈出提示，不跳轉
+    showToast(`✅ 已錄入 ${targetYear} 年 ${targetMonth} 月`);
   });
 
   document.getElementById('expense-tbody').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
-
     const id = btn.dataset.id;
     const action = btn.dataset.action;
     const exp = expenses.find((x) => x.id === id);
@@ -176,15 +261,18 @@ function bindEvents() {
     if (action === 'edit') {
       editingId = id;
       modalTitle.textContent = '編輯支出';
+      const { year, month } = AppState.getYearMonth();
+      yearSel.value = year;
+      monthSel.value = month === 'all' ? String(new Date().getMonth() + 1).padStart(2, '0') : month;
       categorySel.value = exp.categoryId || '';
       renderItemOptions();
       itemSel.value = exp.itemId || '';
       amountInput.value = exp.amount || '';
       dateInput.value = exp.date || '';
-      statusSel.value = exp.status || '未處理'; // 🆕 正確帶入狀態
+      statusSel.value = exp.status || '未處理';
       memberInput.value = memberName;
       fixedCheck.checked = false;
-      fixedCheck.disabled = true; // 編輯時不允許再寫入模板
+      fixedCheck.disabled = true;
       modal.classList.add('active');
       setTimeout(() => dateInput.focus(), 50);
     } else if (action === 'delete') {
@@ -207,16 +295,13 @@ function renderExpenses() {
   }
 
   tbody.innerHTML = expenses.map((x) => {
-    // 🆕 正確處理各種狀態的 Badge
     let statusBadge = '';
-    if (x.status === '已還款') {
-      statusBadge = '<span class="badge badge-success">已還款</span>';
-    } else if (x.status === '未還款') {
-      statusBadge = '<span class="badge badge-pending">未還款</span>';
-    } else if (x.status === '已處理') {
-      statusBadge = '<span class="badge badge-success">已處理</span>';
+    if (x.status === '已還款' || x.status === '已處理') {
+      statusBadge = `<span class="badge badge-success">${escapeHtml(x.status)}</span>`;
+    } else if (x.status === '未還款' || x.status === '未處理') {
+      statusBadge = `<span class="badge badge-pending">${escapeHtml(x.status)}</span>`;
     } else {
-      statusBadge = '<span class="badge badge-pending">未處理</span>';
+      statusBadge = `<span class="badge badge-pending">${escapeHtml(x.status || '未處理')}</span>`;
     }
 
     const actionCell = x.isAutoLinked
@@ -239,7 +324,25 @@ function renderExpenses() {
     `;
   }).join('');
 
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
-    window.lucide.createIcons();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+/* Toast 提示 */
+function showToast(msg) {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.style.cssText = `
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: rgba(16, 185, 129, 0.95); color: #fff;
+      padding: 12px 22px; border-radius: 8px; font-size: 14px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 99999;
+      opacity: 0; transition: opacity 0.3s;
+    `;
+    document.body.appendChild(toast);
   }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
