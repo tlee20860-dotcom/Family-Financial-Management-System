@@ -79,19 +79,13 @@ export function initAdminPage() {
   let familiesCache = [];
 
   async function loadFamilies() {
-  try {
-    const data = await api.adminListFamilies();
-    familiesCache = data.families || [];
-    render();
-  } catch (err) {
-    console.error('載入家庭失敗：', err);
-    showError('無法載入家庭清單：' + err.message);
-    // 🆕 更新表格顯示錯誤
-    const tbody = document.getElementById('family-tbody');
-    if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state text-red">載入失敗，請檢查 Console 錯誤訊息。</td></tr>`;
+    try {
+      const data = await api.adminListFamilies();
+      familiesCache = data.families || [];
+      render();
+    } catch (err) {
+      showError('無法載入家庭清單：' + err.message);
     }
-  }
   }
 
   function render() {
