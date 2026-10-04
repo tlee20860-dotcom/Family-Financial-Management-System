@@ -6,7 +6,10 @@ import { dbGet, dbPut, dbDelete, jsonResponse } from './_config.js';
 
 export async function onRequestGet({ request }) {
   try {
-    const list = await dbGet('platform/families');
+    const authHeader = request.headers.get('Authorization') || '';
+    const token = authHeader.replace('Bearer ', '');
+
+    const list = await dbGet('platform/families', token);
     const families = Object.entries(list || {}).map(([uid, data]) => ({ uid, ...data }));
     families.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     return jsonResponse({ ok: true, families });
@@ -40,7 +43,7 @@ export async function onRequestPost({ request }) {
 
     if (action === 'remove') {
       if (!uid) return jsonResponse({ ok: false, error: '缺少 uid' }, 400);
-      const success = await dbDelete(`platform/families/${uid}`);
+      const success = await dbDelete(`platform/families/${uid}`, token);
       if (!success) return jsonResponse({ ok: false, error: '刪除失敗' }, 500);
       return jsonResponse({ ok: true });
     }
