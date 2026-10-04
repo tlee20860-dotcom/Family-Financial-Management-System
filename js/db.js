@@ -369,6 +369,10 @@ export function listenFixedExpensesV2(year, month, callback) {
   });
 }
 
+// ============================================
+// 更新：固定支出支援類別與項目
+// ============================================
+
 export async function addFixedExpenseV2(year, month, data) {
   if (!year || !month) {
     const ym = AppState.getYearMonth();
@@ -381,6 +385,8 @@ export async function addFixedExpenseV2(year, month, data) {
     amount: Number(data.amount) || 0,
     cycle: data.cycle || '每月',
     note: data.note || '',
+    categoryId: data.categoryId || '',
+    itemId: data.itemId || '',
     status: data.status || '未付款',
     paidDate: data.paidDate || '',
     isSkipped: data.isSkipped || false,
