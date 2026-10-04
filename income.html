@@ -15,12 +15,16 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header">
-          <h1 class="page-title">每月收入</h1>
-          <p class="page-subtitle" id="income-month">載入中…</p>
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">每月收入</h1>
+            <p class="page-subtitle" id="income-month">載入中…</p>
+          </div>
+          <button class="btn btn-primary" id="view-annual-income-btn">
+            <i data-lucide="table"></i> 查看年度明細
+          </button>
         </div>
 
-        <!-- ===== 全年模式 ===== -->
         <div id="annual-view" style="display:none;">
           <div class="glass-card" style="margin-bottom:20px;">
             <div class="glass-card-title">年度總收入</div>
@@ -29,31 +33,34 @@
           <div id="annual-monthly-cards"></div>
         </div>
 
-        <!-- ===== 單月模式 ===== -->
         <div id="monthly-view" style="display:none;">
           <div class="glass-card" style="max-width:560px;">
             <div class="glass-card-title">家庭成員收入</div>
-            <p class="glass-card-hint" style="margin-bottom:18px;">
-              輸入每位成員本月帶入家庭帳號的金額，以及額外收入。
-            </p>
-
+            <p class="glass-card-hint" style="margin-bottom:18px;">輸入每位成員本月帶入家庭帳號的金額，以及額外收入。</p>
             <form id="income-form">
               <div id="member-inputs"></div>
-
               <div class="field" style="margin-top:14px; padding-top:14px; border-top:1px dashed rgba(255,255,255,0.1);">
                 <label class="field-label" for="income-extra">額外收入（HK$）</label>
                 <input class="input mono" id="income-extra" type="number" min="0" step="0.01" placeholder="0">
               </div>
-
               <div class="banner" id="income-status" style="display:none; margin-top:14px;"></div>
-
-              <button type="submit" class="btn btn-primary" style="margin-top:16px; width:100%; justify-content:center;">
-                儲存本月收入
-              </button>
+              <button type="submit" class="btn btn-primary" style="margin-top:16px; width:100%; justify-content:center;">儲存本月收入</button>
             </form>
           </div>
         </div>
       </main>
+    </div>
+  </div>
+
+  <!-- 年度收入明細 Modal -->
+  <div class="modal-overlay" id="income-detail-modal">
+    <div class="modal" style="max-width:800px; max-height:90vh; overflow-y:auto;">
+      <h2 class="modal-title" id="income-detail-title">年度收入明細</h2>
+      <div id="income-detail-body" style="overflow-x:auto;"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="income-detail-cancel-btn">取消</button>
+        <button type="button" class="btn btn-primary" id="income-detail-save-btn">批次儲存</button>
+      </div>
     </div>
   </div>
 
