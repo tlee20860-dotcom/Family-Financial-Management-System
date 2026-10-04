@@ -16,7 +16,7 @@ export async function onRequestPost({ request }) {
 
     const basePath = `families/${uid}`;
 
-    const existing = await dbGet(`${basePath}/members`);
+    const existing = await dbGet(`${basePath}/members`, token);
     if (existing && Object.keys(existing).length > 0) {
       return jsonResponse({ ok: true, skipped: true, message: '此家庭已有資料' });
     }
