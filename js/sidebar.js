@@ -1,9 +1,10 @@
 // ============================================
-// sidebar.js — 左側導覽選單（成員版面可折疊）
+// sidebar.js — 左側導覽選單（多家庭版）
 // ============================================
 
 import { listenMembers } from './db.js';
 import { escapeHtml, sortMembers } from './utils.js';
+import { AppState } from './state.js';
 
 const STATIC_TOP = [
   { icon: 'home', label: '總覽儀表板', href: 'index.html' },
