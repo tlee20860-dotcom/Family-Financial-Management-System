@@ -100,11 +100,16 @@
         </div>
 
         <div class="field">
-          <label class="field-label" for="expense-item-input">項目</label>
-          <select class="select" id="expense-item-input" required>
-            <option value="">— 請先選擇類別 —</option>
-          </select>
-        </div>
+  <label class="field-label" for="expense-item-input">項目</label>
+  <div style="display:flex; gap:8px;">
+    <select class="select" id="expense-item-input" required style="flex:1;">
+      <option value="">— 請先選擇類別 —</option>
+    </select>
+    <button type="button" class="btn btn-sm btn-ghost" id="add-expense-item-btn" title="新增項目" style="padding:0 12px;">
+      <i data-lucide="plus" style="width:16px;height:16px;"></i>
+    </button>
+  </div>
+</div>
 
         <div class="field">
           <label class="field-label" for="expense-amount-input">費用（HK$）</label>
