@@ -1,311 +1,191 @@
 // ============================================
-// expenses.js — 每月總開銷表（明細 + PDF 匯出）
+// fixed-expenses.js — 家庭固定支出（按月獨立 + 自動帶入上月）
 // ============================================
 
-import { api } from './api.js';
-import { formatHKD, escapeHtml, formatNumber } from './utils.js';
+import {
+  listenFixedExpensesV2, addFixedExpenseV2, updateFixedExpenseV2, removeFixedExpenseV2,
+  copyFixedExpensesFromPrevMonth,
+} from './db.js';
+import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
 
-let currentData = null;
+let list = [];
+let editingId = null;
+let unsubscribe = null;
+let lastLoadedYM = '';
 
-export async function initExpensesPage() {
-  document.getElementById('export-pdf-btn').addEventListener('click', exportToPDF);
-  await loadExpenses();
-  AppState.on('ym-change', () => loadExpenses());
-}
+export function initFixedExpensesPage() {
+  const tbody = document.getElementById('fixed-tbody');
+  const modal = document.getElementById('fixed-modal');
+  const modalTitle = document.getElementById('fixed-modal-title');
+  const form = document.getElementById('fixed-form');
 
-async function loadExpenses() {
-  const { year, month } = AppState.getYearMonth();
-  document.getElementById('expenses-month').textContent = `${year} 年 ${month} 月 明細`;
+  const nameInput = document.getElementById('fixed-name');
+  const amountInput = document.getElementById('fixed-amount');
+  const cycleSelect = document.getElementById('fixed-cycle');
+  const noteInput = document.getElementById('fixed-note');
 
-  try {
-    const data = await api.summary(year, month);
-    currentData = data;
-    render(data);
-  } catch (err) {
-    console.error('每月總開銷載入失敗：', err);
-    document.getElementById('member-sections').innerHTML =
-      `<div class="glass-card"><div class="empty-state text-red">載入失敗，請稍後再試。</div></div>`;
-  }
-}
+  const loadAll = async () => {
+    const { year, month } = AppState.getYearMonth();
+    document.getElementById('fixed-month').textContent = `${year} 年 ${month} 月`;
 
-function render(data) {
-  const perMember = data.perMember || {};
-  const memberIds = Object.keys(perMember);
+    // 避免重複載入同一月份
+    const ymKey = `${year}-${month}`;
+    if (lastLoadedYM === ymKey) return;
+    lastLoadedYM = ymKey;
 
-  // ===== 統計卡片 =====
-  const totalIncome = data.totalIncome || 0;
-  const totalExpense = data.totalExpense || 0;
-  const balance = totalIncome - totalExpense;
+    // 若本月沒有資料，嘗試從上月複製
+    try {
+      const copied = await copyFixedExpensesFromPrevMonth(year, month);
+      if (copied > 0) {
+        console.log(`✅ 已從上個月帶入 ${copied} 筆固定支出`);
+      }
+    } catch (err) {
+      console.warn('從上月複製失敗：', err);
+    }
 
-  document.getElementById('expenses-income').textContent = formatHKD(totalIncome);
-  document.getElementById('expenses-total').textContent = formatHKD(totalExpense);
-  document.getElementById('expenses-fixed-total').textContent = formatHKD(data.fixedTotal || 0);
+    if (unsubscribe) unsubscribe();
+    unsubscribe = listenFixedExpensesV2(year, month, (l) => {
+      list = l;
+      render();
+    });
+  };
 
-  const balanceEl = document.getElementById('expenses-balance');
-  balanceEl.textContent = formatHKD(balance);
-  balanceEl.classList.remove('emerald', 'red');
-  balanceEl.classList.add(balance >= 0 ? 'emerald' : 'red');
+  loadAll();
+  AppState.on('ym-change', () => {
+    lastLoadedYM = ''; // 重置，讓新月份可以重新載入
+    loadAll();
+  });
 
-  // ===== 成員明細 =====
-  const container = document.getElementById('member-sections');
+  // 新增
+  document.getElementById('add-fixed-btn').addEventListener('click', () => {
+    editingId = null;
+    modalTitle.textContent = '新增固定支出';
+    form.reset();
+    modal.classList.add('active');
+    setTimeout(() => nameInput.focus(), 50);
+  });
 
-  if (memberIds.length === 0) {
-    container.innerHTML = `<div class="glass-card"><div class="empty-state">本月尚無成員支出紀錄</div></div>`;
-  } else {
-    container.innerHTML = memberIds.map((id) => {
-      const m = perMember[id];
-      const rows = m.items.map((it) => {
-        const tag = it.isAutoLinked ? '<span class="badge badge-info" style="margin-left:6px;">保險連動</span>' : '';
-        return `
-          <tr>
-            <td>${escapeHtml(it.name)}${tag}</td>
-            <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(it.categoryName || '—')}</td>
-            <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(it.date || '—')}</td>
-            <td class="num">${formatHKD(it.amount)}</td>
-            <td>${renderStatusBadge(it.status)}</td>
-          </tr>
-        `;
-      }).join('');
+  document.getElementById('fixed-cancel-btn').addEventListener('click', () => {
+    modal.classList.remove('active');
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { year, month } = AppState.getYearMonth();
+    const payload = {
+      name: nameInput.value.trim(),
+      amount: Number(amountInput.value) || 0,
+      cycle: cycleSelect.value,
+      note: noteInput.value.trim(),
+    };
+    if (!payload.name) return;
+
+    if (editingId) {
+      await updateFixedExpenseV2(year, month, editingId, payload);
+    } else {
+      await addFixedExpenseV2(year, month, payload);
+    }
+    modal.classList.remove('active');
+  });
+
+  // 表格事件委派
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const x = list.find((i) => i.id === id);
+    if (!x) return;
+
+    if (action === 'edit') {
+      editingId = id;
+      modalTitle.textContent = '編輯固定支出';
+      nameInput.value = x.name || '';
+      amountInput.value = x.amount || '';
+      cycleSelect.value = x.cycle || '每月';
+      noteInput.value = x.note || '';
+      modal.classList.add('active');
+      setTimeout(() => nameInput.focus(), 50);
+    } else if (action === 'delete') {
+      if (confirm(`確定要刪除「${x.name}」嗎？（僅刪除本月）`)) {
+        const { year, month } = AppState.getYearMonth();
+        await removeFixedExpenseV2(year, month, id);
+      }
+    }
+  });
+
+  // 勾選已付款 / 本月不適用
+  tbody.addEventListener('change', async (e) => {
+    const el = e.target;
+    const { year, month } = AppState.getYearMonth();
+    const id = el.dataset.id;
+    if (!id) return;
+
+    if (el.dataset.action === 'toggle-paid') {
+      await updateFixedExpenseV2(year, month, id, {
+        status: el.checked ? '已付款' : '未付款',
+        paidDate: el.checked ? new Date().toISOString().slice(0, 10) : '',
+      });
+    } else if (el.dataset.action === 'toggle-skip') {
+      await updateFixedExpenseV2(year, month, id, {
+        isSkipped: el.checked,
+      });
+    }
+  });
+
+  function render() {
+    // 計算本月總額（排除不適用）
+    const activeList = list.filter((x) => !x.isSkipped);
+    const total = activeList.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const pending = activeList.filter((x) => x.status !== '已付款').length;
+
+    document.getElementById('fixed-total').textContent = formatHKD(total);
+    document.getElementById('fixed-pending-count').textContent = `${pending} 筆`;
+
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="7" class="empty-state">本月尚無固定支出，請點擊「新增固定支出」。</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map((x) => {
+      const isPaid = x.status === '已付款';
+      const isSkipped = !!x.isSkipped;
+      const rowStyle = isSkipped ? 'opacity:0.4; text-decoration:line-through;' : '';
+      const statusBadge = isSkipped
+        ? '<span class="badge badge-info">本月不適用</span>'
+        : (isPaid
+          ? '<span class="badge badge-success">已付款</span>'
+          : '<span class="badge badge-pending">未付款</span>');
 
       return `
-        <div class="glass-card" style="margin-bottom:16px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
-            <div>
-              <div class="glass-card-title" style="margin:0;">
-                <a href="member-detail.html?id=${id}" class="text-cyan">${escapeHtml(m.memberName)}</a>
-              </div>
-              <div class="glass-card-hint">共 ${m.itemCount} 筆</div>
-            </div>
-            <div style="text-align:right;">
-              <div class="glass-card-title" style="margin:0;">小計</div>
-              <div class="mono text-magenta" style="font-size:18px; font-weight:700;">${formatHKD(m.sum)}</div>
-            </div>
-          </div>
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>項目名稱</th>
-                  <th>類別</th>
-                  <th>日期</th>
-                  <th style="text-align:right;">金額</th>
-                  <th>狀態</th>
-                </tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>
+        <tr style="${rowStyle}">
+          <td>${escapeHtml(x.name)}${x.note ? `<div class="glass-card-hint" style="margin-top:4px;">${escapeHtml(x.note)}</div>` : ''}</td>
+          <td class="num">${formatHKD(x.amount)}</td>
+          <td>${escapeHtml(x.cycle || '每月')}</td>
+          <td>${statusBadge}</td>
+          <td>
+            <input type="checkbox" ${isPaid ? 'checked' : ''} ${isSkipped ? 'disabled' : ''}
+              data-action="toggle-paid" data-id="${x.id}"
+              style="width:auto; cursor:pointer;">
+          </td>
+          <td>
+            <input type="checkbox" ${isSkipped ? 'checked' : ''}
+              data-action="toggle-skip" data-id="${x.id}"
+              title="勾選後，本月不計入總支出"
+              style="width:auto; cursor:pointer;">
+          </td>
+          <td>
+            <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${x.id}">編輯</button>
+            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${x.id}">刪除</button>
+          </td>
+        </tr>
       `;
     }).join('');
+
+    if (window.lucide && typeof window.lucide.createIcons === 'function') {
+      window.lucide.createIcons();
+    }
   }
-
-  // ===== 固定支出 =====
-  const fixedTbody = document.getElementById('fixed-tbody');
-  const fixedList = data.fixedList || [];
-
-  if (fixedList.length === 0) {
-    fixedTbody.innerHTML = `<tr><td colspan="5" class="empty-state">本月尚無固定支出</td></tr>`;
-  } else {
-    fixedTbody.innerHTML = fixedList.map((x) => `
-      <tr>
-        <td>${escapeHtml(x.name)}</td>
-        <td>${escapeHtml(x.cycle)}</td>
-        <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x.dueDate || '—')}</td>
-        <td class="num">${formatHKD(x.amount)}</td>
-        <td>${renderStatusBadge(x.status)}</td>
-      </tr>
-    `).join('');
-  }
-
-  if (window.lucide && typeof window.lucide.createIcons === 'function') {
-    window.lucide.createIcons();
-  }
-}
-
-function renderStatusBadge(status) {
-  if (status === '已還款' || status === '已付款' || status === '已處理') {
-    return `<span class="badge badge-success">${escapeHtml(status)}</span>`;
-  }
-  if (status === '未還款' || status === '未付款' || status === '未處理') {
-    return `<span class="badge badge-pending">${escapeHtml(status)}</span>`;
-  }
-  return `<span class="badge badge-info">${escapeHtml(status || '—')}</span>`;
-}
-
-/* ============================================
-   PDF 匯出：開啟新視窗列印
-   ============================================ */
-async function exportToPDF() {
-  if (!currentData) {
-    alert('資料尚未載入完成');
-    return;
-  }
-
-  const { year, month } = AppState.getYearMonth();
-  const html = buildPrintHTML(year, month, currentData);
-
-  const printWindow = window.open('', '_blank', 'width=900,height=700');
-  if (!printWindow) {
-    alert('請允許彈出視窗，才能匯出 PDF。\n（設定 ➜ 網站設定 ➜ 允許彈出視窗）');
-    return;
-  }
-
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html lang="zh-Hant">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>家庭總開銷_${year}-${month}</title>
-      <style>
-        * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; background: #fff; color: #000; font-family: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans TC', -apple-system, sans-serif; }
-        body { padding: 20px; }
-        h1 { font-size: 22px; margin: 0 0 6px 0; }
-        h2 { font-size: 15px; margin: 20px 0 10px 0; }
-        h3 { font-size: 13px; margin: 16px 0 6px 0; border-left: 4px solid #0a84ff; padding-left: 10px; }
-        .summary { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-        .summary > div { flex: 1; min-width: 120px; border: 1px solid #ddd; padding: 10px; }
-        .summary-label { font-size: 10px; color: #666; margin-bottom: 4px; }
-        .summary-value { font-size: 16px; font-weight: 700; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 4px; }
-        th, td { padding: 6px 8px; border: 1px solid #ddd; text-align: left; }
-        th { background: #f3f4f6; font-weight: 600; }
-        .num { text-align: right; }
-        .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 16px; }
-        .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 10px; color: #666; text-align: center; }
-        tr, .member-block { page-break-inside: avoid; }
-        @page { size: A4; margin: 15mm; }
-        @media print { body { padding: 0; } .no-print { display: none !important; } }
-      </style>
-    </head>
-    <body>
-      ${html}
-      <div class="footer no-print" style="margin-top:30px; text-align:center;">
-        <button onclick="window.print()" style="padding:10px 20px; font-size:14px; cursor:pointer; background:#0a84ff; color:#fff; border:none; border-radius:6px;">
-          📄 列印 / 儲存為 PDF
-        </button>
-        <p style="font-size:11px; color:#999; margin-top:10px;">若按鈕無反應，請使用瀏覽器選單 ➜ 列印</p>
-      </div>
-      <script>
-        window.addEventListener('load', function() {
-          var isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-          if (!isMobile) { setTimeout(function() { window.print(); }, 400); }
-        });
-      </script>
-    </body>
-    </html>
-  `);
-  printWindow.document.close();
-}
-
-function buildPrintHTML(year, month, data) {
-  const perMember = data.perMember || {};
-  const memberIds = Object.keys(perMember);
-  const memberTotal = Object.values(perMember).reduce((s, m) => s + m.sum, 0);
-  const fixedList = data.fixedList || [];
-  const totalIncome = data.totalIncome || 0;
-  const totalExpense = data.totalExpense || 0;
-  const balance = totalIncome - totalExpense;
-  const balanceColor = balance >= 0 ? '#10b981' : '#f43f5e';
-
-  const memberSections = memberIds.map((id) => {
-    const m = perMember[id];
-    const rows = m.items.map((it) => `
-      <tr>
-        <td>${escapeHtml(it.name)}</td>
-        <td>${escapeHtml(it.categoryName || '—')}</td>
-        <td>${escapeHtml(it.date || '—')}</td>
-        <td class="num">${formatNumber(it.amount)}</td>
-        <td>${escapeHtml(it.status || '—')}</td>
-      </tr>
-    `).join('');
-
-    return `
-      <div class="member-block" style="margin-bottom:18px;">
-        <h3>
-          ${escapeHtml(m.memberName)}（共 ${m.itemCount} 筆）
-          <span style="float:right; color:#c026d3;">HK$ ${formatNumber(m.sum)}</span>
-        </h3>
-        <table>
-          <thead>
-            <tr>
-              <th>項目名稱</th>
-              <th>類別</th>
-              <th>日期</th>
-              <th class="num">金額</th>
-              <th>狀態</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
-  }).join('');
-
-  const fixedSection = fixedList.length ? `
-    <div class="member-block" style="margin-top:18px;">
-      <h3 style="border-left-color:#f59e0b;">
-        家庭固定支出
-        <span style="float:right; color:#c026d3;">HK$ ${formatNumber(data.fixedTotal || 0)}</span>
-      </h3>
-      <table>
-        <thead>
-          <tr>
-            <th>項目名稱</th>
-            <th>週期</th>
-            <th>到期日</th>
-            <th class="num">金額</th>
-            <th>狀態</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${fixedList.map((x) => `
-            <tr>
-              <td>${escapeHtml(x.name)}</td>
-              <td>${escapeHtml(x.cycle)}</td>
-              <td>${escapeHtml(x.dueDate || '—')}</td>
-              <td class="num">${formatNumber(x.amount)}</td>
-              <td>${escapeHtml(x.status)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  ` : '';
-
-  return `
-    <div class="header">
-      <h1>家庭每月總開銷表</h1>
-      <div style="font-size:12px; color:#666;">${year} 年 ${month} 月</div>
-    </div>
-
-    <div class="summary">
-      <div>
-        <div class="summary-label">當月總收入</div>
-        <div class="summary-value" style="color:#10b981;">HK$ ${formatNumber(totalIncome)}</div>
-      </div>
-      <div>
-        <div class="summary-label">當月總支出</div>
-        <div class="summary-value" style="color:#c026d3;">HK$ ${formatNumber(totalExpense)}</div>
-      </div>
-      <div>
-        <div class="summary-label">當月餘額</div>
-        <div class="summary-value" style="color:${balanceColor};">HK$ ${formatNumber(balance)}</div>
-      </div>
-      <div>
-        <div class="summary-label">家庭固定支出</div>
-        <div class="summary-value" style="color:#d97706;">HK$ ${formatNumber(data.fixedTotal || 0)}</div>
-      </div>
-    </div>
-
-    <h2>成員支出明細</h2>
-    ${memberSections || '<div style="font-size:11px;">本月尚無成員支出紀錄</div>'}
-
-    ${fixedSection}
-
-    <div class="footer">由 FAMILY.FIN 家庭財務系統產出</div>
-  `;
 }
