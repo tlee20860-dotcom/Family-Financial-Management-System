@@ -29,7 +29,6 @@
           ℹ️ 每月固定支出獨立儲存。新增時可指定歸屬月份。
         </div>
 
-        <!-- 全年模式 -->
         <div id="annual-view" style="display:none;">
           <div class="grid grid-2" style="margin-bottom:20px;">
             <div class="glass-card">
@@ -44,7 +43,6 @@
           <div id="annual-monthly-cards"></div>
         </div>
 
-        <!-- 單月模式 -->
         <div id="monthly-view" style="display:none;">
           <div class="grid grid-2" style="margin-bottom:20px;">
             <div class="glass-card">
@@ -99,13 +97,29 @@
         </div>
 
         <div class="field">
-          <label class="field-label" for="fixed-name">項目名稱</label>
-          <input class="input" id="fixed-name" required maxlength="40" placeholder="例如：水費">
+          <label class="field-label" for="fixed-category">支出類別</label>
+          <select class="select" id="fixed-category" required>
+            <option value="">— 請選擇類別 —</option>
+          </select>
         </div>
+
+        <div class="field">
+          <label class="field-label" for="fixed-item">項目</label>
+          <div style="display:flex; gap:8px;">
+            <select class="select" id="fixed-item" required style="flex:1;">
+              <option value="">— 請先選擇類別 —</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-ghost" id="add-fixed-item-btn" title="新增項目" style="padding:0 12px;">
+              <i data-lucide="plus" style="width:16px;height:16px;"></i>
+            </button>
+          </div>
+        </div>
+
         <div class="field">
           <label class="field-label" for="fixed-amount">金額（HK$）</label>
           <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
         </div>
+
         <div class="field">
           <label class="field-label" for="fixed-cycle">付款週期</label>
           <select class="select" id="fixed-cycle">
@@ -116,10 +130,12 @@
             <option value="一次性">一次性</option>
           </select>
         </div>
+
         <div class="field">
           <label class="field-label" for="fixed-note">備註（可選）</label>
           <input class="input" id="fixed-note" maxlength="60" placeholder="例如：每期調整">
         </div>
+
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
