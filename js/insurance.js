@@ -259,16 +259,20 @@ export function initInsurancePage() {
         </div>`;
     }).join('');
 
-    // 綁定扣款狀態
-    if (!isAnnual) {
-      const { year, month } = AppState.getYearMonth();
-      grid.querySelectorAll('.policy-paid-checkbox').forEach((cb) => {
-        const policyId = cb.dataset.id;
-        listenInsurancePayment(policyId, year, month, (data) => {
-          cb.checked = data.status === '已扣款';
-        });
-      });
-    }
+// 綁定扣款狀態
+if (!isAnnual) {
+  const { year, month } = AppState.getYearMonth();
+  grid.querySelectorAll('.policy-paid-checkbox').forEach((cb) => {
+    const policyId = cb.dataset.id;
+    
+    // 🆕 強制重置為未勾選（避免殘留舊狀態）
+    cb.checked = false;
+
+    listenInsurancePayment(policyId, year, month, (data) => {
+      cb.checked = data.status === '已扣款';
+    });
+  });
+}
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') { window.lucide.createIcons(); }
   }
