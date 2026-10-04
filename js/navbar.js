@@ -11,20 +11,25 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
   root.classList.add('navbar');
 
   const { year, month } = AppState.getYearMonth();
+  const isSuper = AppState.isSuperAdmin;
 
-  // 年份選項（前後 5 年）
   const currentYear = Number(year);
   const yearOptions = [];
   for (let y = currentYear - 5; y <= currentYear + 5; y++) {
     yearOptions.push(`<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y} 年</option>`);
   }
 
-  // 月份選項（加入「全年」）
   const monthOptions = [`<option value="all" ${month === 'all' ? 'selected' : ''}>全年</option>`];
   for (let m = 1; m <= 12; m++) {
     const mm = String(m).padStart(2, '0');
     monthOptions.push(`<option value="${mm}" ${mm === month ? 'selected' : ''}>${m} 月</option>`);
   }
+
+  const adminBtn = isSuper
+    ? `<a href="admin.html" class="btn btn-sm btn-ghost" title="平台管理" style="padding:6px 10px;">
+         <i data-lucide="settings" style="width:16px;height:16px;"></i>
+       </a>`
+    : '';
 
   root.innerHTML = `
     <button class="hamburger" id="hamburger-btn" aria-label="切換選單">
@@ -39,6 +44,7 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
         ${monthOptions.join('')}
       </select>
     </div>
+    ${adminBtn}
     <div class="navbar-user" id="navbar-user"></div>
   `;
 
@@ -68,9 +74,11 @@ export function renderNavbar(containerId = 'navbar-root', title = '') {
       const userBox = document.getElementById('navbar-user');
       if (userBox && user) {
         const name = user.email ? user.email.replace('@familyfin.local', '') : '';
+        const familyName = AppState.getFamilyName();
+        const familyTag = familyName ? ` · ${familyName}` : '';
         userBox.innerHTML = `
           <span class="mono" style="font-size:12px; color:var(--text-muted); margin-right:10px;">
-            👤 ${name}
+            👤 ${name}${familyTag}
           </span>
         `;
       }
