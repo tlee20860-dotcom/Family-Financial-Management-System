@@ -39,3 +39,15 @@ export function escapeHtml(s) {
     "'": '&#39;',
   }[c]));
 }
+/**
+ * 成員排序（全站統一使用）
+ * 規則：優先使用 order 欄位，沒有 order 的成員排在最後，同 order 時按 createdAt
+ */
+export function sortMembers(members) {
+  return [...members].sort((a, b) => {
+    const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
+    const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+}
