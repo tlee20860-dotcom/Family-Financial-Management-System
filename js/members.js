@@ -1,8 +1,10 @@
 // ============================================
-// members.js — 成員管理頁邏輯
+// members.js — 成員管理頁邏輯（含自訂排序）
 // ============================================
 
-import { listenMembers, addMember, updateMember, removeMember } from './db.js';
+import {
+  listenMembers, addMember, updateMember, removeMember, updateMemberOrders,
+} from './db.js';
 import { escapeHtml } from './utils.js';
 
 const ROLE_LABEL = {
@@ -23,8 +25,9 @@ export function initMembersPage() {
   const nameInput = document.getElementById('member-name-input');
   const roleSelect = document.getElementById('member-role-input');
 
+  // 監聽成員（含排序）
   listenMembers((members) => {
-    currentMembers = members;
+    currentMembers = sortMembers(members);
     renderGrid();
   });
 
@@ -49,7 +52,12 @@ export function initMembersPage() {
     if (editingId) {
       await updateMember(editingId, { name, role });
     } else {
+      // 新成員的 order = 目前最大 order + 1
+      const maxOrder = currentMembers.reduce(
+        (max, m) => Math.max(max, m.order != null ? m.order : -1), -1
+      );
       await addMember({ name, role });
+      // 新成員預設會排在最後（因為沒有 order，排序時會 fallback 到 createdAt）
     }
     modal.classList.remove('active');
   });
@@ -74,8 +82,40 @@ export function initMembersPage() {
       if (confirm(`確定要刪除成員「${member.name}」嗎？\n（該成員的支出紀錄不會被刪除）`)) {
         await removeMember(id);
       }
+    } else if (action === 'move-up') {
+      await moveMember(id, 'up');
+    } else if (action === 'move-down') {
+      await moveMember(id, 'down');
     }
   });
+
+  /**
+   * 移動成員順序
+   */
+  async function moveMember(memberId, direction) {
+    const sorted = [...currentMembers];
+    const idx = sorted.findIndex((m) => m.id === memberId);
+    if (idx < 0) return;
+
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= sorted.length) return; // 已在邊界
+
+    // 交換
+    [sorted[idx], sorted[newIdx]] = [sorted[newIdx], sorted[idx]];
+
+    // 重新分配 order（從 0 開始，連續整數）
+    const orderMap = {};
+    sorted.forEach((m, i) => {
+      orderMap[m.id] = i;
+    });
+
+    try {
+      await updateMemberOrders(orderMap);
+    } catch (err) {
+      console.error('更新成員順序失敗：', err);
+      alert('調整順序失敗，請稍後再試。');
+    }
+  }
 
   function renderGrid() {
     if (!currentMembers.length) {
@@ -86,20 +126,54 @@ export function initMembersPage() {
       return;
     }
 
-    grid.innerHTML = currentMembers.map((m) => `
-      <div class="glass-card">
-        <div class="glass-card-title">${ROLE_LABEL[m.role] || '成員'}</div>
-        <div class="glass-card-value">${escapeHtml(m.name)}</div>
-        <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
-          <a class="btn btn-sm" href="member-detail.html?id=${m.id}">進入版面</a>
-          <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${m.id}">編輯</button>
-          <button class="btn btn-sm btn-danger" data-action="delete" data-id="${m.id}">刪除</button>
+    grid.innerHTML = currentMembers.map((m, i) => {
+      const isFirst = i === 0;
+      const isLast = i === currentMembers.length - 1;
+
+      return `
+        <div class="glass-card" style="position:relative;">
+          <!-- 排序按鈕（右上角） -->
+          <div style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:4px;">
+            <button class="btn btn-sm btn-ghost" data-action="move-up" data-id="${m.id}"
+              ${isFirst ? 'disabled' : ''} title="上移"
+              style="padding:2px 6px; line-height:1;">
+              <i data-lucide="chevron-up" style="width:14px;height:14px;"></i>
+            </button>
+            <button class="btn btn-sm btn-ghost" data-action="move-down" data-id="${m.id}"
+              ${isLast ? 'disabled' : ''} title="下移"
+              style="padding:2px 6px; line-height:1;">
+              <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+            </button>
+          </div>
+
+          <div class="glass-card-title">${ROLE_LABEL[m.role] || '成員'}</div>
+          <div class="glass-card-value">${escapeHtml(m.name)}</div>
+          <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+            <a class="btn btn-sm" href="member-detail.html?id=${m.id}">進入版面</a>
+            <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${m.id}">編輯</button>
+            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${m.id}">刪除</button>
+          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     if (window.lucide && typeof window.lucide.createIcons === 'function') {
       window.lucide.createIcons();
     }
   }
+}
+
+/**
+ * 成員排序邏輯：
+ * 1. 優先使用 order 欄位（數字越小越前）
+ * 2. 沒有 order 的成員排在最後
+ * 3. 同 order 時按 createdAt 排序
+ */
+function sortMembers(members) {
+  return [...members].sort((a, b) => {
+    const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
+    const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
+    if (oa !== ob) return oa - ob;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
 }
