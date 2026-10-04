@@ -16,11 +16,10 @@ export function initIncomePage() {
   const form = document.getElementById('income-form');
   const statusEl = document.getElementById('income-status');
 
-  // 1. 監聽成員（動態生成輸入框）
+  // 1. 監聽成員
   listenMembers((list) => {
     members = list;
     renderMemberInputs(container);
-    // 成員更新後，重新填入當前的收入值
     applyIncomeToInputs();
   });
 
@@ -42,25 +41,33 @@ export function initIncomePage() {
   // 3. 儲存
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const { year, month } = AppState.getYearMonth();
+    if (members.length === 0) {
+      alert('成員資料載入中，請稍後再試。');
+      return;
+    }
 
+    const { year, month } = AppState.getYearMonth();
     const payload = {};
+
     members.forEach((m) => {
       const input = document.getElementById(`income-${m.id}`);
       if (input) {
         const val = Number(input.value) || 0;
-        if (val > 0) payload[m.id] = val;
+        payload[m.id] = val; // 即使為 0 也存入，方便後續修改
       }
     });
+
     const extra = Number(extraInput.value) || 0;
-    if (extra > 0) payload.extra = extra;
+    payload.extra = extra;
 
     try {
       await saveIncomeV2(year, month, payload);
+      console.log('✅ 收入已儲存：', payload);
       statusEl.textContent = '✅ 收入已儲存';
       statusEl.style.display = 'block';
       setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
     } catch (err) {
+      console.error('儲存失敗：', err);
       statusEl.textContent = '❌ 儲存失敗：' + err.message;
       statusEl.style.display = 'block';
     }
