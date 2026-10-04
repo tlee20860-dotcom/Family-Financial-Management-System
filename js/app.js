@@ -9,36 +9,31 @@ import { getDisplayName } from './auth.js';
 import { initPWA } from './pwa.js';
 import { AppState } from './state.js';
 
-export async function initApp({ activeHref = '', title = '', needAuth = true } = {}) {
-  // 1. 初始化 PWA
+export async function initApp({ activeHref = '', title = '', needAuth = true, requireFamily = true } = {}) {
   initPWA();
-
-  // 2. 初始化全域狀態（設定當前年月）
   AppState.init();
 
-  // 3. 登入檢查
   let user = null;
   if (needAuth) {
-    user = await requireLogin();
-    AppState.setUser(user);
+    user = await requireLogin({ requireFamily });
+    if (!user) return null;
   }
 
-  // 4. 渲染 Sidebar / Navbar
   await renderSidebar('sidebar-root', activeHref);
   renderNavbar('navbar-root', title);
 
-  // 5. 在 Navbar 顯示登入者名稱
   const userBox = document.getElementById('navbar-user');
   if (userBox && user) {
     const name = getDisplayName(user);
+    const familyName = AppState.getFamilyName();
+    const familyTag = familyName ? ` · ${familyName}` : '';
     userBox.innerHTML = `
       <span class="mono" style="font-size:12px; color:var(--text-muted); margin-right:10px;">
-        👤 ${name}
+        👤 ${name}${familyTag}
       </span>
     `;
   }
 
-  // 6. Lucide 圖標
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }
