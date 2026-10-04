@@ -1,15 +1,18 @@
 // ============================================
-// fixed-expenses.js — 家庭固定支出（全年 / 單月）
+// fixed-expenses.js — 家庭固定支出（含類別與項目連動）
 // ============================================
 
 import {
   listenFixedExpensesV2, addFixedExpenseV2, updateFixedExpenseV2, removeFixedExpenseV2,
   copyFixedExpensesFromPrevMonth, getFixedExpensesOnce,
+  listenCategories, listenItems, addItem,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
 
 let list = [];
+let categories = [];
+let items = [];
 let editingId = null;
 let unsubscribe = null;
 let lastLoadedYM = '';
@@ -22,10 +25,12 @@ export function initFixedExpensesPage() {
 
   const yearSel = document.getElementById('fixed-year');
   const monthSel = document.getElementById('fixed-form-month');
-  const nameInput = document.getElementById('fixed-name');
+  const categorySel = document.getElementById('fixed-category');
+  const itemSel = document.getElementById('fixed-item');
   const amountInput = document.getElementById('fixed-amount');
   const cycleSelect = document.getElementById('fixed-cycle');
   const noteInput = document.getElementById('fixed-note');
+  const addItemBtn = document.getElementById('add-fixed-item-btn');
 
   // 初始化年份 / 月份下拉
   const now = new Date();
@@ -36,6 +41,43 @@ export function initFixedExpensesPage() {
   let monthOpts = '';
   for (let m = 1; m <= 12; m++) monthOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
   monthSel.innerHTML = monthOpts;
+
+  // 監聽類別與項目
+  listenCategories((cats) => {
+    categories = cats;
+    renderCategoryOptions();
+  });
+  listenItems((list) => {
+    items = list;
+    renderItemOptions();
+  });
+
+  // 類別改變時更新項目
+  categorySel.addEventListener('change', renderItemOptions);
+
+  // 新增項目按鈕
+  addItemBtn.addEventListener('click', async () => {
+    const catId = categorySel.value;
+    if (!catId) {
+      alert('請先選擇一個類別，再新增項目。');
+      return;
+    }
+    const name = prompt('請輸入新項目名稱（例如：水費）：');
+    if (!name || !name.trim()) return;
+
+    try {
+      await addItem({ name: name.trim(), categoryId: catId });
+      // 重新載入項目後自動選中
+      setTimeout(() => {
+        const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId);
+        if (newItem) {
+          itemSel.value = newItem.id;
+        }
+      }, 500);
+    } catch (err) {
+      alert('新增項目失敗：' + err.message);
+    }
+  });
 
   const loadAll = async () => {
     const { year, month } = AppState.getYearMonth();
@@ -83,8 +125,9 @@ export function initFixedExpensesPage() {
     monthSel.value = month === 'all'
       ? String(new Date().getMonth() + 1).padStart(2, '0')
       : month;
+    categorySel.value = '';
+    itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
     modal.classList.add('active');
-    setTimeout(() => nameInput.focus(), 50);
   });
 
   document.getElementById('fixed-cancel-btn').addEventListener('click', () => {
@@ -96,13 +139,19 @@ export function initFixedExpensesPage() {
     const targetYear = yearSel.value;
     const targetMonth = monthSel.value;
 
+    const catId = categorySel.value;
+    const itemId = itemSel.value;
+    const itemName = items.find((i) => i.id === itemId)?.name || '';
+
     const payload = {
-      name: nameInput.value.trim(),
+      name: itemName || '未命名支出',
       amount: Number(amountInput.value) || 0,
       cycle: cycleSelect.value,
       note: noteInput.value.trim(),
+      categoryId: catId,
+      itemId: itemId,
     };
-    if (!payload.name) return;
+    if (!payload.name || !payload.amount) return;
 
     if (editingId) {
       await updateFixedExpenseV2(targetYear, targetMonth, editingId, payload);
@@ -127,12 +176,13 @@ export function initFixedExpensesPage() {
       const { year, month } = AppState.getYearMonth();
       yearSel.value = year;
       monthSel.value = month;
-      nameInput.value = x.name || '';
+      categorySel.value = x.categoryId || '';
+      renderItemOptions();
+      itemSel.value = x.itemId || '';
       amountInput.value = x.amount || '';
       cycleSelect.value = x.cycle || '每月';
       noteInput.value = x.note || '';
       modal.classList.add('active');
-      setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
       if (confirm(`確定要刪除「${x.name}」嗎？（僅刪除本月）`)) {
         const { year, month } = AppState.getYearMonth();
@@ -156,6 +206,24 @@ export function initFixedExpensesPage() {
       await updateFixedExpenseV2(year, month, id, { isSkipped: el.checked });
     }
   });
+
+  function renderCategoryOptions() {
+    const current = categorySel.value;
+    categorySel.innerHTML = `<option value="">— 請選擇類別 —</option>` +
+      categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    if (current) categorySel.value = current;
+  }
+
+  function renderItemOptions() {
+    const catId = categorySel.value;
+    if (!catId) {
+      itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
+      return;
+    }
+    const filtered = items.filter((i) => i.categoryId === catId);
+    itemSel.innerHTML = `<option value="">— 請選擇項目 —</option>` +
+      filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
+  }
 
   async function loadAnnual(year) {
     try {
