@@ -31,47 +31,22 @@
 
         <div id="annual-view" style="display:none;">
           <div class="grid grid-2" style="margin-bottom:20px;">
-            <div class="glass-card">
-              <div class="glass-card-title">年度固定支出總額</div>
-              <div class="glass-card-value red mono" id="annual-fixed-total">HK$ 0</div>
-            </div>
-            <div class="glass-card">
-              <div class="glass-card-title">年度尚未付款筆數</div>
-              <div class="glass-card-value orange mono" id="annual-fixed-pending">0 筆</div>
-            </div>
+            <div class="glass-card"><div class="glass-card-title">年度固定支出總額</div><div class="glass-card-value red mono" id="annual-fixed-total">HK$ 0</div></div>
+            <div class="glass-card"><div class="glass-card-title">年度尚未付款筆數</div><div class="glass-card-value orange mono" id="annual-fixed-pending">0 筆</div></div>
           </div>
           <div id="annual-monthly-cards"></div>
         </div>
 
         <div id="monthly-view" style="display:none;">
           <div class="grid grid-2" style="margin-bottom:20px;">
-            <div class="glass-card">
-              <div class="glass-card-title">本月固定支出總額</div>
-              <div class="glass-card-value red mono" id="fixed-total">HK$ 0</div>
-            </div>
-            <div class="glass-card">
-              <div class="glass-card-title">尚未付款筆數</div>
-              <div class="glass-card-value orange mono" id="fixed-pending-count">0 筆</div>
-            </div>
+            <div class="glass-card"><div class="glass-card-title">本月固定支出總額</div><div class="glass-card-value red mono" id="fixed-total">HK$ 0</div></div>
+            <div class="glass-card"><div class="glass-card-title">尚未付款筆數</div><div class="glass-card-value orange mono" id="fixed-pending-count">0 筆</div></div>
           </div>
-
           <div class="glass-card">
             <div style="overflow-x:auto;">
               <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>項目名稱</th>
-                    <th style="text-align:right;">金額</th>
-                    <th>週期</th>
-                    <th>狀態</th>
-                    <th>已付款</th>
-                    <th>不適用本月</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="fixed-tbody">
-                  <tr><td colspan="7" class="empty-state">載入中…</td></tr>
-                </tbody>
+                <thead><tr><th>項目名稱</th><th style="text-align:right;">金額</th><th>週期</th><th>狀態</th><th>已付款</th><th>不適用本月</th><th>操作</th></tr></thead>
+                <tbody id="fixed-tbody"><tr><td colspan="7" class="empty-state">載入中…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -80,67 +55,47 @@
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- 新增固定支出 Modal -->
   <div class="modal-overlay" id="fixed-modal">
     <div class="modal">
       <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
       <form id="fixed-form">
         <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="fixed-year">歸屬年份</label>
-            <select class="select" id="fixed-year"></select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-form-month">歸屬月份</label>
-            <select class="select" id="fixed-form-month"></select>
-          </div>
+          <div class="field"><label class="field-label" for="fixed-year">歸屬年份</label><select class="select" id="fixed-year"></select></div>
+          <div class="field"><label class="field-label" for="fixed-form-month">歸屬月份</label><select class="select" id="fixed-form-month"></select></div>
         </div>
-
-        <div class="field">
-          <label class="field-label" for="fixed-category">支出類別</label>
-          <select class="select" id="fixed-category" required>
-            <option value="">— 請選擇類別 —</option>
-          </select>
-        </div>
-
+        <div class="field"><label class="field-label" for="fixed-category">支出類別</label><select class="select" id="fixed-category" required><option value="">— 請選擇類別 —</option></select></div>
         <div class="field">
           <label class="field-label" for="fixed-item">項目</label>
           <div style="display:flex; gap:8px;">
-            <select class="select" id="fixed-item" required style="flex:1;">
-              <option value="">— 請先選擇類別 —</option>
-            </select>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-fixed-item-btn" title="新增項目" style="padding:0 12px;">
-              <i data-lucide="plus" style="width:16px;height:16px;"></i>
-            </button>
+            <select class="select" id="fixed-item" required style="flex:1;"><option value="">— 請先選擇類別 —</option></select>
+            <button type="button" class="btn btn-sm btn-ghost" id="add-fixed-item-btn" title="新增項目" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
           </div>
         </div>
-
-        <div class="field">
-          <label class="field-label" for="fixed-amount">金額（HK$）</label>
-          <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="fixed-cycle">付款週期</label>
+        <div class="field"><label class="field-label" for="fixed-amount">金額（HK$）</label><input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0"></div>
+        <div class="field"><label class="field-label" for="fixed-cycle">付款週期</label>
           <select class="select" id="fixed-cycle">
-            <option value="每月">每月</option>
-            <option value="每2個月">每2個月</option>
-            <option value="每季">每季</option>
-            <option value="每年">每年</option>
-            <option value="一次性">一次性</option>
+            <option value="每月">每月</option><option value="每2個月">每2個月</option><option value="每季">每季</option><option value="每年">每年</option><option value="一次性">一次性</option>
           </select>
         </div>
-
-        <div class="field">
-          <label class="field-label" for="fixed-note">備註（可選）</label>
-          <input class="input" id="fixed-note" maxlength="60" placeholder="例如：每期調整">
-        </div>
-
+        <div class="field"><label class="field-label" for="fixed-note">備註（可選）</label><input class="input" id="fixed-note" maxlength="60" placeholder="例如：每期調整"></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 年度明細 Modal -->
+  <div class="modal-overlay" id="fixed-detail-modal">
+    <div class="modal" style="max-width:620px; max-height:90vh; overflow-y:auto;">
+      <h2 class="modal-title" id="fixed-detail-title">年度明細</h2>
+      <div id="fixed-detail-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="fixed-detail-cancel-btn">取消</button>
+        <button type="button" class="btn btn-primary" id="fixed-detail-save-btn">批次儲存</button>
+      </div>
     </div>
   </div>
 
