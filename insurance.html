@@ -50,19 +50,14 @@
             <option value="fund_insurance">基金保險（投資型，月供）</option>
           </select>
         </div>
-
         <div class="field">
           <label class="field-label" for="policy-member">受保人</label>
-          <select class="select" id="policy-member" required>
-            <option value="">— 請選擇 —</option>
-          </select>
+          <select class="select" id="policy-member" required><option value="">— 請選擇 —</option></select>
         </div>
-
         <div class="field">
           <label class="field-label" for="policy-name">保險名稱</label>
           <input class="input" id="policy-name" required maxlength="60" placeholder="例如：危疾+住院">
         </div>
-
         <div class="field">
           <label class="field-label" for="policy-company">保險公司</label>
           <select class="select" id="policy-company">
@@ -70,7 +65,6 @@
             <option>AIA</option><option>宏利</option><option>AXA</option>
           </select>
         </div>
-
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
             <label class="field-label" for="policy-start-year">保單開始年份</label>
@@ -81,7 +75,6 @@
             <select class="select" id="policy-start-month" required></select>
           </div>
         </div>
-
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
             <label class="field-label" for="policy-current-period">目前是第幾年度（例如：3）</label>
@@ -92,14 +85,11 @@
             <input class="input mono" id="policy-total-years" type="number" min="1" max="50" placeholder="5" required>
           </div>
         </div>
-
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
             <label class="field-label" for="policy-payment-type">付款類型</label>
             <select class="select" id="policy-payment-type">
-              <option value="年繳">年繳</option>
-              <option value="月繳">月繳</option>
-              <option value="一次付款">一次付款</option>
+              <option value="年繳">年繳</option><option value="月繳">月繳</option><option value="一次付款">一次付款</option>
             </select>
           </div>
           <div class="field">
@@ -107,7 +97,6 @@
             <input class="input" id="policy-account" maxlength="60" placeholder="例如：匯豐扣數">
           </div>
         </div>
-
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
             <label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label>
@@ -118,7 +107,6 @@
             <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
           </div>
         </div>
-
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="policy-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
@@ -134,23 +122,26 @@
       <form id="add-period-form">
         <input type="hidden" id="add-period-policy-id">
         <input type="hidden" id="add-period-index">
-        <div class="field">
-          <label class="field-label">年度區間</label>
-          <input class="input" id="add-period-range" disabled>
-        </div>
-        <div class="field">
-          <label class="field-label" for="add-period-annual">年繳保費（HK$）</label>
-          <input class="input mono" id="add-period-annual" type="number" min="0" step="0.01" required placeholder="0">
-        </div>
-        <div class="field">
-          <label class="field-label" for="add-period-monthly">每月分攤（自動）</label>
-          <input class="input mono" id="add-period-monthly" disabled placeholder="自動計算">
-        </div>
+        <div class="field"><label class="field-label">年度區間</label><input class="input" id="add-period-range" disabled></div>
+        <div class="field"><label class="field-label" for="add-period-annual">年繳保費（HK$）</label><input class="input mono" id="add-period-annual" type="number" min="0" step="0.01" required placeholder="0"></div>
+        <div class="field"><label class="field-label" for="add-period-monthly">每月分攤（自動）</label><input class="input mono" id="add-period-monthly" disabled placeholder="自動計算"></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="add-period-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 年度明細 Modal -->
+  <div class="modal-overlay" id="insurance-detail-modal">
+    <div class="modal" style="max-width:620px; max-height:90vh; overflow-y:auto;">
+      <h2 class="modal-title" id="insurance-detail-title">年度付款明細</h2>
+      <div id="insurance-detail-body"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="insurance-detail-cancel-btn">取消</button>
+        <button type="button" class="btn btn-primary" id="insurance-detail-save-btn">批次標記已扣款</button>
+      </div>
     </div>
   </div>
 
