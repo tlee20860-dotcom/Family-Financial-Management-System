@@ -45,8 +45,23 @@ export async function onRequestGet({ request }) {
     const perMember = {};
     let totalExpense = 0;
 
-    Object.entries(expensesObj).forEach(([memberId, list]) => {
-      const itemsArr = Object.entries(list || {}).map(([id, e]) => {
+    // 🆕 成員排序函式（雲端獨立定義，因為無法 import utils.js）
+    const sortByOrder = (arr) => arr.sort((a, b) => {
+      const oa = a.order != null ? a.order : Number.MAX_SAFE_INTEGER;
+      const ob = b.order != null ? b.order : Number.MAX_SAFE_INTEGER;
+      if (oa !== ob) return oa - ob;
+      return (a.createdAt || 0) - (b.createdAt || 0);
+    });
+
+    // 先按排序處理成員
+    const orderedMembers = sortByOrder(
+      Object.entries(membersObj).map(([id, m]) => ({ id, ...m }))
+    );
+
+    orderedMembers.forEach((m) => {
+      const memberId = m.id;
+      const list = expensesObj[memberId] || {};
+      const itemsArr = Object.entries(list).map(([id, e]) => {
         const catId = e.categoryId || '';
         const itemId = e.itemId || '';
         return {
@@ -60,13 +75,14 @@ export async function onRequestGet({ request }) {
       itemsArr.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
       const sum = itemsArr.reduce((s, e) => s + (Number(e.amount) || 0), 0);
       perMember[memberId] = {
-        memberName: membersObj[memberId]?.name || '（未知成員）',
+        memberName: m.name || '（未知成員）',
+        order: m.order != null ? m.order : Number.MAX_SAFE_INTEGER,
         itemCount: itemsArr.length, sum, items: itemsArr,
       };
       totalExpense += sum;
     });
 
-    /* ---------- 固定支出匯總（過濾不適用） ---------- */
+    /* ---------- 固定支出匯總 ---------- */
     const fixedList = Object.entries(fixedObj)
       .map(([id, x]) => ({
         id, name: x.name || '', amount: Number(x.amount) || 0,
@@ -82,12 +98,11 @@ export async function onRequestGet({ request }) {
     const fixedPendingCount = fixedList.filter((x) => x.status !== '已付款').length;
     totalExpense += fixedTotal;
 
-    /* ---------- 🆕 收入匯總（支援自訂成員 ID） ---------- */
+    /* ---------- 收入匯總（支援自訂成員 ID） ---------- */
     const incomeBreakdown = {};
     let totalIncome = 0;
     Object.entries(incomeObj).forEach(([key, val]) => {
       const num = Number(val) || 0;
-      // 只要是成員清單中的 ID，或者是額外收入，就計入
       if (key === 'extra' || membersObj[key]) {
         incomeBreakdown[key] = num;
         totalIncome += num;
