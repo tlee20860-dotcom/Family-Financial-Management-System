@@ -28,7 +28,7 @@ export async function getMembersOnce() {
 export async function addMember(member) {
   const r = ref(db, 'family_members');
   const newRef = push(r);
-  await set(newRef, { name: member.name, role: member.role || 'other', createdAt: Date.now() });
+  await set(newRef, { name: member.name, role: member.role || 'other', order: member.order || 0, createdAt: Date.now() });
   return newRef.key;
 }
 
@@ -40,16 +40,19 @@ export async function removeMember(id) {
   await remove(ref(db, `family_members/${id}`));
 }
 
+export async function updateMemberOrders(orderMap) {
+  const updates = {};
+  Object.entries(orderMap).forEach(([id, order]) => { updates[`family_members/${id}/order`] = Number(order); });
+  await update(ref(db), updates);
+}
+
 /* ---------- 支出 ---------- */
 function expensePath(year, month, memberId) {
   return `family_expenses/${year}/${month}/member_expenses/${memberId}`;
 }
 
 export function listenExpenses(year, month, memberId, callback) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = ref(db, expensePath(year, month, memberId));
   return onValue(r, (snap) => {
     const val = snap.val() || {};
@@ -60,10 +63,7 @@ export function listenExpenses(year, month, memberId, callback) {
 }
 
 export async function addExpense(year, month, memberId, expense) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = ref(db, expensePath(year, month, memberId));
   const newRef = push(r);
   await set(newRef, {
@@ -76,18 +76,12 @@ export async function addExpense(year, month, memberId, expense) {
 }
 
 export async function updateExpense(year, month, memberId, expId, patch) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   await update(ref(db, `${expensePath(year, month, memberId)}/${expId}`), patch);
 }
 
 export async function removeExpense(year, month, memberId, expId) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   await remove(ref(db, `${expensePath(year, month, memberId)}/${expId}`));
 }
 
@@ -153,10 +147,9 @@ export async function markInsurancePaid(policyId, year, month, paymentAmount) {
   const newCompleted = (policy.completedPeriods || 0) + 1;
   const newRemaining = Math.max(0, (policy.remainingPeriods || 0) - 1);
   const newPaid = (policy.paidPremium || 0) + (Number(paymentAmount) || 0);
-  const isCompleted = newRemaining === 0;
   await update(ref(db, `insurance_policies/${policyId}`), {
     completedPeriods: newCompleted, remainingPeriods: newRemaining,
-    paidPremium: newPaid, isCompleted,
+    paidPremium: newPaid, isCompleted: newRemaining === 0,
   });
   await set(ref(db, `insurance_payments/${policyId}/${year}/${month}`), {
     status: '已扣款', amount: Number(paymentAmount) || 0,
@@ -177,31 +170,35 @@ export async function updateFundInsuranceValue(policyId, year, month, newValue) 
   });
 }
 
-export function listenInsurancePayments(policyId, year, month, callback) {
+// ⚠️ 這是 P21 新增的函式，請確認名稱一致
+export function listenInsurancePayment(policyId, year, month, callback) {
   const r = ref(db, `insurance_payments/${policyId}/${year}/${month}`);
   return onValue(r, (snap) => callback(snap.val() || {}));
 }
 
+export async function saveInsurancePayment(policyId, year, month, data) {
+  await set(ref(db, `insurance_payments/${policyId}/${year}/${month}`), {
+    status: data.status || '已扣款',
+    amount: Number(data.amount) || 0,
+    date: data.date || new Date().toISOString().slice(0, 10),
+  });
+}
+
+export async function removeInsurancePayment(policyId, year, month) {
+  await remove(ref(db, `insurance_payments/${policyId}/${year}/${month}`));
+}
+
 /* ---------- 收入 ---------- */
 export function listenIncomeV2(year, month, callback) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = ref(db, `family_income/${year}/${month}`);
   return onValue(r, (snap) => callback(snap.val() || {}));
 }
 
 export async function saveIncomeV2(year, month, data) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const clean = {};
-  Object.entries(data).forEach(([key, val]) => {
-    const num = Number(val) || 0;
-    if (num > 0) clean[key] = num;
-  });
+  Object.entries(data).forEach(([key, val]) => { const num = Number(val) || 0; if (num > 0) clean[key] = num; });
   await set(ref(db, `family_income/${year}/${month}`), clean);
 }
 
@@ -335,12 +332,9 @@ export async function removeFixedTemplate(id) {
   await remove(ref(db, `fixed_expense_templates/${id}`));
 }
 
-/* ---------- 每月固定支出（按月獨立） ---------- */
+/* ---------- 每月固定支出 ---------- */
 export function listenFixedExpensesV2(year, month, callback) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = ref(db, `fixed_expenses/${year}/${month}`);
   return onValue(r, (snap) => {
     const val = snap.val() || {};
@@ -351,10 +345,7 @@ export function listenFixedExpensesV2(year, month, callback) {
 }
 
 export async function addFixedExpenseV2(year, month, data) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = ref(db, `fixed_expenses/${year}/${month}`);
   const newRef = push(r);
   await set(newRef, {
@@ -399,138 +390,6 @@ export async function copyFixedExpensesFromPrevMonth(year, month) {
   return count;
 }
 
-/* ---------- 銀行 ---------- */
-export function listenBanks(callback) {
-  const r = ref(db, 'family_banks');
-  return onValue(r, (snap) => {
-    const val = snap.val() || {};
-    const list = Object.entries(val).map(([id, b]) => ({ id, ...b }));
-    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    callback(list);
-  });
-}
-
-export async function addBank(name) {
-  const r = ref(db, 'family_banks');
-  const newRef = push(r);
-  await set(newRef, { name: name || '', createdAt: Date.now() });
-  return newRef.key;
-}
-
-export async function removeBank(id) {
-  await remove(ref(db, `family_banks/${id}`));
-}
-
-export function listenBankBalances(year, month, callback) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
-  const r = ref(db, `bank_balances/${year}/${month}`);
-  return onValue(r, (snap) => callback(snap.val() || {}));
-}
-
-export async function saveBankBalance(year, month, bankId, amount) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
-  await update(ref(db, `bank_balances/${year}/${month}`), {
-    [bankId]: { amount: Number(amount) || 0, updatedAt: Date.now() },
-  });
-}
-
-export async function getPrevMonthBankTotal(year, month) {
-  const y = Number(year); const m = Number(month);
-  let prevY = y; let prevM = m - 1;
-  if (prevM < 1) { prevY = y - 1; prevM = 12; }
-  const prevMonthStr = String(prevM).padStart(2, '0');
-  const snap = await get(ref(db, `bank_balances/${prevY}/${prevMonthStr}`));
-  const val = snap.val() || {};
-  return Object.values(val).reduce((s, b) => s + (Number(b.amount) || 0), 0);
-}
-
-/* ---------- 結算清單 ---------- */
-export function listenFixedRepayments(year, month, callback) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
-  const r = ref(db, `fixed_repayments/${year}/${month}`);
-  return onValue(r, (snap) => {
-    const val = snap.val() || {};
-    const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
-    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    callback(list);
-  });
-}
-
-export async function addFixedRepayment(year, month, data) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
-  const r = ref(db, `fixed_repayments/${year}/${month}`);
-  const newRef = push(r);
-  await set(newRef, {
-    memberId: data.memberId || '', name: data.name || '',
-    amount: Number(data.amount) || 0, status: '未還款',
-    repaidDate: '', createdAt: Date.now(),
-  });
-  return newRef.key;
-}
-
-export async function updateFixedRepayment(year, month, id, patch) {
-  await update(ref(db, `fixed_repayments/${year}/${month}/${id}`), patch);
-}
-
-export async function removeFixedRepayment(year, month, id) {
-  await remove(ref(db, `fixed_repayments/${year}/${month}/${id}`));
-}
-
-export function listenAllMemberExpenses(year, month, callback) {
-  if (!year || !month) {
-    const ym = AppState.getYearMonth();
-    year = ym.year; month = ym.month;
-  }
-  const r = ref(db, `family_expenses/${year}/${month}/member_expenses`);
-  return onValue(r, (snap) => {
-    const val = snap.val() || {};
-    const flat = [];
-    Object.entries(val).forEach(([memberId, items]) => {
-      Object.entries(items || {}).forEach(([id, exp]) => {
-        flat.push({ id, memberId, ...exp });
-      });
-    });
-    flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    callback(flat);
-  });
-}
-
-export async function markMemberExpenseRepaid(year, month, memberId, expId, isRepaid) {
-  await update(
-    ref(db, `family_expenses/${year}/${month}/member_expenses/${memberId}/${expId}`),
-    {
-      status: isRepaid ? '已還款' : '未還款',
-      repaidDate: isRepaid ? new Date().toISOString().slice(0, 10) : '',
-    }
-  );
-}
-/* ---------- 成員排序 ---------- */
-
-/**
- * 批量更新成員排序
- * @param {Object} orderMap - { memberId1: 0, memberId2: 1, ... }
- */
-export async function updateMemberOrders(orderMap) {
-  const updates = {};
-  Object.entries(orderMap).forEach(([id, order]) => {
-    updates[`family_members/${id}/order`] = Number(order);
-  });
-  await update(ref(db), updates);
-}
-/* ---------- 全年一次性讀取（供全年模式使用） ---------- */
-
 export async function getFixedExpensesOnce(year, month) {
   const snap = await get(ref(db, `fixed_expenses/${year}/${month}`));
   const val = snap.val() || {};
@@ -557,10 +416,106 @@ export async function getAllMemberExpensesOnce(year, month) {
   const val = snap.val() || {};
   const flat = [];
   Object.entries(val).forEach(([memberId, items]) => {
-    Object.entries(items || {}).forEach(([id, exp]) => {
-      flat.push({ id, memberId, ...exp });
-    });
+    Object.entries(items || {}).forEach(([id, exp]) => { flat.push({ id, memberId, ...exp }); });
   });
   flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return flat;
+}
+
+/* ---------- 銀行 ---------- */
+export function listenBanks(callback) {
+  const r = ref(db, 'family_banks');
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, b]) => ({ id, ...b }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addBank(name) {
+  const r = ref(db, 'family_banks');
+  const newRef = push(r);
+  await set(newRef, { name: name || '', createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function removeBank(id) {
+  await remove(ref(db, `family_banks/${id}`));
+}
+
+export function listenBankBalances(year, month, callback) {
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
+  const r = ref(db, `bank_balances/${year}/${month}`);
+  return onValue(r, (snap) => callback(snap.val() || {}));
+}
+
+export async function saveBankBalance(year, month, bankId, amount) {
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
+  await update(ref(db, `bank_balances/${year}/${month}`), {
+    [bankId]: { amount: Number(amount) || 0, updatedAt: Date.now() },
+  });
+}
+
+export async function getPrevMonthBankTotal(year, month) {
+  const y = Number(year); const m = Number(month);
+  let prevY = y; let prevM = m - 1;
+  if (prevM < 1) { prevY = y - 1; prevM = 12; }
+  const prevMonthStr = String(prevM).padStart(2, '0');
+  const snap = await get(ref(db, `bank_balances/${prevY}/${prevMonthStr}`));
+  const val = snap.val() || {};
+  return Object.values(val).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+}
+
+/* ---------- 結算清單 ---------- */
+export function listenFixedRepayments(year, month, callback) {
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
+  const r = ref(db, `fixed_repayments/${year}/${month}`);
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, x]) => ({ id, ...x }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  });
+}
+
+export async function addFixedRepayment(year, month, data) {
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
+  const r = ref(db, `fixed_repayments/${year}/${month}`);
+  const newRef = push(r);
+  await set(newRef, {
+    memberId: data.memberId || '', name: data.name || '',
+    amount: Number(data.amount) || 0, status: '未還款',
+    repaidDate: '', createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFixedRepayment(year, month, id, patch) {
+  await update(ref(db, `fixed_repayments/${year}/${month}/${id}`), patch);
+}
+
+export async function removeFixedRepayment(year, month, id) {
+  await remove(ref(db, `fixed_repayments/${year}/${month}/${id}`));
+}
+
+export function listenAllMemberExpenses(year, month, callback) {
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
+  const r = ref(db, `family_expenses/${year}/${month}/member_expenses`);
+  return onValue(r, (snap) => {
+    const val = snap.val() || {};
+    const flat = [];
+    Object.entries(val).forEach(([memberId, items]) => {
+      Object.entries(items || {}).forEach(([id, exp]) => { flat.push({ id, memberId, ...exp }); });
+    });
+    flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(flat);
+  });
+}
+
+export async function markMemberExpenseRepaid(year, month, memberId, expId, isRepaid) {
+  await update(ref(db, `family_expenses/${year}/${month}/member_expenses/${memberId}/${expId}`), {
+    status: isRepaid ? '已還款' : '未還款',
+    repaidDate: isRepaid ? new Date().toISOString().slice(0, 10) : '',
+  });
 }
