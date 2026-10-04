@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>年度報表 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <style>
+    .annual-table-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+    }
+    .annual-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 1200px;
+    }
+    .annual-table th, .annual-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      white-space: nowrap;
+    }
+    .annual-table thead th {
+      position: sticky;
+      top: 0;
+      background: rgba(8, 11, 17, 0.95);
+      backdrop-filter: blur(8px);
+      z-index: 5;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: right;
+    }
+    .annual-table thead th.col-item { text-align: left; }
+    .annual-table .col-item {
+      position: sticky;
+      left: 0;
+      background: rgba(15, 23, 42, 0.95);
+      z-index: 4;
+      min-width: 180px;
+      max-width: 260px;
+      text-align: left;
+      border-right: 1px solid var(--glass-border);
+    }
+    .annual-table thead .col-item { z-index: 6; }
+    .annual-table .group-header td {
+      background: rgba(0, 240, 255, 0.06);
+      color: var(--neon-cyan);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+    }
+    .annual-table .subtotal-row td {
+      background: rgba(217, 70, 239, 0.06);
+      font-weight: 600;
+      color: var(--neon-magenta);
+    }
+    .annual-table .total-row td {
+      background: rgba(0, 240, 255, 0.1);
+      font-weight: 700;
+      color: var(--neon-cyan);
+    }
+    .annual-table .net-row td {
+      background: rgba(16, 185, 129, 0.08);
+      font-weight: 700;
+    }
+    .annual-table .num { text-align: right; font-family: var(--font-mono); }
+    .annual-table .item-sub { padding-left: 24px; color: var(--text-secondary); }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">年度報表</h1>
+            <p class="page-subtitle" id="annual-year">載入中…</p>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-ghost" id="prev-year-btn">
+              <i data-lucide="chevron-left"></i> 上一年
+            </button>
+            <button class="btn btn-ghost" id="next-year-btn">
+              下一年 <i data-lucide="chevron-right"></i>
+            </button>
+            <button class="btn btn-magenta" id="export-excel-btn">
+              <i data-lucide="file-spreadsheet"></i> 匯出 Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-3" style="margin-bottom:20px;">
+          <div class="glass-card">
+            <div class="glass-card-title">年度總收入</div>
+            <div class="glass-card-value emerald mono" id="annual-income">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">年度總支出</div>
+            <div class="glass-card-value red mono" id="annual-expense">HK$ 0</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">年度淨結餘</div>
+            <div class="glass-card-value mono" id="annual-balance">HK$ 0</div>
+          </div>
+        </div>
+
+        <div class="annual-table-wrapper">
+          <table class="annual-table">
+            <thead>
+              <tr>
+                <th class="col-item">項目</th>
+                <th>1月</th>
+                <th>2月</th>
+                <th>3月</th>
+                <th>4月</th>
+                <th>5月</th>
+                <th>6月</th>
+                <th>7月</th>
+                <th>8月</th>
+                <th>9月</th>
+                <th>10月</th>
+                <th>11月</th>
+                <th>12月</th>
+                <th>年度小計</th>
+              </tr>
+            </thead>
+            <tbody id="annual-tbody">
+              <tr><td colspan="14" class="empty-state">載入中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initAnnualReportPage } from './js/annual-report.js';
+
+    await initApp({ activeHref: 'annual-report.html', title: '年度報表' });
+    initAnnualReportPage();
+  </script>
+</body>
+</html>
