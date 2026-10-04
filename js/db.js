@@ -519,3 +519,18 @@ export async function markMemberExpenseRepaid(year, month, memberId, expId, isRe
     repaidDate: isRepaid ? new Date().toISOString().slice(0, 10) : '',
   });
 }
+/* ---------- 保險年度保費 ---------- */
+
+export async function addInsurancePeriod(policyId, periodIndex, periodData) {
+  await set(ref(db, `insurance_policies/${policyId}/periods/${periodIndex}`), {
+    periodIndex: Number(periodIndex),
+    startYear: Number(periodData.startYear),
+    startMonth: periodData.startMonth,
+    annualPremium: Number(periodData.annualPremium) || 0,
+    monthlyAverage: Number(periodData.monthlyAverage) || 0,
+  });
+}
+
+export async function removeInsurancePeriod(policyId, periodIndex) {
+  await remove(ref(db, `insurance_policies/${policyId}/periods/${periodIndex}`));
+}
