@@ -26,39 +26,56 @@
         </div>
 
         <div class="banner">
-          ℹ️ 每月固定支出獨立儲存。當月若無資料，系統會自動從上個月帶入。<br>
-          若某項本月不適用，請勾選「不適用本月」。
+          ℹ️ 每月固定支出獨立儲存。新增時可指定歸屬月份。
         </div>
 
-        <div class="grid grid-2" style="margin-bottom:20px;">
-          <div class="glass-card">
-            <div class="glass-card-title">本月固定支出總額</div>
-            <div class="glass-card-value red mono" id="fixed-total">HK$ 0</div>
+        <!-- 全年模式 -->
+        <div id="annual-view" style="display:none;">
+          <div class="grid grid-2" style="margin-bottom:20px;">
+            <div class="glass-card">
+              <div class="glass-card-title">年度固定支出總額</div>
+              <div class="glass-card-value red mono" id="annual-fixed-total">HK$ 0</div>
+            </div>
+            <div class="glass-card">
+              <div class="glass-card-title">年度尚未付款筆數</div>
+              <div class="glass-card-value orange mono" id="annual-fixed-pending">0 筆</div>
+            </div>
           </div>
-          <div class="glass-card">
-            <div class="glass-card-title">尚未付款筆數</div>
-            <div class="glass-card-value orange mono" id="fixed-pending-count">0 筆</div>
-          </div>
+          <div id="annual-monthly-cards"></div>
         </div>
 
-        <div class="glass-card">
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>項目名稱</th>
-                  <th style="text-align:right;">金額</th>
-                  <th>週期</th>
-                  <th>狀態</th>
-                  <th>已付款</th>
-                  <th>不適用本月</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="fixed-tbody">
-                <tr><td colspan="7" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
+        <!-- 單月模式 -->
+        <div id="monthly-view" style="display:none;">
+          <div class="grid grid-2" style="margin-bottom:20px;">
+            <div class="glass-card">
+              <div class="glass-card-title">本月固定支出總額</div>
+              <div class="glass-card-value red mono" id="fixed-total">HK$ 0</div>
+            </div>
+            <div class="glass-card">
+              <div class="glass-card-title">尚未付款筆數</div>
+              <div class="glass-card-value orange mono" id="fixed-pending-count">0 筆</div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>項目名稱</th>
+                    <th style="text-align:right;">金額</th>
+                    <th>週期</th>
+                    <th>狀態</th>
+                    <th>已付款</th>
+                    <th>不適用本月</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="fixed-tbody">
+                  <tr><td colspan="7" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
@@ -70,6 +87,17 @@
     <div class="modal">
       <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
       <form id="fixed-form">
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="fixed-year">歸屬年份</label>
+            <select class="select" id="fixed-year"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="fixed-form-month">歸屬月份</label>
+            <select class="select" id="fixed-form-month"></select>
+          </div>
+        </div>
+
         <div class="field">
           <label class="field-label" for="fixed-name">項目名稱</label>
           <input class="input" id="fixed-name" required maxlength="40" placeholder="例如：水費">
