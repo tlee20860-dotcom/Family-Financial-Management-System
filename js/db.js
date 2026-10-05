@@ -79,6 +79,30 @@ export async function updateMemberOrders(orderMap) {
 }
 
 /* ============================================
+   刪除成員（含關聯支出清理）
+   ============================================ */
+
+export async function deleteMemberAndData(memberId) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const expensesSnap = await get(ref(db, `families/${familyId}/expenses`));
+  const allExpenses = expensesSnap.val() || {};
+
+  const updates = {};
+  Object.entries(allExpenses).forEach(([year, months]) => {
+    Object.entries(months || {}).forEach(([month, monthData]) => {
+      if (monthData.member_expenses && monthData.member_expenses[memberId]) {
+        updates[`families/${familyId}/expenses/${year}/${month}/member_expenses/${memberId}`] = null;
+      }
+    });
+  });
+
+  updates[`families/${familyId}/members/${memberId}`] = null;
+  await update(ref(db), updates);
+}
+
+/* ============================================
    成員支出（代墊）
    ============================================ */
 
@@ -152,6 +176,25 @@ export async function removeInsurancePolicy(id) {
   await remove(familyRef(`insurance_policies/${id}`));
 }
 
+export async function deleteInsurancePolicyAndData(policyId, memberId) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const paymentsSnap = await get(ref(db, `families/${familyId}/insurance_payments/${policyId}`));
+  const payments = paymentsSnap.val() || {};
+
+  const updates = {};
+  for (const [year, months] of Object.entries(payments)) {
+    for (const [month, data] of Object.entries(months)) {
+      updates[`families/${familyId}/expenses/${year}/${month}/member_expenses/${memberId}/linked_${policyId}`] = null;
+    }
+  }
+  updates[`families/${familyId}/insurance_payments/${policyId}`] = null;
+  updates[`families/${familyId}/insurance_policies/${policyId}`] = null;
+
+  await update(ref(db), updates);
+}
+
 export async function addInsurancePeriod(policyId, periodIndex, periodData) {
   await set(familyRef(`insurance_policies/${policyId}/periods/${periodIndex}`), {
     periodIndex: Number(periodIndex), startYear: Number(periodData.startYear), startMonth: String(periodData.startMonth).padStart(2, '0'),
@@ -176,6 +219,48 @@ export async function saveInsurancePaymentBatch(policyId, year, month, data) {
 
 export async function removeInsurancePaymentBatch(policyId, year, month) {
   await remove(familyRef(`insurance_payments/${policyId}/${year}/${month}`));
+}
+
+/* ============================================
+   保險公司清單
+   ============================================ */
+
+export function listenInsuranceCompanies(callback, onError) {
+  return listen('insurance_companies', (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, c]) => ({ id, ...c }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  }, onError);
+}
+
+export async function addInsuranceCompany(name) {
+  const r = familyRef('insurance_companies');
+  const newRef = push(r);
+  await set(newRef, { name: name || '', createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function updateInsuranceCompany(id, newName) {
+  await update(familyRef(`insurance_companies/${id}`), { name: newName });
+}
+
+export async function updatePolicyCompanyName(oldName, newName) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const snap = await get(ref(db, `families/${familyId}/insurance_policies`));
+  const policies = snap.val() || {};
+
+  const updates = {};
+  Object.entries(policies).forEach(([id, p]) => {
+    if (p.company === oldName) {
+      updates[`families/${familyId}/insurance_policies/${id}/company`] = newName;
+    }
+  });
+
+  if (Object.keys(updates).length > 0) await update(ref(db), updates);
+  return Object.keys(updates).length;
 }
 
 /* ============================================
@@ -280,7 +365,38 @@ export async function removeItem(id) {
 }
 
 /* ============================================
-   固定支出
+   固定支出模板
+   ============================================ */
+
+export function listenFixedTemplates(callback, onError) {
+  return listen('fixed_expense_templates', (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, t]) => ({ id, ...t }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  }, onError);
+}
+
+export async function addFixedTemplate(tmpl) {
+  const r = familyRef('fixed_expense_templates');
+  const newRef = push(r);
+  await set(newRef, {
+    name: tmpl.name || '', categoryId: tmpl.categoryId || '', itemId: tmpl.itemId || '',
+    memberId: tmpl.memberId || '', amount: Number(tmpl.amount) || 0, createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFixedTemplate(id, patch) {
+  await update(familyRef(`fixed_expense_templates/${id}`), { name: patch.name || '', amount: Number(patch.amount) || 0, cycle: patch.cycle || '每月', note: patch.note || '' });
+}
+
+export async function removeFixedTemplate(id) {
+  await remove(familyRef(`fixed_expense_templates/${id}`));
+}
+
+/* ============================================
+   固定支出（每月）
    ============================================ */
 
 export function listenFixedExpensesV2(year, month, callback, onError) {
@@ -329,7 +445,8 @@ export async function copyFixedExpensesFromPrevMonth(year, month) {
     const newRef = push(familyRef(`fixed_expenses/${year}/${month}`));
     await set(newRef, {
       name: item.name || '', amount: Number(item.amount) || 0, cycle: item.cycle || '每月', note: item.note || '',
-      categoryId: item.categoryId || '', itemId: item.itemId || '', status: '未付款', paidDate: '', isSkipped: false,
+      categoryId: item.categoryId || '', itemId: item.itemId || '',
+      status: '未付款', paidDate: '', isSkipped: false,
       createdAt: Date.now() + count, copiedFrom: `${prevY}-${prevMonthStr}`,
     });
     count++;
@@ -367,6 +484,26 @@ export async function addBank(name) {
 
 export async function removeBank(id) {
   await remove(familyRef(`banks/${id}`));
+}
+
+export async function deleteBankAndBalances(bankId) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const snap = await get(ref(db, `families/${familyId}/bank_balances`));
+  const allBalances = snap.val() || {};
+
+  const updates = {};
+  Object.entries(allBalances).forEach(([year, months]) => {
+    Object.entries(months || {}).forEach(([month, banks]) => {
+      if (banks && banks[bankId]) {
+        updates[`families/${familyId}/bank_balances/${year}/${month}/${bankId}`] = null;
+      }
+    });
+  });
+
+  updates[`families/${familyId}/banks/${bankId}`] = null;
+  await update(ref(db), updates);
 }
 
 export function listenBankBalances(year, month, callback, onError) {
@@ -459,48 +596,9 @@ export async function getAllMemberExpensesOnce(year, month) {
   flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return flat;
 }
-/* ============================================
-   固定支出模板（補齊 v47）
-   ============================================ */
-
-export function listenFixedTemplates(callback, onError) {
-  return listen('fixed_expense_templates', (snap) => {
-    const val = snap.val() || {};
-    const list = Object.entries(val).map(([id, t]) => ({ id, ...t }));
-    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    callback(list);
-  }, onError);
-}
-
-export async function addFixedTemplate(tmpl) {
-  const r = familyRef('fixed_expense_templates');
-  const newRef = push(r);
-  await set(newRef, {
-    name: tmpl.name || '',
-    categoryId: tmpl.categoryId || '',
-    itemId: tmpl.itemId || '',
-    memberId: tmpl.memberId || '',
-    amount: Number(tmpl.amount) || 0,
-    createdAt: Date.now(),
-  });
-  return newRef.key;
-}
-
-export async function updateFixedTemplate(id, patch) {
-  await update(familyRef(`fixed_expense_templates/${id}`), {
-    name: patch.name || '',
-    amount: Number(patch.amount) || 0,
-    cycle: patch.cycle || '每月',
-    note: patch.note || '',
-  });
-}
-
-export async function removeFixedTemplate(id) {
-  await remove(familyRef(`fixed_expense_templates/${id}`));
-}
 
 /* ============================================
-   資產（補齊 v47）
+   資產
    ============================================ */
 
 export function listenAssets(callback, onError) {
@@ -509,182 +607,4 @@ export function listenAssets(callback, onError) {
 
 export async function saveAssets(data) {
   await update(familyRef('assets'), { bankBalance: Number(data.bankBalance) || 0 });
-}
-/* ============================================
-   刪除保單（含關聯支出與扣款紀錄清理）
-   ============================================ */
-
-export async function deleteInsurancePolicyAndData(policyId, memberId) {
-  const familyId = AppState.getFamilyId();
-  if (!familyId) throw new Error('尚未選擇家庭');
-
-  // 1. 取得該保單的所有扣款紀錄（用於找出所有相關的年月）
-  const paymentsSnap = await get(ref(db, `families/${familyId}/insurance_payments/${policyId}`));
-  const payments = paymentsSnap.val() || {};
-
-  const updates = {};
-
-  // 2. 準備刪除所有關聯的成員支出
-  for (const [year, months] of Object.entries(payments)) {
-    for (const [month, data] of Object.entries(months)) {
-      const expensePath = `families/${familyId}/expenses/${year}/${month}/member_expenses/${memberId}/linked_${policyId}`;
-      updates[expensePath] = null;
-    }
-  }
-
-  // 3. 準備刪除保險扣款紀錄本身
-  updates[`families/${familyId}/insurance_payments/${policyId}`] = null;
-
-  // 4. 準備刪除保單本身
-  updates[`families/${familyId}/insurance_policies/${policyId}`] = null;
-
-  // 5. 執行批量刪除
-  await update(ref(db), updates);
-}
-/* ============================================
-   刪除成員（含關聯支出與扣款紀錄清理）
-   ============================================ */
-
-export async function deleteMemberAndData(memberId) {
-  const familyId = AppState.getFamilyId();
-  if (!familyId) throw new Error('尚未選擇家庭');
-
-  // 1. 取得該家庭所有年月，找出該成員的所有支出
-  const expensesSnap = await get(ref(db, `families/${familyId}/expenses`));
-  const allExpenses = expensesSnap.val() || {};
-
-  const updates = {};
-
-  // 2. 遍歷所有年月，刪除該成員的支出
-  Object.entries(allExpenses).forEach(([year, months]) => {
-    Object.entries(months || {}).forEach(([month, monthData]) => {
-      const memberExpenses = monthData.member_expenses || {};
-      if (memberExpenses[memberId]) {
-        updates[`families/${familyId}/expenses/${year}/${month}/member_expenses/${memberId}`] = null;
-      }
-    });
-  });
-
-  // 3. 準備刪除成員本身
-  updates[`families/${familyId}/members/${memberId}`] = null;
-
-  // 4. 執行批量刪除
-  await update(ref(db), updates);
-}
-/* ============================================
-   刪除銀行（含所有歷史結餘清理）
-   ============================================ */
-
-export async function deleteBankAndBalances(bankId) {
-  const familyId = AppState.getFamilyId();
-  if (!familyId) throw new Error('尚未選擇家庭');
-
-  // 1. 取得該銀行在所有月份的結餘紀錄
-  const snap = await get(ref(db, `families/${familyId}/bank_balances`));
-  const allBalances = snap.val() || {};
-
-  const updates = {};
-
-  // 2. 準備刪除所有月份的結餘
-  Object.entries(allBalances).forEach(([year, months]) => {
-    Object.entries(months || {}).forEach(([month, banks]) => {
-      if (banks && banks[bankId]) {
-        updates[`families/${familyId}/bank_balances/${year}/${month}/${bankId}`] = null;
-      }
-    });
-  });
-
-  // 3. 準備刪除銀行本身
-  updates[`families/${familyId}/banks/${bankId}`] = null;
-
-  // 4. 執行批量刪除
-  await update(ref(db), updates);
-}
-/* ============================================
-   保險公司清單
-   ============================================ */
-
-export function listenInsuranceCompanies(callback, onError) {
-  return listen('insurance_companies', (snap) => {
-    const val = snap.val() || {};
-    const list = Object.entries(val).map(([id, c]) => ({ id, ...c }));
-    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    callback(list);
-  }, onError);
-}
-
-export async function addInsuranceCompany(name) {
-  const r = familyRef('insurance_companies');
-  const newRef = push(r);
-  await set(newRef, { name: name || '', createdAt: Date.now() });
-  return newRef.key;
-}
-/* ============================================
-   保險公司：編輯與同步
-   ============================================ */
-
-export async function updateInsuranceCompany(id, newName) {
-  await update(familyRef(`insurance_companies/${id}`), { name: newName });
-}
-
-/**
- * 更新所有引用該公司名稱的保單
- */
-export async function updatePolicyCompanyName(oldName, newName) {
-  const familyId = AppState.getFamilyId();
-  if (!familyId) throw new Error('尚未選擇家庭');
-
-  const snap = await get(ref(db, `families/${familyId}/insurance_policies`));
-  const policies = snap.val() || {};
-
-  const updates = {};
-  Object.entries(policies).forEach(([id, p]) => {
-    if (p.company === oldName) {
-      updates[`families/${familyId}/insurance_policies/${id}/company`] = newName;
-    }
-  });
-
-  if (Object.keys(updates).length > 0) {
-    await update(ref(db), updates);
-  }
-  return Object.keys(updates).length;
-}
-/* ============================================
-   修正版：從上個月複製固定支出（含類別與項目）
-   ============================================ */
-
-export async function copyFixedExpensesFromPrevMonth(year, month) {
-  const y = Number(year); const m = Number(month);
-  let prevY = y; let prevM = m - 1;
-  if (prevM < 1) { prevY = y - 1; prevM = 12; }
-  const prevMonthStr = String(prevM).padStart(2, '0');
-
-  const currentSnap = await get(familyRef(`fixed_expenses/${year}/${month}`));
-  if (currentSnap.exists() && Object.keys(currentSnap.val() || {}).length > 0) return 0;
-
-  const prevSnap = await get(familyRef(`fixed_expenses/${prevY}/${prevMonthStr}`));
-  const prevVal = prevSnap.val() || {};
-  const prevList = Object.entries(prevVal);
-  if (prevList.length === 0) return 0;
-
-  let count = 0;
-  for (const [id, item] of prevList) {
-    const newRef = push(familyRef(`fixed_expenses/${year}/${month}`));
-    await set(newRef, {
-      name: item.name || '',
-      amount: Number(item.amount) || 0,
-      cycle: item.cycle || '每月',
-      note: item.note || '',
-      // 🆕 關鍵修正：補上 categoryId 與 itemId
-      categoryId: item.categoryId || '',
-      itemId: item.itemId || '',
-      status: '未付款',
-      paidDate: '',
-      isSkipped: false,
-      createdAt: Date.now() + count,
-      copiedFrom: `${prevY}-${prevMonthStr}`,
-    });
-    count++;
-  }
-  return count;
 }
