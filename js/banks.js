@@ -1,9 +1,9 @@
 // ============================================
-// banks.js — 銀行管理（全年 / 單月）
+// banks.js — 銀行管理（含徹底刪除）
 // ============================================
 
 import {
-  listenBanks, addBank, removeBank,
+  listenBanks, addBank, deleteBankAndBalances,
   listenBankBalances, saveBankBalance, getPrevMonthBankTotal,
   getBankBalancesOnce,
 } from './db.js';
@@ -74,8 +74,14 @@ export function initBanksPage() {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     if (btn.dataset.action === 'delete') {
-      if (confirm('確定要刪除此銀行嗎？')) {
-        await removeBank(btn.dataset.id);
+      const bankName = banks.find((b) => b.id === btn.dataset.id)?.name || '此銀行';
+      if (confirm(`⚠️ 確定要刪除「${bankName}」嗎？\n\n這將會一併刪除該銀行在所有月份的結餘紀錄，此操作無法復原。`)) {
+        try {
+          await deleteBankAndBalances(btn.dataset.id);
+          alert('✅ 銀行與相關紀錄已徹底刪除');
+        } catch (err) {
+          alert('刪除失敗：' + err.message);
+        }
       }
     }
   });
@@ -107,7 +113,8 @@ export function initBanksPage() {
 
     const cards = monthlyBalances.map((bal, i) => {
       const monthNum = i + 1;
-      const total = Object.values(bal).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      // 只計算「存在於 banks 清單中」的銀行
+      const total = banks.reduce((s, b) => s + (Number(bal[b.id]?.amount) || 0), 0);
       if (total > 0) lastTotal = total;
 
       const rows = banks.length === 0
@@ -165,6 +172,7 @@ export function initBanksPage() {
   function render() {
     if (AppState.isAnnualMode()) return;
 
+    // 只計算「存在於 banks 清單中」的銀行
     const total = banks.reduce((s, b) => s + (Number(balances[b.id]?.amount) || 0), 0);
     document.getElementById('bank-total').textContent = formatHKD(total);
 
