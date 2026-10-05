@@ -7,6 +7,26 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+  <style>
+    /* 行內明細樣式 */
+    .policy-detail-row > td { padding: 0 !important; background: rgba(0,0,0,0.15); }
+    .inline-detail-inner { padding: 14px 16px; }
+    .inline-detail-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .year-accordion { border: 1px solid var(--glass-border, rgba(255,255,255,0.1)); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+    .year-accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; cursor: pointer; background: rgba(255,255,255,0.03); user-select: none; gap: 10px; flex-wrap: wrap; }
+    .year-accordion-header:hover { background: rgba(255,255,255,0.06); }
+    .year-accordion-body { padding: 6px 14px; }
+    .month-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .month-row:last-child { border-bottom: none; }
+    .month-label { width: 80px; font-family: var(--font-mono, monospace); font-size: 12px; flex-shrink: 0; }
+    .accordion-arrow { transition: transform 0.2s ease; flex-shrink: 0; }
+    .accordion-arrow.rotated { transform: rotate(90deg); }
+    .card-inline-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--glass-border, rgba(255,255,255,0.1)); }
+    @media (max-width: 640px) {
+      .month-row { flex-wrap: wrap; }
+      .month-label { width: 70px; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -204,18 +224,6 @@
           <button type="submit" class="btn btn-primary">儲存</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- 年度明細 Modal -->
-  <div class="modal-overlay" id="insurance-detail-modal">
-    <div class="modal" style="max-width:620px; max-height:90vh; overflow-y:auto;">
-      <h2 class="modal-title" id="insurance-detail-title">年度付款明細</h2>
-      <div id="insurance-detail-body"></div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" id="insurance-detail-cancel-btn">取消</button>
-        <button type="button" class="btn btn-primary" id="insurance-detail-save-btn">批次標記已扣款</button>
-      </div>
     </div>
   </div>
 
