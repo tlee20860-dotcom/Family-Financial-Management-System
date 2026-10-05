@@ -367,20 +367,6 @@
 
 /* ============================================
    保險頁面：表格視圖
-   -------------------------------------------------
-   table-layout: fixed + 精確 px
-   欄位寬度（桌面版，min-width 1080px）：
-     1  展開      36
-     2  開始日期  85    (hide-mobile)
-     3  受保人    60    (hide-mobile)
-     4  保單名稱  auto  ← 吃掉剩餘
-     5  保險公司  100   (hide-mobile)
-     6  本期年繳  95
-     7  保單總供款 100  (hide-mobile)
-     8  已供款總額 95
-     9  每月分攤  85    (hide-mobile)
-    10  進度      130
-    11  操作      115
    ============================================ */
 .policy-table-wrapper {
   overflow: hidden;
@@ -435,7 +421,6 @@
   font-size: 12px;
 }
 
-/* 逐欄精確寬度 */
 .policy-table thead th:nth-child(1)  { width: 36px; padding: 12px 4px; }
 .policy-table thead th:nth-child(2)  { width: 85px; }
 .policy-table thead th:nth-child(3)  { width: 60px; }
@@ -448,7 +433,6 @@
 .policy-table thead th:nth-child(10) { width: 130px; }
 .policy-table thead th:nth-child(11) { width: 115px; }
 
-/* 保單名稱欄允許換行 */
 .policy-table td.policy-name-cell {
   white-space: normal;
   word-break: break-word;
@@ -472,7 +456,7 @@
 }
 
 /* ============================================
-   明細行（隔離，不影響主表格寬度）
+   明細行
    ============================================ */
 .insurance-table-detail-row > td {
   padding: 0 !important;
@@ -514,26 +498,46 @@
   background: rgba(0, 240, 255, 0.08);
 }
 
+.ins-year-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neon-cyan);
+}
+
+.ins-year-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ins-paid-sum {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.insurance-year-body {
+  padding: 8px 12px;
+}
+
 /* ============================================
-   🔧 展開明細的每月 row：flex + input 固定寬度
+   🔧 每月 row：flex，input 固定寬度，checkbox 靠右
    -------------------------------------------------
-   - 日期：固定 70px
-   - 金額 input：固定 110px
-   - checkbox：自動推到最右（margin-left: auto）
+   - 移除所有 inline style 後，這個 CSS 完全生效
    ============================================ */
 .insurance-month-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px;
+  padding: 6px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.insurance-month-row > div:first-child {
+.insurance-month-row .ins-date {
   width: 70px;
   flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 12px;
+  color: var(--text-secondary);
 }
 
 .insurance-month-row input.ins-amount {
@@ -553,13 +557,19 @@
   border-color: var(--neon-cyan);
 }
 
-.insurance-month-row label {
+.insurance-month-row .ins-paid-label {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 6px;
   font-size: 12px;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.insurance-month-row .ins-paid {
+  width: auto;
+  cursor: pointer;
 }
 
 /* ================= 已供滿保單區塊 ================= */
@@ -695,7 +705,6 @@
     font-size: 16px;
   }
 
-  /* 手機版：隱藏次要欄位 + 縮小 min-width */
   .policy-table {
     min-width: 480px;
   }
@@ -704,7 +713,6 @@
     display: none;
   }
 
-  /* 手機版欄寬重設 */
   .policy-table thead th:nth-child(1)  { width: 30px; padding: 8px 3px; }
   .policy-table thead th:nth-child(4)  { width: auto; min-width: 100px; }
   .policy-table thead th:nth-child(6)  { width: 80px; }
@@ -734,7 +742,6 @@
     margin-right: 2px;
   }
 
-  /* 手機版明細 */
   .detail-wrapper {
     padding: 8px;
   }
@@ -744,16 +751,19 @@
   .insurance-year-header {
     padding: 6px 8px;
   }
-  .insurance-year-header span:first-child {
+  .ins-year-title {
     font-size: 11px;
+  }
+  .ins-paid-sum {
+    font-size: 10px;
   }
 
   /* 🔧 手機版每月 row：input 更窄 */
   .insurance-month-row {
     gap: 8px;
-    padding: 4px 8px;
+    padding: 4px 0;
   }
-  .insurance-month-row > div:first-child {
+  .insurance-month-row .ins-date {
     width: 60px;
     font-size: 11px;
   }
@@ -762,7 +772,7 @@
     padding: 3px 6px;
     font-size: 11px;
   }
-  .insurance-month-row label {
+  .insurance-month-row .ins-paid-label {
     font-size: 11px;
     gap: 4px;
   }
