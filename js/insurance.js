@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（雙視圖 + 總供款 + 已供滿歸類）
+// insurance.js — 保險付款（雙視圖 + 總供款 + 已供滿歸類 + 進度即時計算）
 // ============================================
 
 import {
@@ -186,7 +186,7 @@ function getPeriodInfo(policy, curYear, curMonth) {
 }
 
 /* ============================================
-   判斷是否已供滿
+   判斷是否已供滿（依賴即時計算的 completedPeriods）
    ============================================ */
 function isPolicyCompleted(policy) {
   if (policy.isCompleted) return true;
@@ -207,25 +207,38 @@ function getPolicyTotalPremium(policy) {
 }
 
 /* ============================================
-   渲染主入口
+   渲染主入口（異步即時計算進度）
    ============================================ */
-function renderAll() {
+async function renderAll() {
   const { year, month } = AppState.getYearMonth();
   const isAnnual = month === 'all';
   document.getElementById('insurance-month').textContent = isAnnual ? `${year} 年 全年總覽` : `${year} 年 ${month} 月`;
 
-  // 統計總供款金額
-  const grandTotal = policies.reduce((s, p) => s + getPolicyTotalPremium(p), 0);
-  document.getElementById('grand-total-premium').textContent = formatHKD(grandTotal);
-  document.getElementById('grand-total-hint').textContent = `共 ${policies.length} 張保單`;
+  // 1. 即時計算每張保單的真實進度
+  const enrichedPolicies = await Promise.all(policies.map(async (p) => {
+    if (p.type === 'fund_insurance') return p;
+    const payments = await getInsurancePaymentsOnce(p.id);
+    let completed = 0;
+    Object.values(payments).forEach((yearData) => {
+      Object.values(yearData || {}).forEach((mData) => {
+        if (mData.status === '已扣款') completed++;
+      });
+    });
+    return { ...p, completedPeriods: completed };
+  }));
 
-  // 分類：已供滿 vs 供款中
-  const completed = policies.filter(isPolicyCompleted);
-  const active = policies.filter((p) => !isPolicyCompleted(p));
+  // 2. 統計總供款金額
+  const grandTotal = enrichedPolicies.reduce((s, p) => s + getPolicyTotalPremium(p), 0);
+  document.getElementById('grand-total-premium').textContent = formatHKD(grandTotal);
+  document.getElementById('grand-total-hint').textContent = `共 ${enrichedPolicies.length} 張保單`;
+
+  // 3. 分類：已供滿 vs 供款中
+  const completed = enrichedPolicies.filter(isPolicyCompleted);
+  const active = enrichedPolicies.filter((p) => !isPolicyCompleted(p));
 
   document.getElementById('active-policy-count').textContent = `${active.length} 張`;
 
-  // 已供滿區塊
+  // 4. 已供滿區塊
   const completedSection = document.getElementById('completed-section');
   if (completed.length > 0) {
     completedSection.style.display = 'block';
@@ -235,7 +248,7 @@ function renderAll() {
     completedSection.style.display = 'none';
   }
 
-  // 供款中區塊
+  // 5. 供款中區塊
   const emptyState = document.getElementById('empty-state');
   const gridEl = document.getElementById('policy-grid');
   const tableEl = document.getElementById('policy-table-view');
