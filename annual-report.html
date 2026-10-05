@@ -8,6 +8,11 @@
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
   <style>
+    .report-view-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
     .annual-table-wrapper {
       overflow-x: auto;
       border: 1px solid var(--glass-border);
@@ -19,60 +24,26 @@
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
-      min-width: 1200px;
+      min-width: 800px;
     }
     .annual-table th, .annual-table td {
-      padding: 8px 10px;
+      padding: 10px 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      white-space: nowrap;
+      text-align: left;
     }
     .annual-table thead th {
-      position: sticky;
-      top: 0;
-      background: rgba(8, 11, 17, 0.95);
-      backdrop-filter: blur(8px);
-      z-index: 5;
       font-size: 11px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 1px;
-      text-align: right;
     }
-    .annual-table thead th.col-item { text-align: left; }
-    .annual-table .col-item {
-      position: sticky;
-      left: 0;
-      background: rgba(15, 23, 42, 0.95);
-      z-index: 4;
-      min-width: 180px;
-      max-width: 260px;
-      text-align: left;
-      border-right: 1px solid var(--glass-border);
-    }
-    .annual-table thead .col-item { z-index: 6; }
+    .annual-table .num { text-align: right; font-family: var(--font-mono); }
+    .annual-table tr:hover td { background: rgba(0, 240, 255, 0.03); }
     .annual-table .group-header td {
       background: rgba(0, 240, 255, 0.06);
       color: var(--neon-cyan);
       font-weight: 700;
-      font-size: 13px;
-      letter-spacing: 0.5px;
     }
-    .annual-table .subtotal-row td {
-      background: rgba(217, 70, 239, 0.06);
-      font-weight: 600;
-      color: var(--neon-magenta);
-    }
-    .annual-table .total-row td {
-      background: rgba(0, 240, 255, 0.1);
-      font-weight: 700;
-      color: var(--neon-cyan);
-    }
-    .annual-table .net-row td {
-      background: rgba(16, 185, 129, 0.08);
-      font-weight: 700;
-    }
-    .annual-table .num { text-align: right; font-family: var(--font-mono); }
-    .annual-table .item-sub { padding-left: 24px; color: var(--text-secondary); }
   </style>
 </head>
 <body>
@@ -100,6 +71,7 @@
           </div>
         </div>
 
+        <!-- 年度統計卡 -->
         <div class="grid grid-3" style="margin-bottom:20px;">
           <div class="glass-card">
             <div class="glass-card-title">年度總收入</div>
@@ -115,30 +87,43 @@
           </div>
         </div>
 
-        <div class="annual-table-wrapper">
-          <table class="annual-table">
-            <thead>
-              <tr>
-                <th class="col-item">項目</th>
-                <th>1月</th>
-                <th>2月</th>
-                <th>3月</th>
-                <th>4月</th>
-                <th>5月</th>
-                <th>6月</th>
-                <th>7月</th>
-                <th>8月</th>
-                <th>9月</th>
-                <th>10月</th>
-                <th>11月</th>
-                <th>12月</th>
-                <th>年度小計</th>
-              </tr>
-            </thead>
-            <tbody id="annual-tbody">
-              <tr><td colspan="14" class="empty-state">載入中…</td></tr>
-            </tbody>
-          </table>
+        <!-- 檢視切換 -->
+        <div class="report-view-tabs">
+          <button class="btn btn-primary" id="view-summary-btn">全年總合</button>
+          <button class="btn btn-ghost" id="view-monthly-btn">按月明細</button>
+        </div>
+
+        <!-- 全年總合檢視 -->
+        <div id="summary-view">
+          <div class="glass-card">
+            <div style="overflow-x:auto;">
+              <table class="annual-table">
+                <thead id="summary-thead"></thead>
+                <tbody id="summary-tbody">
+                  <tr><td colspan="8" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 按月明細檢視 -->
+        <div id="monthly-view" style="display:none;">
+          <div class="annual-table-wrapper">
+            <table class="annual-table">
+              <thead>
+                <tr>
+                  <th class="col-item">項目</th>
+                  <th>1月</th><th>2月</th><th>3月</th><th>4月</th><th>5月</th><th>6月</th>
+                  <th>7月</th><th>8月</th><th>9月</th><th>10月</th><th>11月</th><th>12月</th>
+                  <th>年度小計</th>
+                </tr>
+              </thead>
+              <tbody id="monthly-tbody">
+                <tr><td colspan="14" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>
