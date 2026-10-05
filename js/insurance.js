@@ -21,7 +21,6 @@ let editingId = null;
 let currentView = localStorage.getItem('insurance_view') || 'card';
 let expandedKeys = new Set();
 
-// 防止全域事件監聽重複綁定
 let globalListenersBound = false;
 
 export function initInsurancePage() {
@@ -94,6 +93,87 @@ function renderCompanyOptions() {
   if (current) sel.value = current;
 }
 
+/* ============================================
+   🆕 金額計算重構（3 種）
+   ============================================ */
+
+/**
+ * 【B】本期年繳：保單在指定年度的年繳保費
+ * - 基金保險：0（無年度概念）
+ * - 普通保險：依該年度對應的 periodIndex 查找 periods 資料
+ * - 若該年度無資料，回退到最近可用的 period
+ */
+function getPolicyAnnualPremium(policy, targetYear) {
+  if (policy.type === 'fund_insurance') return 0;
+
+  const year = Number(targetYear);
+  const firstY = Number(policy.firstStartYear) || 0;
+  if (!firstY || year < firstY) return 0;
+
+  const periodIndex = year - firstY + 1;
+  const totalYears = Number(policy.totalPolicyYears) || 0;
+  if (totalYears > 0 && periodIndex > totalYears) return 0;
+
+  const periods = policy.periods || {};
+
+  // 優先查該年度
+  const p = periods[String(periodIndex)];
+  if (p && p.annualPremium) return Math.round(Number(p.annualPremium));
+
+  // 回退：找 <= periodIndex 的最大 period
+  const periodKeys = Object.keys(periods)
+    .map(Number)
+    .filter((n) => !isNaN(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  if (periodKeys.length > 0) {
+    const below = periodKeys.filter((k) => k <= periodIndex);
+    const target = below.length > 0 ? below[below.length - 1] : periodKeys[0];
+    const tp = periods[String(target)];
+    if (tp && tp.annualPremium) return Math.round(Number(tp.annualPremium));
+  }
+
+  return Math.round(Number(policy.annualPremium) || 0);
+}
+
+/**
+ * 【C】保單總供款：該保單所有供款年期的年繳加總
+ * - 基金保險：monthlyPremium × 12 × totalPolicyYears
+ * - 普通保險：逐年度加總 periods[i].annualPremium（缺資料的年度用回退年繳）
+ */
+function getPolicyTotalPremium(policy) {
+  if (policy.type === 'fund_insurance') {
+    return (Number(policy.monthlyPremium) || 0) * 12 * (Number(policy.totalPolicyYears) || 0);
+  }
+
+  const totalYears = Number(policy.totalPolicyYears) || 0;
+  if (totalYears === 0) return Math.round(Number(policy.annualPremium) || 0);
+
+  const periods = policy.periods || {};
+  const periodKeys = Object.keys(periods)
+    .map(Number)
+    .filter((n) => !isNaN(n) && n > 0)
+    .sort((a, b) => a - b);
+
+  // 回退年繳：優先取頂層 annualPremium，其次最近 period
+  let fallback = Math.round(Number(policy.annualPremium) || 0);
+  if (!fallback && periodKeys.length > 0) {
+    const last = periods[String(periodKeys[periodKeys.length - 1])];
+    if (last && last.annualPremium) fallback = Math.round(Number(last.annualPremium));
+  }
+
+  let total = 0;
+  for (let i = 1; i <= totalYears; i++) {
+    const p = periods[String(i)];
+    if (p && p.annualPremium) {
+      total += Math.round(Number(p.annualPremium));
+    } else {
+      total += fallback;
+    }
+  }
+  return total;
+}
+
 async function autoSyncPolicyExpenses(policy) {
   const payments = await getInsurancePaymentsOnce(policy.id);
   const promises = [];
@@ -140,12 +220,6 @@ function getPeriodInfo(policy, curYear, curMonth) {
   return { periodIndex, ...getPeriodRange(policy, periodIndex) };
 }
 
-/* ============================================
-   🔧 修復：已供滿保單判斷
-   - 基金保險：一律視為供款中（沒有年期概念）
-   - 普通保險：已扣款期數 >= 總期數 才視為已供滿
-   - 邊界：total 為 0 或未設定時，不視為已供滿
-   ============================================ */
 function isPolicyCompleted(policy) {
   if (policy.isCompleted) return true;
   if (policy.type === 'fund_insurance') return false;
@@ -157,57 +231,60 @@ function isPolicyCompleted(policy) {
   return done >= total;
 }
 
-function getPolicyTotalPremium(policy) {
-  if (policy.totalPremium) return Number(policy.totalPremium);
-  if (policy.type === 'fund_insurance') {
-    return (Number(policy.monthlyPremium) || 0) * 12 * (Number(policy.totalPolicyYears) || 0);
-  }
-  return (Number(policy.annualPremium) || 0) * (Number(policy.totalPolicyYears) || 0);
-}
-
 /* ============================================
-   🔧 修復：renderAll 完整重構
-   - 三個統計卡同步更新
-   - 已供滿區塊只在 completed.length > 0 時顯示，並重置折疊狀態
-   - 所有保單已供滿時不顯示「尚無保單」
+   renderAll — 完整重構
+   - 統計卡 A：本年度所有保單年繳加總
+   - 每張保單附帶 _currentAnnualPremium (B) 與 _totalPremium (C)
    ============================================ */
 async function renderAll() {
   const { year, month } = AppState.getYearMonth();
   const isAnnual = month === 'all';
+  const displayYear = Number(year);
   document.getElementById('insurance-month').textContent = isAnnual ? `${year} 年 全年總覽` : `${year} 年 ${month} 月`;
 
-  // 1. 讀取所有保單即時付款紀錄，重新計算 completedPeriods
+  // 1. 即時計算每張保單的付款紀錄與金額
   const enrichedPolicies = await Promise.all(policies.map(async (p) => {
-    if (p.type === 'fund_insurance') {
-      return { ...p, completedPeriods: 0, _payments: {} };
-    }
-    const payments = await getInsurancePaymentsOnce(p.id);
+    let payments = {};
     let completed = 0;
-    Object.values(payments).forEach((yearData) => {
-      Object.values(yearData || {}).forEach((mData) => {
-        if (mData.status === '已扣款') completed++;
+
+    if (p.type !== 'fund_insurance') {
+      payments = await getInsurancePaymentsOnce(p.id);
+      Object.values(payments).forEach((yearData) => {
+        Object.values(yearData || {}).forEach((mData) => {
+          if (mData.status === '已扣款') completed++;
+        });
       });
-    });
-    return { ...p, completedPeriods: completed, _payments: payments };
+    }
+
+    const currentAnnualPremium = getPolicyAnnualPremium(p, displayYear);
+    const totalPremium = getPolicyTotalPremium(p);
+
+    return {
+      ...p,
+      completedPeriods: completed,
+      _payments: payments,
+      _currentAnnualPremium: currentAnnualPremium,
+      _totalPremium: totalPremium,
+    };
   }));
 
   // 2. 分類
   const completed = enrichedPolicies.filter(isPolicyCompleted);
   const active = enrichedPolicies.filter((p) => !isPolicyCompleted(p));
 
-  // 3. 更新頂部三統計卡
-  const grandTotal = enrichedPolicies.reduce((s, p) => s + getPolicyTotalPremium(p), 0);
+  // 3. 統計卡 A：本年度所有保單的總供款
+  const yearTotal = enrichedPolicies.reduce((s, p) => s + (p._currentAnnualPremium || 0), 0);
   const grandTotalEl = document.getElementById('grand-total-premium');
   const grandTotalHintEl = document.getElementById('grand-total-hint');
   const activeCountEl = document.getElementById('active-policy-count');
   const statCompletedEl = document.getElementById('stat-completed-policies');
 
-  if (grandTotalEl) grandTotalEl.textContent = formatHKD(grandTotal);
-  if (grandTotalHintEl) grandTotalHintEl.textContent = `共 ${enrichedPolicies.length} 張保單`;
+  if (grandTotalEl) grandTotalEl.textContent = formatHKD(yearTotal);
+  if (grandTotalHintEl) grandTotalHintEl.textContent = `${year} 年度 · 共 ${enrichedPolicies.length} 張保單`;
   if (activeCountEl) activeCountEl.textContent = `${active.length} 張`;
   if (statCompletedEl) statCompletedEl.textContent = `${completed.length} 張`;
 
-  // 4. 已供滿保單區塊（🔧 完整處理顯示 / 隱藏 / 重置）
+  // 4. 已供滿保單區塊
   const completedSection = document.getElementById('completed-section');
   const completedBody = document.getElementById('completed-body');
   const completedCountEl = document.getElementById('completed-count');
@@ -218,7 +295,6 @@ async function renderAll() {
     if (completedCountEl) completedCountEl.textContent = completed.length;
     if (completedGridEl) completedGridEl.innerHTML = completed.map((p) => renderCard(p, true)).join('');
   } else {
-    // 完全隱藏，並重置折疊狀態
     if (completedSection) {
       completedSection.style.display = 'none';
       completedSection.classList.remove('open');
@@ -234,12 +310,10 @@ async function renderAll() {
   const tableEl = document.getElementById('policy-table-view');
 
   if (enrichedPolicies.length === 0) {
-    // 完全無保單 → 顯示空狀態
     if (gridEl) gridEl.style.display = 'none';
     if (tableEl) tableEl.style.display = 'none';
     if (emptyState) emptyState.style.display = 'block';
   } else if (active.length === 0) {
-    // 全部已供滿 → 不顯示空狀態，只顯示已供滿區塊
     if (gridEl) gridEl.style.display = 'none';
     if (tableEl) tableEl.style.display = 'none';
     if (emptyState) emptyState.style.display = 'none';
@@ -315,6 +389,9 @@ function renderPolicyDetail(policy, payments) {
   return `<div class="insurance-detail-container">${detailRows.join('')}</div>`;
 }
 
+/* ============================================
+   卡片渲染 — 顯示 B（本期年繳）與 C（保單總供款）
+   ============================================ */
 function renderCard(p, isCompleted) {
   const member = members.find((m) => m.id === p.memberId);
   const memberName = member ? member.name : '（未指定）';
@@ -325,14 +402,26 @@ function renderCard(p, isCompleted) {
   const payments = p._payments || {};
   const isExpanded = expandedKeys.has(`card-${p.id}`);
   const cardKey = `card-${p.id}`;
+  const currentAnnual = p._currentAnnualPremium || 0;
+  const totalPremium = p._totalPremium || 0;
+  const displayYear = AppState.year;
 
   if (isFund) {
     return `
       <div class="glass-card policy-card">
-        <div class="policy-header"><div><div class="policy-name">${escapeHtml(p.name)}</div><div class="policy-company">${escapeHtml(p.company)} · 基金保險</div></div></div>
+        <div class="policy-header">
+          <div>
+            <div class="policy-name">${escapeHtml(p.name)}</div>
+            <div class="policy-company">${escapeHtml(p.company)} · 基金保險</div>
+          </div>
+        </div>
         <div class="policy-info-grid">
           <div class="policy-info-item"><span class="policy-info-label">受保成員</span><span class="policy-info-value">${escapeHtml(memberName)}</span></div>
           <div class="policy-info-item"><span class="policy-info-label">每月供款</span><span class="policy-info-value text-cyan">${formatHKD(p.monthlyPremium)}</span></div>
+        </div>
+        <div class="policy-info-grid" style="margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.08);">
+          <div class="policy-info-item"><span class="policy-info-label">保單總供款</span><span class="policy-info-value text-magenta">${formatHKD(totalPremium)}</span></div>
+          <div class="policy-info-item"><span class="policy-info-label">供款年期</span><span class="policy-info-value">${p.totalPolicyYears || '—'} 年</span></div>
         </div>
         <div class="policy-actions">
           <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button>
@@ -344,10 +433,19 @@ function renderCard(p, isCompleted) {
   const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
   return `
     <div class="glass-card policy-card">
-      <div class="policy-header"><div><div class="policy-name">${escapeHtml(p.name)}</div><div class="policy-company">${escapeHtml(p.company)} · 普通保險</div></div></div>
+      <div class="policy-header">
+        <div>
+          <div class="policy-name">${escapeHtml(p.name)}</div>
+          <div class="policy-company">${escapeHtml(p.company)} · 普通保險</div>
+        </div>
+      </div>
       <div class="policy-info-grid">
         <div class="policy-info-item"><span class="policy-info-label">受保成員</span><span class="policy-info-value">${escapeHtml(memberName)}</span></div>
         <div class="policy-info-item"><span class="policy-info-label">開始日期</span><span class="policy-info-value">${startDateText}</span></div>
+      </div>
+      <div class="policy-info-grid" style="margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.08);">
+        <div class="policy-info-item"><span class="policy-info-label">本期年繳（${displayYear}）</span><span class="policy-info-value text-cyan">${formatHKD(currentAnnual)}</span></div>
+        <div class="policy-info-item"><span class="policy-info-label">保單總供款</span><span class="policy-info-value text-magenta">${formatHKD(totalPremium)}</span></div>
       </div>
       <div class="policy-progress" style="margin-top:12px;">
         <div class="policy-progress-text"><span>整體供款進度</span><span>${done} / ${totalPeriods} 期 (${pct}%)</span></div>
@@ -371,6 +469,9 @@ function renderCard(p, isCompleted) {
     </div>`;
 }
 
+/* ============================================
+   表格渲染 — 新增「本期年繳」欄位（B）
+   ============================================ */
 function renderTable(list) {
   const tbody = document.getElementById('policy-table-body');
   const sorted = [...list].sort((a, b) => {
@@ -386,7 +487,8 @@ function renderTable(list) {
     const totalPeriods = p.totalPolicyPeriods || 0;
     const done = p.completedPeriods || 0;
     const pct = totalPeriods > 0 ? Math.min(100, Math.round((done / totalPeriods) * 100)) : 0;
-    const totalPremium = getPolicyTotalPremium(p);
+    const currentAnnual = p._currentAnnualPremium || 0;
+    const totalPremium = p._totalPremium || 0;
     const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
     const monthly = isFund ? p.monthlyPremium : (p.periods?.[String(p.currentPeriodIndex || 1)]?.monthlyAverage || p.monthlyAverage || 0);
     const payments = p._payments || {};
@@ -400,12 +502,13 @@ function renderTable(list) {
             <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px;height:14px;"></i>
           </button>
         </td>
-        <td class="mono" style="font-size:12px;">${startDateText}</td>
-        <td>${escapeHtml(memberName)}</td>
+        <td class="mono hide-mobile" style="font-size:12px;">${startDateText}</td>
+        <td class="hide-mobile">${escapeHtml(memberName)}</td>
         <td>${escapeHtml(p.name)}</td>
-        <td style="font-size:12px; color:var(--text-muted);">${escapeHtml(p.company || '—')}</td>
-        <td class="num text-cyan">${formatHKD(totalPremium)}</td>
-        <td class="num text-magenta">${formatHKD(monthly)}</td>
+        <td class="hide-mobile" style="font-size:12px; color:var(--text-muted);">${escapeHtml(p.company || '—')}</td>
+        <td class="num text-cyan">${formatHKD(currentAnnual)}</td>
+        <td class="num text-magenta hide-mobile">${formatHKD(totalPremium)}</td>
+        <td class="num text-magenta hide-mobile">${formatHKD(monthly)}</td>
         <td class="progress-cell">
           <div class="progress-text">${done} / ${totalPeriods} 期 (${pct}%)</div>
           <div class="progress"><div class="progress-bar" style="width:${pct}%;"></div></div>
@@ -417,7 +520,7 @@ function renderTable(list) {
         </td>
       </tr>
       <tr class="insurance-table-detail-row" style="display:${isExpanded ? 'table-row' : 'none'};">
-        <td colspan="9" style="padding:12px;">
+        <td colspan="10" style="padding:12px;">
           ${renderPolicyDetail(p, payments)}
         </td>
       </tr>
