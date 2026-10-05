@@ -8,69 +8,18 @@
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
   <style>
-    .fixed-card {
-      margin-bottom: 16px;
-      padding: 16px;
-    }
-    .fixed-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-    .fixed-card-title {
-      font-size: 15px;
-      font-weight: 700;
-      color: var(--neon-cyan);
-    }
-    .fixed-card-sub {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-    .fixed-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .fixed-table th {
-      text-align: left;
-      padding: 6px 8px;
-      color: var(--text-muted);
-      font-size: 11px;
-      border-bottom: 1px solid var(--glass-border);
-    }
-    .fixed-table td {
-      padding: 6px 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
+    .fixed-card { margin-bottom: 16px; padding: 16px; }
+    .fixed-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .fixed-card-title { font-size: 15px; font-weight: 700; color: var(--neon-cyan); }
+    .fixed-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .fixed-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .fixed-table th { text-align: left; padding: 6px 8px; color: var(--text-muted); font-size: 11px; border-bottom: 1px solid var(--glass-border); }
+    .fixed-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
     .fixed-table .num { text-align: right; font-family: var(--font-mono); }
-    .fixed-table input[type="number"] {
-      width: 100%;
-      padding: 4px 8px;
-      font-size: 12px;
-      background: rgba(8, 11, 17, 0.6);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-sm);
-      color: var(--text-primary);
-      text-align: right;
-    }
-    .fixed-table input[type="number"]:focus {
-      outline: none;
-      border-color: var(--neon-cyan);
-    }
-    .fixed-table .month-label {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      color: var(--text-secondary);
-      min-width: 50px;
-    }
-    .skip-row {
-      opacity: 0.4;
-      text-decoration: line-through;
-    }
+    .fixed-table input[type="number"] { width: 100%; padding: 4px 8px; font-size: 12px; background: rgba(8, 11, 17, 0.6); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); text-align: right; }
+    .fixed-table input[type="number"]:focus { outline: none; border-color: var(--neon-cyan); }
+    .fixed-table .month-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); min-width: 50px; }
+    .skip-row { opacity: 0.4; text-decoration: line-through; }
   </style>
 </head>
 <body>
@@ -106,6 +55,12 @@
     <div class="modal" style="max-width:520px;">
       <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
       <form id="fixed-form">
+        <div class="field">
+          <label class="field-label" for="fixed-member">所屬成員</label>
+          <select class="select" id="fixed-member">
+            <option value="shared">家庭共用支出</option>
+          </select>
+        </div>
         <div class="field">
           <label class="field-label" for="fixed-category">支出類別</label>
           <select class="select" id="fixed-category" required>
