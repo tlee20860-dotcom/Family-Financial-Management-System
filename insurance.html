@@ -65,10 +65,14 @@
         </div>
         <div class="field">
           <label class="field-label" for="policy-company">保險公司</label>
-          <select class="select" id="policy-company">
-            <option>富通</option><option>保誠</option><option>FWD</option>
-            <option>AIA</option><option>宏利</option><option>AXA</option>
-          </select>
+          <div style="display:flex; gap:8px;">
+            <select class="select" id="policy-company" style="flex:1;">
+              <!-- 動態由 JS 渲染 -->
+            </select>
+            <button type="button" class="btn btn-sm btn-ghost" id="add-company-btn" title="新增保險公司" style="padding:0 12px;">
+              <i data-lucide="plus" style="width:16px;height:16px;"></i>
+            </button>
+          </div>
         </div>
         <div class="grid grid-2" style="gap:12px;">
           <div class="field">
