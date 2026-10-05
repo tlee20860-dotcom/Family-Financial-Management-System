@@ -8,7 +8,7 @@ import { AppState } from './state.js';
 
 let currentYear = '';
 let annualData = null;
-let currentView = 'summary'; // 'summary' | 'monthly'
+let currentView = 'summary';
 
 export function initAnnualReportPage() {
   const { year } = AppState.getYearMonth();
@@ -81,7 +81,7 @@ function buildAnnualData(year, monthlyResults) {
   monthlyResults.forEach((monthData, idx) => {
     const incomeBreakdown = monthData.incomeBreakdown || {};
     Object.entries(incomeBreakdown).forEach(([memberId, amount]) => {
-      const num = Number(amount) || 0;
+      const num = Math.round(Number(amount) || 0);
       if (num === 0) return;
       const displayName = memberId === 'extra' ? '額外收入' : (monthData.perMember?.[memberId]?.memberName || memberId);
       if (!memberMap[memberId]) {
@@ -100,18 +100,18 @@ function buildAnnualData(year, monthlyResults) {
       (mData.items || []).forEach((item) => {
         const key = item.name || '（未命名）';
         if (!memberMap[memberId].expenses[key]) memberMap[memberId].expenses[key] = Array(12).fill(0);
-        memberMap[memberId].expenses[key][idx] += Number(item.amount) || 0;
+        memberMap[memberId].expenses[key][idx] += Math.round(Number(item.amount) || 0);
       });
     });
 
     (monthData.fixedList || []).forEach((f) => {
       const key = f.name || '（未命名）';
       if (!fixedMap[key]) fixedMap[key] = Array(12).fill(0);
-      fixedMap[key][idx] += Number(f.amount) || 0;
+      fixedMap[key][idx] += Math.round(Number(f.amount) || 0);
     });
 
-    monthlyTotals.income[idx] = monthData.totalIncome || 0;
-    monthlyTotals.expense[idx] = monthData.totalExpense || 0;
+    monthlyTotals.income[idx] = Math.round(monthData.totalIncome || 0);
+    monthlyTotals.expense[idx] = Math.round(monthData.totalExpense || 0);
   });
 
   const membersArr = Object.values(memberMap).sort((a, b) => {
@@ -161,7 +161,7 @@ function renderSummary() {
   const grandCategoryTotals = Object.fromEntries(categories.map((c) => [c, 0]));
 
   annualData.members.forEach((m) => {
-    if (m.id === 'extra') return; // 先跳過額外收入，最後單獨處理
+    if (m.id === 'extra') return;
 
     const totalIncome = m.income.reduce((s, x) => s + x, 0);
     const totalExpense = Object.values(m.expenses).reduce((s, arr) => s + arr.reduce((a, b) => a + b, 0), 0);
@@ -169,10 +169,8 @@ function renderSummary() {
     const catTotals = {};
     categories.forEach((c) => { catTotals[c] = 0; });
 
-    // 簡易分類對應（根據項目名稱粗略對應，或用類別名稱匹配）
     Object.entries(m.expenses).forEach(([itemName, arr]) => {
       const sum = arr.reduce((a, b) => a + b, 0);
-      // 若 itemName 含有醫療字眼，歸類為醫療類，以此類推
       let matched = false;
       for (const c of categories) {
         if (itemName.includes(c.replace('類', '')) || itemName.includes('看病') || itemName.includes('牙醫') || itemName.includes('藥')) {
@@ -199,16 +197,13 @@ function renderSummary() {
     `);
   });
 
-  // 家庭固定支出
   const fixedTotal = Object.values(annualData.fixedExpenses).reduce((s, arr) => s + arr.reduce((a, b) => a + b, 0), 0);
   grandTotalExpense += fixedTotal;
 
-  // 加入額外收入
   const extraMember = annualData.members.find((m) => m.id === 'extra');
   const extraIncome = extraMember ? extraMember.income.reduce((s, x) => s + x, 0) : 0;
   grandTotalIncome += extraIncome;
 
-  // 總計列
   rows.push(`
     <tr class="group-header">
       <td>【總計】</td>
@@ -219,7 +214,6 @@ function renderSummary() {
     </tr>
   `);
 
-  // 若沒資料
   if (rows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="8" class="empty-state">本年度尚無資料</td></tr>';
     return;
@@ -236,7 +230,6 @@ function renderMonthly() {
   const tbody = document.getElementById('monthly-tbody');
   const rows = [];
 
-  // 收入區塊
   rows.push(`<tr class="group-header"><td class="col-item">【收入】</td>${'<td></td>'.repeat(13)}</tr>`);
   annualData.members.filter((m) => m.income.some((v) => v > 0)).forEach((m) => {
     const subtotal = m.income.reduce((s, x) => s + x, 0);
@@ -257,7 +250,6 @@ function renderMonthly() {
     </tr>
   `);
 
-  // 成員支出區塊
   annualData.members.forEach((m) => {
     const itemNames = Object.keys(m.expenses);
     if (itemNames.length === 0) return;
@@ -288,7 +280,6 @@ function renderMonthly() {
     `);
   });
 
-  // 固定支出區塊
   const fixedNames = Object.keys(annualData.fixedExpenses);
   if (fixedNames.length > 0) {
     rows.push(`<tr class="group-header"><td class="col-item">【家庭固定支出】</td>${'<td></td>'.repeat(13)}</tr>`);
@@ -315,7 +306,6 @@ function renderMonthly() {
     `);
   }
 
-  // 月度總計
   rows.push(`<tr class="group-header"><td class="col-item">【月度總計】</td>${'<td></td>'.repeat(13)}</tr>`);
   const totalExpense = annualData.monthly.expense.reduce((s, x) => s + x, 0);
   rows.push(`
@@ -344,7 +334,7 @@ function renderMonthly() {
 }
 
 /* ============================================
-   Excel 匯出
+   Excel 匯出（所有數字四捨五入）
    ============================================ */
 function exportToExcel() {
   if (!annualData) return alert('資料尚未載入完成');
@@ -352,16 +342,16 @@ function exportToExcel() {
   const rows = [];
   rows.push(['項目', '1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '年度小計']);
 
-  const totalIncome = data.monthly.income.reduce((s, x) => s + x, 0);
-  const totalExpense = data.monthly.expense.reduce((s, x) => s + x, 0);
+  const totalIncome = Math.round(data.monthly.income.reduce((s, x) => s + x, 0));
+  const totalExpense = Math.round(data.monthly.expense.reduce((s, x) => s + x, 0));
   const balance = totalIncome - totalExpense;
 
   rows.push(['【收入】', '', '', '', '', '', '', '', '', '', '', '', '', '']);
   data.members.filter((m) => m.income.some((v) => v > 0)).forEach((m) => {
-    const subtotal = m.income.reduce((s, x) => s + x, 0);
-    rows.push([`  ${m.name}`, ...m.income, subtotal]);
+    const subtotal = Math.round(m.income.reduce((s, x) => s + x, 0));
+    rows.push([`  ${m.name}`, ...m.income.map((v) => Math.round(v)), subtotal]);
   });
-  rows.push(['收入小計', ...data.monthly.income, totalIncome]);
+  rows.push(['收入小計', ...data.monthly.income.map((v) => Math.round(v)), totalIncome]);
 
   data.members.forEach((m) => {
     const itemNames = Object.keys(m.expenses);
@@ -371,11 +361,11 @@ function exportToExcel() {
     itemNames.forEach((itemName) => {
       const amounts = m.expenses[itemName];
       amounts.forEach((v, i) => { monthlyMemberTotal[i] += v; });
-      const subtotal = amounts.reduce((s, x) => s + x, 0);
-      rows.push([`  ${itemName}`, ...amounts, subtotal]);
+      const subtotal = Math.round(amounts.reduce((s, x) => s + x, 0));
+      rows.push([`  ${itemName}`, ...amounts.map((v) => Math.round(v)), subtotal]);
     });
-    const memberSubtotal = monthlyMemberTotal.reduce((s, x) => s + x, 0);
-    rows.push([`${m.name}小計`, ...monthlyMemberTotal, memberSubtotal]);
+    const memberSubtotal = Math.round(monthlyMemberTotal.reduce((s, x) => s + x, 0));
+    rows.push([`${m.name}小計`, ...monthlyMemberTotal.map((v) => Math.round(v)), memberSubtotal]);
   });
 
   const fixedNames = Object.keys(data.fixedExpenses);
@@ -385,17 +375,17 @@ function exportToExcel() {
     fixedNames.forEach((name) => {
       const amounts = data.fixedExpenses[name];
       amounts.forEach((v, i) => { monthlyFixedTotal[i] += v; });
-      const subtotal = amounts.reduce((s, x) => s + x, 0);
-      rows.push([`  ${name}`, ...amounts, subtotal]);
+      const subtotal = Math.round(amounts.reduce((s, x) => s + x, 0));
+      rows.push([`  ${name}`, ...amounts.map((v) => Math.round(v)), subtotal]);
     });
-    const fixedSubtotal = monthlyFixedTotal.reduce((s, x) => s + x, 0);
-    rows.push(['固定支出小計', ...monthlyFixedTotal, fixedSubtotal]);
+    const fixedSubtotal = Math.round(monthlyFixedTotal.reduce((s, x) => s + x, 0));
+    rows.push(['固定支出小計', ...monthlyFixedTotal.map((v) => Math.round(v)), fixedSubtotal]);
   }
 
   rows.push(['【月度總計】', '', '', '', '', '', '', '', '', '', '', '', '', '']);
-  rows.push(['當月總支出', ...data.monthly.expense, totalExpense]);
+  rows.push(['當月總支出', ...data.monthly.expense.map((v) => Math.round(v)), totalExpense]);
   const netMonthly = data.monthly.income.map((v, i) => v - data.monthly.expense[i]);
-  rows.push(['當月淨結餘', ...netMonthly, balance]);
+  rows.push(['當月淨結餘', ...netMonthly.map((v) => Math.round(v)), balance]);
 
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 32 }, ...Array(12).fill({ wch: 12 }), { wch: 14 }];
