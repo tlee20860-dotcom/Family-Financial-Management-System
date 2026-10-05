@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v73'; // ⚠️ 升級
+const CACHE_NAME = 'family-fin-v72'; // ⚠️ 已升級
 
 const STATIC_ASSETS = [
   './css/theme.css', './css/layout.css', './css/components.css',
@@ -13,12 +13,11 @@ const STATIC_ASSETS = [
   './js/member-detail.js', './js/expense-categories.js',
   './js/settlements.js', './js/fixed-expenses.js', './js/income.js',
   './js/banks.js', './js/annual-report.js', './js/pwa.js',
+  './js/admin.js',
+  './js/personal-expenses.js',
+  './js/date-filter.js',           // 🆕 補上
   './manifest.json', './icons/icon.svg',
-  // ... 原本的內容 ...
-  './js/admin.js',   // 🆕 新增
-  // ...
-    './js/personal-expenses.js',
-  './personal-expenses.html',
+  // 註：HTML 檔一律不走快取（fetch handler 會跳過）
 ];
 
 self.addEventListener('install', (e) => {
