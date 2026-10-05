@@ -615,7 +615,10 @@ export async function saveAssets(data) {
 export async function deleteFixedTemplateAndMonths(templateId, templateName) {
   const familyId = AppState.getFamilyId();
   if (!familyId) throw new Error('尚未選擇家庭');
-
+  
+// 在 deleteFixedTemplateAndMonths 函式中，於 updates 物件加入：
+updates[`families/${familyId}/fixed_expense_years/${templateId}`] = null;
+  
   // 1. 刪除模板本身
   const updates = {};
   updates[`families/${familyId}/fixed_expense_templates/${templateId}`] = null;
@@ -708,4 +711,40 @@ export async function addFixedExpenseWithMember(year, month, data) {
     createdAt: Date.now(),
   });
   return newRef.key;
+}
+/* ============================================
+   固定支出年份清單（同步 Firebase）
+   結構：families/{UID}/fixed_expense_years/{templateId}/{year} = true
+   ============================================ */
+
+export function listenFixedExpenseYears(callback, onError) {
+  return listen('fixed_expense_years', (snap) => {
+    const val = snap.val() || {};
+    const result = {};
+    Object.entries(val).forEach(([templateId, years]) => {
+      result[templateId] = Object.keys(years || {})
+        .map(Number)
+        .filter(Number.isFinite);
+    });
+    callback(result);
+  }, onError);
+}
+
+export async function addFixedExpenseYear(templateId, year) {
+  if (!templateId) return;
+  const y = Number(year);
+  if (!Number.isFinite(y)) return;
+  await set(familyRef(`fixed_expense_years/${templateId}/${y}`), true);
+}
+
+export async function removeFixedExpenseYear(templateId, year) {
+  if (!templateId) return;
+  const y = Number(year);
+  if (!Number.isFinite(y)) return;
+  await remove(familyRef(`fixed_expense_years/${templateId}/${y}`));
+}
+
+export async function removeAllFixedExpenseYears(templateId) {
+  if (!templateId) return;
+  await remove(familyRef(`fixed_expense_years/${templateId}`));
 }
