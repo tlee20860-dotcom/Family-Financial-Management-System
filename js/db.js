@@ -78,17 +78,11 @@ export async function updateMemberOrders(orderMap) {
   await update(ref(db), updates);
 }
 
-/* ============================================
-   刪除成員（含關聯支出清理）
-   ============================================ */
-
 export async function deleteMemberAndData(memberId) {
   const familyId = AppState.getFamilyId();
   if (!familyId) throw new Error('尚未選擇家庭');
-
   const expensesSnap = await get(ref(db, `families/${familyId}/expenses`));
   const allExpenses = expensesSnap.val() || {};
-
   const updates = {};
   Object.entries(allExpenses).forEach(([year, months]) => {
     Object.entries(months || {}).forEach(([month, monthData]) => {
@@ -97,7 +91,6 @@ export async function deleteMemberAndData(memberId) {
       }
     });
   });
-
   updates[`families/${familyId}/members/${memberId}`] = null;
   await update(ref(db), updates);
 }
@@ -120,11 +113,32 @@ export function listenExpenses(year, month, memberId, callback, onError) {
   }, onError);
 }
 
+/**
+ * 🆕 監聽所有支出（用於個人支出頁面的全資料表格）
+ * 回傳扁平陣列，每筆包含 year, month, memberId, id 等
+ */
+export function listenAllExpenses(callback, onError) {
+  return listen('expenses', (snap) => {
+    const val = snap.val() || {};
+    const flat = [];
+    Object.entries(val).forEach(([year, months]) => {
+      Object.entries(months || {}).forEach(([month, monthData]) => {
+        Object.entries(monthData.member_expenses || {}).forEach(([memberId, items]) => {
+          Object.entries(items || {}).forEach(([id, exp]) => {
+            flat.push({ id, memberId, year, month, ...exp });
+          });
+        });
+      });
+    });
+    callback(flat);
+  }, onError);
+}
+
 export async function addExpense(year, month, memberId, expense) {
   if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = familyRef(expensePath(year, month, memberId));
   const newRef = push(r);
-  await set(newRef, { name: expense.name, amount: Number(expense.amount) || 0, status: expense.status || '未處理', date: expense.date || '', categoryId: expense.categoryId || '', itemId: expense.itemId || '', isAutoLinked: expense.isAutoLinked || false, createdAt: Date.now() });
+  await set(newRef, { name: expense.name, amount: Math.round(Number(expense.amount) || 0), status: expense.status || '未處理', date: expense.date || '', categoryId: expense.categoryId || '', itemId: expense.itemId || '', isAutoLinked: expense.isAutoLinked || false, createdAt: Date.now() });
   return newRef.key;
 }
 
@@ -136,6 +150,52 @@ export async function updateExpense(year, month, memberId, expId, patch) {
 export async function removeExpense(year, month, memberId, expId) {
   if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   await remove(familyRef(`${expensePath(year, month, memberId)}/${expId}`));
+}
+
+/* ============================================
+   批次更新支出（支援跨月份、跨成員移動）
+   ============================================ */
+
+export async function batchUpdateExpenses(updates) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const finalUpdates = {};
+
+  for (const item of updates) {
+    const { oldYear, oldMonth, oldMemberId, expenseId, data } = item;
+    const newYear = data.year || oldYear;
+    const newMonth = data.month || oldMonth;
+    const newMemberId = data.memberId || oldMemberId;
+
+    const pathChanged = newYear !== oldYear || newMonth !== oldMonth || newMemberId !== oldMemberId;
+
+    if (pathChanged) {
+      finalUpdates[`families/${familyId}/expenses/${oldYear}/${oldMonth}/member_expenses/${oldMemberId}/${expenseId}`] = null;
+      const newRef = push(ref(db, `families/${familyId}/expenses/${newYear}/${newMonth}/member_expenses/${newMemberId}`));
+      finalUpdates[`families/${familyId}/expenses/${newYear}/${newMonth}/member_expenses/${newMemberId}/${newRef.key}`] = {
+        name: data.name || '',
+        amount: Math.round(Number(data.amount) || 0),
+        status: data.status || '未處理',
+        date: data.date || '',
+        categoryId: data.categoryId || '',
+        itemId: data.itemId || '',
+        isAutoLinked: false,
+        createdAt: Date.now(),
+      };
+    } else {
+      finalUpdates[`families/${familyId}/expenses/${oldYear}/${oldMonth}/member_expenses/${oldMemberId}/${expenseId}`] = {
+        name: data.name || '',
+        amount: Math.round(Number(data.amount) || 0),
+        status: data.status || '未處理',
+        date: data.date || '',
+        categoryId: data.categoryId || '',
+        itemId: data.itemId || '',
+      };
+    }
+  }
+
+  await update(ref(db), finalUpdates);
 }
 
 /* ============================================
@@ -155,20 +215,39 @@ export async function addInsurancePolicyV2(policy) {
   const r = familyRef('insurance_policies');
   const newRef = push(r);
   await set(newRef, {
-    type: policy.type || 'normal', memberId: policy.memberId || '', name: policy.name || '', company: policy.company || '',
-    paymentType: policy.paymentType || '年繳', firstStartYear: Number(policy.firstStartYear) || 0, firstStartMonth: String(policy.firstStartMonth || '01').padStart(2, '0'),
-    totalPolicyYears: Number(policy.totalPolicyYears) || 0, totalPolicyPeriods: Number(policy.totalPolicyPeriods) || 0,
-    currentPeriodIndex: Number(policy.currentPeriodIndex) || 1, account: policy.account || '', periods: policy.periods || {}, createdAt: Date.now(),
+    type: policy.type || 'normal',
+    memberId: policy.memberId || '',
+    name: policy.name || '',
+    company: policy.company || '',
+    paymentType: policy.paymentType || '年繳',
+    firstStartYear: Number(policy.firstStartYear) || 0,
+    firstStartMonth: String(policy.firstStartMonth || '01').padStart(2, '0'),
+    totalPolicyYears: Number(policy.totalPolicyYears) || 0,
+    totalPolicyPeriods: Number(policy.totalPolicyPeriods) || 0,
+    totalPremium: Number(policy.totalPremium) || 0, // 🆕 修正：補上 totalPremium
+    currentPeriodIndex: Number(policy.currentPeriodIndex) || 1,
+    account: policy.account || '',
+    periods: policy.periods || {},
+    createdAt: Date.now(),
   });
   return newRef.key;
 }
 
 export async function updateInsurancePolicyV2(id, patch) {
   await update(familyRef(`insurance_policies/${id}`), {
-    type: patch.type || 'normal', memberId: patch.memberId || '', name: patch.name || '', company: patch.company || '',
-    paymentType: patch.paymentType || '年繳', firstStartYear: Number(patch.firstStartYear) || 0, firstStartMonth: String(patch.firstStartMonth || '01').padStart(2, '0'),
-    totalPolicyYears: Number(patch.totalPolicyYears) || 0, totalPolicyPeriods: Number(patch.totalPolicyPeriods) || 0,
-    currentPeriodIndex: Number(patch.currentPeriodIndex) || 1, account: patch.account || '', periods: patch.periods || {},
+    type: patch.type || 'normal',
+    memberId: patch.memberId || '',
+    name: patch.name || '',
+    company: patch.company || '',
+    paymentType: patch.paymentType || '年繳',
+    firstStartYear: Number(patch.firstStartYear) || 0,
+    firstStartMonth: String(patch.firstStartMonth || '01').padStart(2, '0'),
+    totalPolicyYears: Number(patch.totalPolicyYears) || 0,
+    totalPolicyPeriods: Number(patch.totalPolicyPeriods) || 0,
+    totalPremium: Number(patch.totalPremium) || 0, // 🆕 修正：補上 totalPremium
+    currentPeriodIndex: Number(patch.currentPeriodIndex) || 1,
+    account: patch.account || '',
+    periods: patch.periods || {},
   });
 }
 
@@ -179,10 +258,8 @@ export async function removeInsurancePolicy(id) {
 export async function deleteInsurancePolicyAndData(policyId, memberId) {
   const familyId = AppState.getFamilyId();
   if (!familyId) throw new Error('尚未選擇家庭');
-
   const paymentsSnap = await get(ref(db, `families/${familyId}/insurance_payments/${policyId}`));
   const payments = paymentsSnap.val() || {};
-
   const updates = {};
   for (const [year, months] of Object.entries(payments)) {
     for (const [month, data] of Object.entries(months)) {
@@ -191,14 +268,16 @@ export async function deleteInsurancePolicyAndData(policyId, memberId) {
   }
   updates[`families/${familyId}/insurance_payments/${policyId}`] = null;
   updates[`families/${familyId}/insurance_policies/${policyId}`] = null;
-
   await update(ref(db), updates);
 }
 
 export async function addInsurancePeriod(policyId, periodIndex, periodData) {
   await set(familyRef(`insurance_policies/${policyId}/periods/${periodIndex}`), {
-    periodIndex: Number(periodIndex), startYear: Number(periodData.startYear), startMonth: String(periodData.startMonth).padStart(2, '0'),
-    annualPremium: Number(periodData.annualPremium) || 0, monthlyAverage: Number(periodData.monthlyAverage) || 0,
+    periodIndex: Number(periodIndex),
+    startYear: Number(periodData.startYear),
+    startMonth: String(periodData.startMonth).padStart(2, '0'),
+    annualPremium: Number(periodData.annualPremium) || 0,
+    monthlyAverage: Math.round(Number(periodData.monthlyAverage) || 0),
   });
 }
 
@@ -213,7 +292,9 @@ export async function getInsurancePaymentsOnce(policyId) {
 
 export async function saveInsurancePaymentBatch(policyId, year, month, data) {
   await set(familyRef(`insurance_payments/${policyId}/${year}/${month}`), {
-    status: data.status || '已扣款', amount: Number(data.amount) || 0, date: data.date || new Date().toISOString().slice(0, 10),
+    status: data.status || '已扣款',
+    amount: Math.round(Number(data.amount) || 0),
+    date: data.date || new Date().toISOString().slice(0, 10),
   });
 }
 
@@ -248,17 +329,12 @@ export async function updateInsuranceCompany(id, newName) {
 export async function updatePolicyCompanyName(oldName, newName) {
   const familyId = AppState.getFamilyId();
   if (!familyId) throw new Error('尚未選擇家庭');
-
   const snap = await get(ref(db, `families/${familyId}/insurance_policies`));
   const policies = snap.val() || {};
-
   const updates = {};
   Object.entries(policies).forEach(([id, p]) => {
-    if (p.company === oldName) {
-      updates[`families/${familyId}/insurance_policies/${id}/company`] = newName;
-    }
+    if (p.company === oldName) updates[`families/${familyId}/insurance_policies/${id}/company`] = newName;
   });
-
   if (Object.keys(updates).length > 0) await update(ref(db), updates);
   return Object.keys(updates).length;
 }
@@ -280,7 +356,10 @@ export async function getIncomeOnce(year, month) {
 export async function saveIncomeV2(year, month, data) {
   if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const clean = {};
-  Object.entries(data).forEach(([key, val]) => { const num = Number(val) || 0; if (num > 0) clean[key] = num; });
+  Object.entries(data).forEach(([key, val]) => {
+    const num = Math.round(Number(val) || 0);
+    if (num > 0) clean[key] = num;
+  });
   await set(familyRef(`income/${year}/${month}`), clean);
 }
 
@@ -300,12 +379,12 @@ export function listenFunds(callback, onError) {
 export async function addFund(fund) {
   const r = familyRef('funds');
   const newRef = push(r);
-  await set(newRef, { name: fund.name || '', cost: Number(fund.cost) || 0, currentValue: Number(fund.currentValue) || 0, units: Number(fund.units) || 0, note: fund.note || '', createdAt: Date.now() });
+  await set(newRef, { name: fund.name || '', cost: Math.round(Number(fund.cost) || 0), currentValue: Math.round(Number(fund.currentValue) || 0), units: Number(fund.units) || 0, note: fund.note || '', createdAt: Date.now() });
   return newRef.key;
 }
 
 export async function updateFund(id, patch) {
-  await update(familyRef(`funds/${id}`), { name: patch.name || '', cost: Number(patch.cost) || 0, currentValue: Number(patch.currentValue) || 0, units: Number(patch.units) || 0, note: patch.note || '' });
+  await update(familyRef(`funds/${id}`), { name: patch.name || '', cost: Math.round(Number(patch.cost) || 0), currentValue: Math.round(Number(patch.currentValue) || 0), units: Number(patch.units) || 0, note: patch.note || '' });
 }
 
 export async function removeFund(id) {
@@ -381,18 +460,43 @@ export async function addFixedTemplate(tmpl) {
   const r = familyRef('fixed_expense_templates');
   const newRef = push(r);
   await set(newRef, {
-    name: tmpl.name || '', categoryId: tmpl.categoryId || '', itemId: tmpl.itemId || '',
-    memberId: tmpl.memberId || '', amount: Number(tmpl.amount) || 0, createdAt: Date.now(),
+    name: tmpl.name || '',
+    categoryId: tmpl.categoryId || '',
+    itemId: tmpl.itemId || '',
+    memberId: tmpl.memberId || 'shared',
+    amount: Math.round(Number(tmpl.amount) || 0),
+    cycle: tmpl.cycle || '每月',
+    note: tmpl.note || '',
+    createdAt: Date.now(),
   });
   return newRef.key;
 }
 
 export async function updateFixedTemplate(id, patch) {
-  await update(familyRef(`fixed_expense_templates/${id}`), { name: patch.name || '', amount: Number(patch.amount) || 0, cycle: patch.cycle || '每月', note: patch.note || '' });
+  await update(familyRef(`fixed_expense_templates/${id}`), { name: patch.name || '', amount: Math.round(Number(patch.amount) || 0), cycle: patch.cycle || '每月', note: patch.note || '' });
 }
 
 export async function removeFixedTemplate(id) {
   await remove(familyRef(`fixed_expense_templates/${id}`));
+}
+
+export async function deleteFixedTemplateAndMonths(templateId, templateName) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+  const updates = {};
+  updates[`families/${familyId}/fixed_expense_templates/${templateId}`] = null;
+  const snap = await get(ref(db, `families/${familyId}/fixed_expenses`));
+  const allExpenses = snap.val() || {};
+  Object.entries(allExpenses).forEach(([year, months]) => {
+    Object.entries(months || {}).forEach(([month, items]) => {
+      Object.entries(items || {}).forEach(([id, item]) => {
+        if (item.name === templateName) {
+          updates[`families/${familyId}/fixed_expenses/${year}/${month}/${id}`] = null;
+        }
+      });
+    });
+  });
+  await update(ref(db), updates);
 }
 
 /* ============================================
@@ -414,9 +518,17 @@ export async function addFixedExpenseV2(year, month, data) {
   const r = familyRef(`fixed_expenses/${year}/${month}`);
   const newRef = push(r);
   await set(newRef, {
-    name: data.name || '', amount: Number(data.amount) || 0, cycle: data.cycle || '每月', note: data.note || '',
-    categoryId: data.categoryId || '', itemId: data.itemId || '', status: data.status || '未付款', paidDate: data.paidDate || '',
-    isSkipped: data.isSkipped || false, createdAt: Date.now(),
+    name: data.name || '',
+    amount: Math.round(Number(data.amount) || 0),
+    cycle: data.cycle || '每月',
+    note: data.note || '',
+    categoryId: data.categoryId || '',
+    itemId: data.itemId || '',
+    memberId: data.memberId || 'shared',
+    status: data.status || '未付款',
+    paidDate: data.paidDate || '',
+    isSkipped: data.isSkipped || false,
+    createdAt: Date.now(),
   });
   return newRef.key;
 }
@@ -427,31 +539,6 @@ export async function updateFixedExpenseV2(year, month, id, patch) {
 
 export async function removeFixedExpenseV2(year, month, id) {
   await remove(familyRef(`fixed_expenses/${year}/${month}/${id}`));
-}
-
-export async function copyFixedExpensesFromPrevMonth(year, month) {
-  const y = Number(year); const m = Number(month);
-  let prevY = y; let prevM = m - 1;
-  if (prevM < 1) { prevY = y - 1; prevM = 12; }
-  const prevMonthStr = String(prevM).padStart(2, '0');
-  const currentSnap = await get(familyRef(`fixed_expenses/${year}/${month}`));
-  if (currentSnap.exists() && Object.keys(currentSnap.val() || {}).length > 0) return 0;
-  const prevSnap = await get(familyRef(`fixed_expenses/${prevY}/${prevMonthStr}`));
-  const prevVal = prevSnap.val() || {};
-  const prevList = Object.entries(prevVal);
-  if (prevList.length === 0) return 0;
-  let count = 0;
-  for (const [id, item] of prevList) {
-    const newRef = push(familyRef(`fixed_expenses/${year}/${month}`));
-    await set(newRef, {
-      name: item.name || '', amount: Number(item.amount) || 0, cycle: item.cycle || '每月', note: item.note || '',
-      categoryId: item.categoryId || '', itemId: item.itemId || '',
-      status: '未付款', paidDate: '', isSkipped: false,
-      createdAt: Date.now() + count, copiedFrom: `${prevY}-${prevMonthStr}`,
-    });
-    count++;
-  }
-  return count;
 }
 
 export async function getFixedExpensesOnce(year, month) {
@@ -489,10 +576,8 @@ export async function removeBank(id) {
 export async function deleteBankAndBalances(bankId) {
   const familyId = AppState.getFamilyId();
   if (!familyId) throw new Error('尚未選擇家庭');
-
   const snap = await get(ref(db, `families/${familyId}/bank_balances`));
   const allBalances = snap.val() || {};
-
   const updates = {};
   Object.entries(allBalances).forEach(([year, months]) => {
     Object.entries(months || {}).forEach(([month, banks]) => {
@@ -501,7 +586,6 @@ export async function deleteBankAndBalances(bankId) {
       }
     });
   });
-
   updates[`families/${familyId}/banks/${bankId}`] = null;
   await update(ref(db), updates);
 }
@@ -513,7 +597,7 @@ export function listenBankBalances(year, month, callback, onError) {
 
 export async function saveBankBalance(year, month, bankId, amount) {
   if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
-  await update(familyRef(`bank_balances/${year}/${month}`), { [bankId]: { amount: Number(amount) || 0, updatedAt: Date.now() } });
+  await update(familyRef(`bank_balances/${year}/${month}`), { [bankId]: { amount: Math.round(Number(amount) || 0), updatedAt: Date.now() } });
 }
 
 export async function getPrevMonthBankTotal(year, month) {
@@ -549,7 +633,7 @@ export async function addFixedRepayment(year, month, data) {
   if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = familyRef(`fixed_repayments/${year}/${month}`);
   const newRef = push(r);
-  await set(newRef, { memberId: data.memberId || '', name: data.name || '', amount: Number(data.amount) || 0, status: '未還款', repaidDate: '', createdAt: Date.now() });
+  await set(newRef, { memberId: data.memberId || '', name: data.name || '', amount: Math.round(Number(data.amount) || 0), status: '未還款', repaidDate: '', createdAt: Date.now() });
   return newRef.key;
 }
 
@@ -606,145 +690,5 @@ export function listenAssets(callback, onError) {
 }
 
 export async function saveAssets(data) {
-  await update(familyRef('assets'), { bankBalance: Number(data.bankBalance) || 0 });
-}
-/* ============================================
-   刪除整個固定支出模板（含所有月份記錄）
-   ============================================ */
-
-export async function deleteFixedTemplateAndMonths(templateId, templateName) {
-  const familyId = AppState.getFamilyId();
-  if (!familyId) throw new Error('尚未選擇家庭');
-  
-// 在 deleteFixedTemplateAndMonths 函式中，於 updates 物件加入：
-updates[`families/${familyId}/fixed_expense_years/${templateId}`] = null;
-  
-  // 1. 刪除模板本身
-  const updates = {};
-  updates[`families/${familyId}/fixed_expense_templates/${templateId}`] = null;
-
-  // 2. 遍歷所有月份，刪除對應名稱的記錄
-  const snap = await get(ref(db, `families/${familyId}/fixed_expenses`));
-  const allExpenses = snap.val() || {};
-
-  Object.entries(allExpenses).forEach(([year, months]) => {
-    Object.entries(months || {}).forEach(([month, items]) => {
-      Object.entries(items || {}).forEach(([id, item]) => {
-        if (item.name === templateName) {
-          updates[`families/${familyId}/fixed_expenses/${year}/${month}/${id}`] = null;
-        }
-      });
-    });
-  });
-
-  await update(ref(db), updates);
-}
-/* ============================================
-   批次更新支出（支援跨月份、跨成員移動）
-   ============================================ */
-
-export async function batchUpdateExpenses(updates) {
-  const familyId = AppState.getFamilyId();
-  if (!familyId) throw new Error('尚未選擇家庭');
-
-  const finalUpdates = {};
-
-  for (const item of updates) {
-    const { oldYear, oldMonth, oldMemberId, expenseId, data } = item;
-    const newYear = data.year || oldYear;
-    const newMonth = data.month || oldMonth;
-    const newMemberId = data.memberId || oldMemberId;
-
-    // 如果年份/月份/成員有變，需要先刪除舊資料，再新增
-    const pathChanged = newYear !== oldYear || newMonth !== oldMonth || newMemberId !== oldMemberId;
-
-    if (pathChanged) {
-      // 刪除舊節點
-      finalUpdates[`families/${familyId}/expenses/${oldYear}/${oldMonth}/member_expenses/${oldMemberId}/${expenseId}`] = null;
-      // 新增到新節點
-      const newRef = push(ref(db, `families/${familyId}/expenses/${newYear}/${newMonth}/member_expenses/${newMemberId}`));
-      finalUpdates[`families/${familyId}/expenses/${newYear}/${newMonth}/member_expenses/${newMemberId}/${newRef.key}`] = {
-        name: data.name || '',
-        amount: Number(data.amount) || 0,
-        status: data.status || '未處理',
-        date: data.date || '',
-        categoryId: data.categoryId || '',
-        itemId: data.itemId || '',
-        isAutoLinked: false,
-        createdAt: Date.now(),
-      };
-    } else {
-      // 路徑不變，直接更新
-      finalUpdates[`families/${familyId}/expenses/${oldYear}/${oldMonth}/member_expenses/${oldMemberId}/${expenseId}`] = {
-        name: data.name || '',
-        amount: Number(data.amount) || 0,
-        status: data.status || '未處理',
-        date: data.date || '',
-        categoryId: data.categoryId || '',
-        itemId: data.itemId || '',
-      };
-    }
-  }
-
-  await update(ref(db), finalUpdates);
-}
-
-/* ============================================
-   家庭共用支出（固定支出所屬成員）
-   ============================================ */
-
-export async function addFixedExpenseWithMember(year, month, data) {
-  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
-  const r = familyRef(`fixed_expenses/${year}/${month}`);
-  const newRef = push(r);
-  await set(newRef, {
-    name: data.name || '',
-    amount: Number(data.amount) || 0,
-    cycle: data.cycle || '每月',
-    note: data.note || '',
-    categoryId: data.categoryId || '',
-    itemId: data.itemId || '',
-    memberId: data.memberId || 'shared', // 'shared' 代表家庭共用
-    status: data.status || '未付款',
-    paidDate: data.paidDate || '',
-    isSkipped: data.isSkipped || false,
-    createdAt: Date.now(),
-  });
-  return newRef.key;
-}
-/* ============================================
-   固定支出年份清單（同步 Firebase）
-   結構：families/{UID}/fixed_expense_years/{templateId}/{year} = true
-   ============================================ */
-
-export function listenFixedExpenseYears(callback, onError) {
-  return listen('fixed_expense_years', (snap) => {
-    const val = snap.val() || {};
-    const result = {};
-    Object.entries(val).forEach(([templateId, years]) => {
-      result[templateId] = Object.keys(years || {})
-        .map(Number)
-        .filter(Number.isFinite);
-    });
-    callback(result);
-  }, onError);
-}
-
-export async function addFixedExpenseYear(templateId, year) {
-  if (!templateId) return;
-  const y = Number(year);
-  if (!Number.isFinite(y)) return;
-  await set(familyRef(`fixed_expense_years/${templateId}/${y}`), true);
-}
-
-export async function removeFixedExpenseYear(templateId, year) {
-  if (!templateId) return;
-  const y = Number(year);
-  if (!Number.isFinite(y)) return;
-  await remove(familyRef(`fixed_expense_years/${templateId}/${y}`));
-}
-
-export async function removeAllFixedExpenseYears(templateId) {
-  if (!templateId) return;
-  await remove(familyRef(`fixed_expense_years/${templateId}`));
+  await update(familyRef('assets'), { bankBalance: Math.round(Number(data.bankBalance) || 0) });
 }
