@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 年度明細）
+// insurance.js — 保險付款（年度化重構 + 自動同步）
 // ============================================
 
 import {
@@ -27,9 +27,54 @@ export function initInsurancePage() {
   bindAddPeriodModalEvents();
   bindDetailModalEvents();
 
+  // 🆕 同步所有支出按鈕
+  document.getElementById('sync-all-btn').addEventListener('click', async () => {
+    if (!confirm('確定要重新同步所有保單的已扣款支出嗎？\n（這會覆蓋成員支出中保險平攤的金額）')) return;
+    try {
+      await syncAllPolicyExpenses();
+      alert('✅ 已同步所有保單支出');
+    } catch (err) {
+      alert('同步失敗：' + err.message);
+    }
+  });
+
   listenInsurancePolicies((list) => { policies = list; renderGrid(); });
   listenMembers((list) => { members = list; renderMemberOptions(); });
   AppState.on('ym-change', () => renderGrid());
+}
+
+/* ============================================
+   自動同步邏輯
+   ============================================ */
+async function autoSyncPolicyExpenses(policy) {
+  const payments = await getInsurancePaymentsOnce(policy.id);
+  const promises = [];
+
+  for (const [year, months] of Object.entries(payments)) {
+    for (const [month, data] of Object.entries(months)) {
+      if (data.status === '已扣款') {
+        // 找出該月所屬的年度，取得正確的 monthlyAverage
+        const curY = Number(year);
+        const curM = Number(month);
+        const info = getPeriodInfo(policy, curY, curM);
+        if (!info) continue;
+        
+        const periodData = (policy.periods || {})[String(info.periodIndex)];
+        const amount = data.amount || (periodData ? periodData.monthlyAverage : policy.monthlyAverage);
+
+        promises.push(api.insuranceSync({
+          policyId: policy.id, memberId: policy.memberId, policyName: policy.name,
+          monthlyAverage: amount, year, month
+        }));
+      }
+    }
+  }
+  await Promise.all(promises);
+}
+
+async function syncAllPolicyExpenses() {
+  const promises = policies.map((p) => autoSyncPolicyExpenses(p));
+  await Promise.all(promises);
 }
 
 /* ============================================
@@ -217,9 +262,24 @@ function bindPolicyModalEvents() {
 
     if (!payload.name || !payload.memberId) return;
 
-    if (editingId) await updateInsurancePolicyV2(editingId, payload);
-    else await addInsurancePolicyV2(payload);
+    let savedPolicyId = editingId;
+    if (editingId) {
+      await updateInsurancePolicyV2(editingId, payload);
+    } else {
+      savedPolicyId = await addInsurancePolicyV2(payload);
+      // 新增時，需要把剛建好的保單物件傳給同步函式（此時本機還沒刷新，需要手動組裝）
+      const newPolicyObj = { ...payload, id: savedPolicyId };
+      await autoSyncPolicyExpenses(newPolicyObj);
+    }
+    
     modal.classList.remove('active');
+    
+    // 🆕 編輯成功後，自動同步該保單的所有已扣款支出
+    if (editingId) {
+      const updatedPolicy = policies.find((x) => x.id === editingId);
+      if (updatedPolicy) await autoSyncPolicyExpenses(updatedPolicy);
+      alert('✅ 保單已更新，相關支出已自動同步');
+    }
   });
 }
 
@@ -246,13 +306,24 @@ function bindAddPeriodModalEvents() {
 
     const range = getPeriodRange(p, periodIndex);
     await addInsurancePeriod(policyId, periodIndex, {
-      startYear: range.startY,
-      startMonth: range.startM,
-      annualPremium: annual,
-      monthlyAverage: annual / 12
+      startYear: range.startY, startMonth: range.startM,
+      annualPremium: annual, monthlyAverage: annual / 12
     });
+    
     modal.classList.remove('active');
     alert(`✅ 已設定第 ${periodIndex} 年度保費`);
+    
+    // 🆕 新增年度後，自動同步該保單的所有已扣款支出
+    const updatedPolicy = policies.find((x) => x.id === policyId);
+    if (updatedPolicy) {
+      // 手動更新本機的 periods 以便同步時能抓到正確金額
+      if (!updatedPolicy.periods) updatedPolicy.periods = {};
+      updatedPolicy.periods[String(periodIndex)] = {
+        periodIndex, startYear: range.startY, startMonth: range.startM,
+        annualPremium: annual, monthlyAverage: annual / 12
+      };
+      await autoSyncPolicyExpenses(updatedPolicy);
+    }
   });
 }
 
@@ -287,13 +358,12 @@ function bindDetailModalEvents() {
     });
 
     try {
-      const results = await Promise.all(promises);
-      console.log('✅ 批次同步結果：', results);
+      await Promise.all(promises);
       alert('✅ 已批次更新扣款狀態與連動支出');
       modal.classList.remove('active');
       renderGrid();
     } catch (err) {
-      console.error('❌ 批次同步失敗：', err);
+      console.error('批次同步失敗：', err);
       alert('批次更新失敗：' + err.message);
     }
   });
