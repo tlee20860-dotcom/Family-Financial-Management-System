@@ -459,3 +459,54 @@ export async function getAllMemberExpensesOnce(year, month) {
   flat.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   return flat;
 }
+/* ============================================
+   固定支出模板（補齊 v47）
+   ============================================ */
+
+export function listenFixedTemplates(callback, onError) {
+  return listen('fixed_expense_templates', (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, t]) => ({ id, ...t }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  }, onError);
+}
+
+export async function addFixedTemplate(tmpl) {
+  const r = familyRef('fixed_expense_templates');
+  const newRef = push(r);
+  await set(newRef, {
+    name: tmpl.name || '',
+    categoryId: tmpl.categoryId || '',
+    itemId: tmpl.itemId || '',
+    memberId: tmpl.memberId || '',
+    amount: Number(tmpl.amount) || 0,
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
+
+export async function updateFixedTemplate(id, patch) {
+  await update(familyRef(`fixed_expense_templates/${id}`), {
+    name: patch.name || '',
+    amount: Number(patch.amount) || 0,
+    cycle: patch.cycle || '每月',
+    note: patch.note || '',
+  });
+}
+
+export async function removeFixedTemplate(id) {
+  await remove(familyRef(`fixed_expense_templates/${id}`));
+}
+
+/* ============================================
+   資產（補齊 v47）
+   ============================================ */
+
+export function listenAssets(callback, onError) {
+  return listen('assets', (snap) => callback(snap.val() || {}), onError);
+}
+
+export async function saveAssets(data) {
+  await update(familyRef('assets'), { bankBalance: Number(data.bankBalance) || 0 });
+}
