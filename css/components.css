@@ -520,10 +520,7 @@
 }
 
 /* ============================================
-   🔧 每月 row：flex 順序調整
-   -------------------------------------------------
-   新順序： 日期  →  已扣款 checkbox  →  金額 input
-   （用 order 屬性，不必改 HTML/JS）
+   保險：每月 row（flex，input 固定寬度）
    ============================================ */
 .insurance-month-row {
   display: flex;
@@ -533,7 +530,6 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-/* 🔧 用 order 控制視覺順序 */
 .insurance-month-row .ins-date       { order: 1; }
 .insurance-month-row .ins-paid-label { order: 2; }
 .insurance-month-row input.ins-amount { order: 3; }
@@ -578,6 +574,60 @@
 .insurance-month-row input.ins-amount:focus {
   outline: none;
   border-color: var(--neon-cyan);
+}
+
+/* ============================================
+   🔧 固定支出：每月 row（flex，金額縮小，勾選緊貼右側）
+   -------------------------------------------------
+   順序：月份 → 金額 input（110px）→ 已付款 → 不適用
+   ============================================ */
+.fixed-month-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.fixed-month-row .fix-month-label {
+  width: 50px;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fixed-month-row input.fix-amount {
+  width: 110px;
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  font-size: 12px;
+  text-align: right;
+  background: rgba(8, 11, 17, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+}
+
+.fixed-month-row input.fix-amount:focus {
+  outline: none;
+  border-color: var(--neon-cyan);
+}
+
+.fixed-month-row .fix-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.fixed-month-row .fix-checkbox-label input[type="checkbox"] {
+  width: auto;
+  cursor: pointer;
 }
 
 /* ================= 已供滿保單區塊 ================= */
@@ -636,21 +686,6 @@
 }
 .fixed-year-header:hover {
   background: rgba(0, 240, 255, 0.08) !important;
-}
-
-.fixed-month-row input[type="number"] {
-  width: 100%;
-  padding: 4px 8px;
-  font-size: 12px;
-  background: rgba(8, 11, 17, 0.6);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  text-align: right;
-}
-.fixed-month-row input[type="number"]:focus {
-  outline: none;
-  border-color: var(--neon-cyan);
 }
 
 .insurance-expand-btn {
@@ -766,7 +801,7 @@
     font-size: 10px;
   }
 
-  /* 🔧 手機版每月 row */
+  /* 手機版：保險每月 row */
   .insurance-month-row {
     gap: 8px;
     padding: 4px 0;
@@ -786,6 +821,28 @@
     font-size: 11px;
   }
   .insurance-month-row .ins-paid {
+    transform: scale(0.9);
+  }
+
+  /* 🔧 手機版：固定支出每月 row */
+  .fixed-month-row {
+    gap: 6px;
+    padding: 4px 0;
+  }
+  .fixed-month-row .fix-month-label {
+    width: 40px;
+    font-size: 11px;
+  }
+  .fixed-month-row input.fix-amount {
+    width: 80px;
+    padding: 3px 6px;
+    font-size: 11px;
+  }
+  .fixed-month-row .fix-checkbox-label {
+    font-size: 10px;
+    gap: 3px;
+  }
+  .fixed-month-row .fix-checkbox-label input[type="checkbox"] {
     transform: scale(0.9);
   }
 }
