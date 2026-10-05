@@ -18,19 +18,25 @@ let categories = [];
 let items = [];
 let members = [];
 
-// 資料快取：yearlyData[year][month] = [expense, ...]
+// 資料快取：yearlyData[yearNumber][monthStr] = [expense, ...]
 const yearlyData = {};
-const loadedYears = new Set();
+const loadedYears = new Set();      // Set<number>
 
 // 展開狀態
-const expandedTemplates = new Set();
-const expandedYears = new Set();  // key: `${templateId}|${year}`
+const expandedTemplates = new Set();          // Set<templateId>
+const expandedYears = new Set();              // Set<`${templateId}|${yearNumber}`>
 
 // 新增後自動展開
 let pendingExpandTemplateName = null;
 
 const YEAR_RANGE_BEFORE = 3;
 const YEAR_RANGE_AFTER = 1;
+
+/** 安全取得當前年份（強制數字） */
+function getCurrentYear() {
+  const y = Number(AppState.year);
+  return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear();
+}
 
 export function initFixedExpensesPage() {
   const container = document.getElementById('fixed-templates-container');
@@ -82,20 +88,21 @@ export function initFixedExpensesPage() {
       const newT = list.find((t) => t.name === pendingExpandTemplateName && !prevIds.has(t.id));
       if (newT) {
         expandedTemplates.add(newT.id);
-        expandedYears.add(`${newT.id}|${AppState.year}`);
+        expandedYears.add(`${newT.id}|${getCurrentYear()}`);
         pendingExpandTemplateName = null;
       }
     }
 
     // 重新載入當前年份資料（新增/刪除模板後資料會變動）
-    invalidateYear(AppState.year);
-    await loadYear(AppState.year);
+    const y = getCurrentYear();
+    invalidateYear(y);
+    await loadYear(y);
     render();
   });
 
   // 年份切換時，確保當前年份資料已載入
   AppState.on('ym-change', async () => {
-    await loadYear(AppState.year);
+    await loadYear(getCurrentYear());
     render();
   });
 
@@ -131,7 +138,7 @@ export function initFixedExpensesPage() {
 
     // 2. 分配到 12 個月
     const targetMonths = getMonthsByCycle(cycle);
-    const year = AppState.year;
+    const year = getCurrentYear();
     const promises = [];
     for (let m = 1; m <= 12; m++) {
       const monthStr = String(m).padStart(2, '0');
@@ -167,7 +174,6 @@ export function initFixedExpensesPage() {
         try {
           await deleteFixedTemplateAndMonths(templateId, templateName);
           expandedTemplates.delete(templateId);
-          // 清掉該模板的所有展開年份
           for (const key of [...expandedYears]) {
             if (key.startsWith(`${templateId}|`)) expandedYears.delete(key);
           }
@@ -196,7 +202,7 @@ export function initFixedExpensesPage() {
     const toggleYear = e.target.closest('[data-action="toggle-year"]');
     if (toggleYear) {
       const tId = toggleYear.dataset.templateId;
-      const year = Number(toggleYear.dataset.year);
+      const year = Number(toggleYear.dataset.year);  // ★ 強制數字
       const key = `${tId}|${year}`;
 
       if (expandedYears.has(key)) {
@@ -219,7 +225,7 @@ export function initFixedExpensesPage() {
     const el = e.target;
     if (!el.dataset.action) return;
 
-    const year = el.dataset.year;
+    const year = Number(el.dataset.year);   // ★ 強制數字
     const month = el.dataset.month;
     const id = el.dataset.id;
     if (!id) return;
@@ -239,7 +245,6 @@ export function initFixedExpensesPage() {
       const isSkipped = el.checked;
       await updateFixedExpenseV2(year, month, id, { isSkipped });
       updateLocalCache(year, month, id, { isSkipped });
-      // 切換該行的刪除線樣式
       const row = el.closest('tr');
       if (row) row.classList.toggle('skip-row', isSkipped);
       updateYearAccordionHeader(el.closest('.year-accordion'));
@@ -272,8 +277,10 @@ export function initFixedExpensesPage() {
   }
 
   function updateLocalCache(year, month, id, updates) {
-    if (!yearlyData[year]?.[month]) return;
-    const list = yearlyData[year][month];
+    const y = Number(year);
+    const m = String(month).padStart(2, '0');
+    if (!yearlyData[y]?.[m]) return;
+    const list = yearlyData[y][m];
     const item = list.find((x) => x.id === id);
     if (item) Object.assign(item, updates);
   }
@@ -309,7 +316,7 @@ export function initFixedExpensesPage() {
 
   // ============ 渲染主函式 ============
   function render() {
-    const currentYear = AppState.year;
+    const currentYear = getCurrentYear();   // ★ 強制數字
     document.getElementById('fixed-month').textContent = `${currentYear} 年度明細`;
 
     if (!templates.length) {
@@ -360,10 +367,11 @@ export function initFixedExpensesPage() {
   }
 
   function renderYearAccordion(t, year, currentYear) {
-    const key = `${t.id}|${year}`;
+    const yearNum = Number(year);
+    const key = `${t.id}|${yearNum}`;
     const isYearExpanded = expandedYears.has(key);
-    const isYearLoaded = loadedYears.has(year);
-    const isCurrentYear = year === currentYear;
+    const isYearLoaded = loadedYears.has(yearNum);
+    const isCurrentYear = yearNum === currentYear;
 
     let yearTotal = 0;
     let paidCount = 0;
@@ -371,7 +379,7 @@ export function initFixedExpensesPage() {
     if (isYearLoaded) {
       for (let m = 1; m <= 12; m++) {
         const monthStr = String(m).padStart(2, '0');
-        const list = yearlyData[year]?.[monthStr] || [];
+        const list = yearlyData[yearNum]?.[monthStr] || [];
         const item = list.find((x) => x.name === t.name);
         if (item) {
           if (item.isSkipped) skipCount++;
@@ -384,16 +392,16 @@ export function initFixedExpensesPage() {
     }
 
     const yearLabel = isCurrentYear
-      ? `<span style="font-weight:700;">${year} 年</span> <span class="badge badge-info" style="font-size:10px; margin-left:4px;">當前</span>`
-      : `<span style="font-weight:600;">${year} 年</span>`;
+      ? `<span style="font-weight:700;">${yearNum} 年</span> <span class="badge badge-info" style="font-size:10px; margin-left:4px;">當前</span>`
+      : `<span style="font-weight:600;">${yearNum} 年</span>`;
 
     const infoText = isYearLoaded
       ? `<span class="year-info" style="font-size:12px; color:var(--text-muted);">已付款 ${paidCount} 個月${skipCount > 0 ? `・不適用 ${skipCount} 個月` : ''}</span>`
       : `<span class="year-info" style="font-size:12px; color:var(--text-muted);">點擊載入</span>`;
 
     return `
-      <div class="year-accordion" data-template-id="${t.id}" data-year="${year}">
-        <div class="year-accordion-header" data-action="toggle-year" data-template-id="${t.id}" data-year="${year}">
+      <div class="year-accordion" data-template-id="${t.id}" data-year="${yearNum}">
+        <div class="year-accordion-header" data-action="toggle-year" data-template-id="${t.id}" data-year="${yearNum}">
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <i data-lucide="chevron-right" class="accordion-arrow ${isYearExpanded ? 'rotated' : ''}" style="width:16px;height:16px;"></i>
             ${yearLabel}
@@ -402,17 +410,18 @@ export function initFixedExpensesPage() {
           <span class="year-total" style="font-size:12px; color:var(--neon-emerald);">總金額：${formatHKD(yearTotal)}</span>
         </div>
         <div class="year-accordion-body" style="display:${isYearExpanded ? 'block' : 'none'};">
-          ${isYearExpanded ? (isYearLoaded ? renderYearMonths(t, year) : '<div style="padding:12px; text-align:center; color:var(--text-muted);">載入中…</div>') : ''}
+          ${isYearExpanded ? (isYearLoaded ? renderYearMonths(t, yearNum) : '<div style="padding:12px; text-align:center; color:var(--text-muted);">載入中…</div>') : ''}
         </div>
       </div>
     `;
   }
 
   function renderYearMonths(t, year) {
+    const yearNum = Number(year);
     let rows = '';
     for (let m = 1; m <= 12; m++) {
       const monthStr = String(m).padStart(2, '0');
-      const list = yearlyData[year]?.[monthStr] || [];
+      const list = yearlyData[yearNum]?.[monthStr] || [];
       const item = list.find((x) => x.name === t.name);
       const isPaid = item?.status === '已付款';
       const isSkipped = item?.isSkipped || false;
@@ -421,9 +430,9 @@ export function initFixedExpensesPage() {
       rows += `
         <tr class="${isSkipped ? 'skip-row' : ''}">
           <td class="month-label">${m} 月</td>
-          <td class="num"><input type="number" data-action="update-amount" data-year="${year}" data-month="${monthStr}" data-id="${item?.id || ''}" value="${amount}" min="0" step="0.01" ${!item ? 'disabled' : ''}></td>
-          <td style="text-align:center;"><input type="checkbox" data-action="toggle-paid" data-year="${year}" data-month="${monthStr}" data-id="${item?.id || ''}" ${isPaid ? 'checked' : ''} ${!item ? 'disabled' : ''} style="width:auto;"></td>
-          <td style="text-align:center;"><input type="checkbox" data-action="toggle-skip" data-year="${year}" data-month="${monthStr}" data-id="${item?.id || ''}" ${isSkipped ? 'checked' : ''} ${!item ? 'disabled' : ''} style="width:auto;"></td>
+          <td class="num"><input type="number" data-action="update-amount" data-year="${yearNum}" data-month="${monthStr}" data-id="${item?.id || ''}" value="${amount}" min="0" step="0.01" ${!item ? 'disabled' : ''}></td>
+          <td style="text-align:center;"><input type="checkbox" data-action="toggle-paid" data-year="${yearNum}" data-month="${monthStr}" data-id="${item?.id || ''}" ${isPaid ? 'checked' : ''} ${!item ? 'disabled' : ''} style="width:auto;"></td>
+          <td style="text-align:center;"><input type="checkbox" data-action="toggle-skip" data-year="${yearNum}" data-month="${monthStr}" data-id="${item?.id || ''}" ${isSkipped ? 'checked' : ''} ${!item ? 'disabled' : ''} style="width:auto;"></td>
         </tr>
       `;
     }
@@ -444,24 +453,28 @@ export function initFixedExpensesPage() {
   }
 }
 
-/* ============ 年份資料載入 ============ */
+/* ============ 年份資料載入（統一數字年份 key）============ */
 async function loadYear(year) {
-  if (loadedYears.has(year)) return;
+  const y = Number(year);
+  if (!Number.isFinite(y)) return;
+  if (loadedYears.has(y)) return;
+
   const promises = [];
   for (let m = 1; m <= 12; m++) {
-    promises.push(getFixedExpensesOnce(year, String(m).padStart(2, '0')));
+    promises.push(getFixedExpensesOnce(y, String(m).padStart(2, '0')));
   }
   const results = await Promise.all(promises);
-  yearlyData[year] = {};
+  yearlyData[y] = {};
   results.forEach((list, i) => {
-    yearlyData[year][String(i + 1).padStart(2, '0')] = list || [];
+    yearlyData[y][String(i + 1).padStart(2, '0')] = list || [];
   });
-  loadedYears.add(year);
+  loadedYears.add(y);
 }
 
 function invalidateYear(year) {
-  loadedYears.delete(year);
-  delete yearlyData[year];
+  const y = Number(year);
+  loadedYears.delete(y);
+  delete yearlyData[y];
 }
 
 function showToast(msg) {
