@@ -1,11 +1,12 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 自動同步）
+// insurance.js — 保險付款（年度化重構 + 自動同步 + 徹底刪除）
 // ============================================
 
 import {
-  listenInsurancePolicies, addInsurancePolicyV2, updateInsurancePolicyV2, removeInsurancePolicy,
+  listenInsurancePolicies, addInsurancePolicyV2, updateInsurancePolicyV2,
   listenMembers, listenInsurancePayment, addInsurancePeriod,
   getInsurancePaymentsOnce, saveInsurancePaymentBatch, removeInsurancePaymentBatch,
+  deleteInsurancePolicyAndData,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
@@ -53,7 +54,6 @@ async function autoSyncPolicyExpenses(policy) {
   for (const [year, months] of Object.entries(payments)) {
     for (const [month, data] of Object.entries(months)) {
       if (data.status === '已扣款') {
-        // 找出該月所屬的年度，取得正確的 monthlyAverage
         const curY = Number(year);
         const curM = Number(month);
         const info = getPeriodInfo(policy, curY, curM);
@@ -267,14 +267,12 @@ function bindPolicyModalEvents() {
       await updateInsurancePolicyV2(editingId, payload);
     } else {
       savedPolicyId = await addInsurancePolicyV2(payload);
-      // 新增時，需要把剛建好的保單物件傳給同步函式（此時本機還沒刷新，需要手動組裝）
       const newPolicyObj = { ...payload, id: savedPolicyId };
       await autoSyncPolicyExpenses(newPolicyObj);
     }
     
     modal.classList.remove('active');
     
-    // 🆕 編輯成功後，自動同步該保單的所有已扣款支出
     if (editingId) {
       const updatedPolicy = policies.find((x) => x.id === editingId);
       if (updatedPolicy) await autoSyncPolicyExpenses(updatedPolicy);
@@ -313,10 +311,8 @@ function bindAddPeriodModalEvents() {
     modal.classList.remove('active');
     alert(`✅ 已設定第 ${periodIndex} 年度保費`);
     
-    // 🆕 新增年度後，自動同步該保單的所有已扣款支出
     const updatedPolicy = policies.find((x) => x.id === policyId);
     if (updatedPolicy) {
-      // 手動更新本機的 periods 以便同步時能抓到正確金額
       if (!updatedPolicy.periods) updatedPolicy.periods = {};
       updatedPolicy.periods[String(periodIndex)] = {
         periodIndex, startYear: range.startY, startMonth: range.startM,
@@ -522,7 +518,14 @@ document.addEventListener('click', async (e) => {
   } else if (action === 'detail') {
     openDetailModal(p);
   } else if (action === 'delete') {
-    if (confirm(`確定要刪除保單「${p.name}」嗎？`)) await removeInsurancePolicy(id);
+    if (confirm(`⚠️ 確定要刪除保單「${p.name}」嗎？\n\n這將會一併刪除所有相關的扣款紀錄與成員支出，此操作無法復原。`)) {
+      try {
+        await deleteInsurancePolicyAndData(p.id, p.memberId);
+        alert('✅ 保單與相關紀錄已徹底刪除');
+      } catch (err) {
+        alert('刪除失敗：' + err.message);
+      }
+    }
   }
 });
 
