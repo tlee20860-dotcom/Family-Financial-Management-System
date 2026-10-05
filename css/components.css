@@ -413,3 +413,100 @@
     transform: scale(0.9);
   }
 }
+/* ================= 保險頁面：視圖切換 ================= */
+.view-toggle-group {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+}
+.view-toggle-group .btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: none;
+}
+
+/* ================= 保險頁面：表格視圖 ================= */
+.policy-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.policy-table thead th {
+  padding: 12px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--glass-border);
+  background: rgba(0, 240, 255, 0.03);
+}
+.policy-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+.policy-table tbody tr:hover td {
+  background: rgba(0, 240, 255, 0.03);
+}
+.policy-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+.policy-table .progress-cell {
+  min-width: 120px;
+}
+.policy-table .progress-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+}
+.policy-table .btn-sm {
+  margin-right: 4px;
+}
+
+/* ================= 已供滿保單區塊 ================= */
+.completed-section {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  background: rgba(16, 185, 129, 0.03) !important;
+}
+.completed-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.completed-arrow {
+  transition: transform 0.25s ease;
+  color: var(--neon-emerald);
+}
+.completed-section.open .completed-arrow {
+  transform: rotate(180deg);
+}
+.completed-body {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed rgba(16, 185, 129, 0.2);
+}
+.completed-body .policy-card {
+  opacity: 0.85;
+}
+
+/* ================= 手機版優化 ================= */
+@media (max-width: 640px) {
+  .policy-table thead th,
+  .policy-table td {
+    padding: 8px 6px;
+    font-size: 11px;
+  }
+  .view-toggle-group .btn {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+}
