@@ -94,14 +94,11 @@ function renderCompanyOptions() {
 }
 
 /* ============================================
-   🆕 金額計算重構（3 種）
+   金額計算（3 種 + 已供款總額）
    ============================================ */
 
 /**
  * 【B】本期年繳：保單在指定年度的年繳保費
- * - 基金保險：0（無年度概念）
- * - 普通保險：依該年度對應的 periodIndex 查找 periods 資料
- * - 若該年度無資料，回退到最近可用的 period
  */
 function getPolicyAnnualPremium(policy, targetYear) {
   if (policy.type === 'fund_insurance') return 0;
@@ -115,12 +112,9 @@ function getPolicyAnnualPremium(policy, targetYear) {
   if (totalYears > 0 && periodIndex > totalYears) return 0;
 
   const periods = policy.periods || {};
-
-  // 優先查該年度
   const p = periods[String(periodIndex)];
   if (p && p.annualPremium) return Math.round(Number(p.annualPremium));
 
-  // 回退：找 <= periodIndex 的最大 period
   const periodKeys = Object.keys(periods)
     .map(Number)
     .filter((n) => !isNaN(n) && n > 0)
@@ -138,8 +132,6 @@ function getPolicyAnnualPremium(policy, targetYear) {
 
 /**
  * 【C】保單總供款：該保單所有供款年期的年繳加總
- * - 基金保險：monthlyPremium × 12 × totalPolicyYears
- * - 普通保險：逐年度加總 periods[i].annualPremium（缺資料的年度用回退年繳）
  */
 function getPolicyTotalPremium(policy) {
   if (policy.type === 'fund_insurance') {
@@ -155,7 +147,6 @@ function getPolicyTotalPremium(policy) {
     .filter((n) => !isNaN(n) && n > 0)
     .sort((a, b) => a - b);
 
-  // 回退年繳：優先取頂層 annualPremium，其次最近 period
   let fallback = Math.round(Number(policy.annualPremium) || 0);
   if (!fallback && periodKeys.length > 0) {
     const last = periods[String(periodKeys[periodKeys.length - 1])];
@@ -171,6 +162,23 @@ function getPolicyTotalPremium(policy) {
       total += fallback;
     }
   }
+  return total;
+}
+
+/**
+ * 【D】🆕 已供款總額：實際已扣款的月份金額加總
+ * - 遍歷 payments 結構，累加所有 status === '已扣款' 的 amount
+ * - 基金保險沒有扣款機制，回傳 0
+ */
+function getPolicyPaidTotal(payments) {
+  let total = 0;
+  Object.values(payments || {}).forEach((yearData) => {
+    Object.values(yearData || {}).forEach((mData) => {
+      if (mData && mData.status === '已扣款') {
+        total += Math.round(Number(mData.amount) || 0);
+      }
+    });
+  });
   return total;
 }
 
@@ -232,9 +240,7 @@ function isPolicyCompleted(policy) {
 }
 
 /* ============================================
-   renderAll — 完整重構
-   - 統計卡 A：本年度所有保單年繳加總
-   - 每張保單附帶 _currentAnnualPremium (B) 與 _totalPremium (C)
+   renderAll
    ============================================ */
 async function renderAll() {
   const { year, month } = AppState.getYearMonth();
@@ -242,7 +248,7 @@ async function renderAll() {
   const displayYear = Number(year);
   document.getElementById('insurance-month').textContent = isAnnual ? `${year} 年 全年總覽` : `${year} 年 ${month} 月`;
 
-  // 1. 即時計算每張保單的付款紀錄與金額
+  // 即時計算每張保單的付款紀錄與金額
   const enrichedPolicies = await Promise.all(policies.map(async (p) => {
     let payments = {};
     let completed = 0;
@@ -258,6 +264,7 @@ async function renderAll() {
 
     const currentAnnualPremium = getPolicyAnnualPremium(p, displayYear);
     const totalPremium = getPolicyTotalPremium(p);
+    const paidTotal = getPolicyPaidTotal(payments);   // 🆕
 
     return {
       ...p,
@@ -265,14 +272,13 @@ async function renderAll() {
       _payments: payments,
       _currentAnnualPremium: currentAnnualPremium,
       _totalPremium: totalPremium,
+      _paidTotal: paidTotal,   // 🆕
     };
   }));
 
-  // 2. 分類
   const completed = enrichedPolicies.filter(isPolicyCompleted);
   const active = enrichedPolicies.filter((p) => !isPolicyCompleted(p));
 
-  // 3. 統計卡 A：本年度所有保單的總供款
   const yearTotal = enrichedPolicies.reduce((s, p) => s + (p._currentAnnualPremium || 0), 0);
   const grandTotalEl = document.getElementById('grand-total-premium');
   const grandTotalHintEl = document.getElementById('grand-total-hint');
@@ -284,7 +290,6 @@ async function renderAll() {
   if (activeCountEl) activeCountEl.textContent = `${active.length} 張`;
   if (statCompletedEl) statCompletedEl.textContent = `${completed.length} 張`;
 
-  // 4. 已供滿保單區塊
   const completedSection = document.getElementById('completed-section');
   const completedBody = document.getElementById('completed-body');
   const completedCountEl = document.getElementById('completed-count');
@@ -304,7 +309,6 @@ async function renderAll() {
     if (completedGridEl) completedGridEl.innerHTML = '';
   }
 
-  // 5. 供款中保單顯示
   const emptyState = document.getElementById('empty-state');
   const gridEl = document.getElementById('policy-grid');
   const tableEl = document.getElementById('policy-table-view');
@@ -390,7 +394,7 @@ function renderPolicyDetail(policy, payments) {
 }
 
 /* ============================================
-   卡片渲染 — 顯示 B（本期年繳）與 C（保單總供款）
+   卡片渲染 — 顯示 B / C / D
    ============================================ */
 function renderCard(p, isCompleted) {
   const member = members.find((m) => m.id === p.memberId);
@@ -404,6 +408,7 @@ function renderCard(p, isCompleted) {
   const cardKey = `card-${p.id}`;
   const currentAnnual = p._currentAnnualPremium || 0;
   const totalPremium = p._totalPremium || 0;
+  const paidTotal = p._paidTotal || 0;
   const displayYear = AppState.year;
 
   if (isFund) {
@@ -431,6 +436,7 @@ function renderCard(p, isCompleted) {
   }
 
   const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
+  const remaining = Math.max(0, totalPremium - paidTotal);
   return `
     <div class="glass-card policy-card">
       <div class="policy-header">
@@ -446,6 +452,8 @@ function renderCard(p, isCompleted) {
       <div class="policy-info-grid" style="margin-top:10px; padding-top:10px; border-top:1px dashed rgba(255,255,255,0.08);">
         <div class="policy-info-item"><span class="policy-info-label">本期年繳（${displayYear}）</span><span class="policy-info-value text-cyan">${formatHKD(currentAnnual)}</span></div>
         <div class="policy-info-item"><span class="policy-info-label">保單總供款</span><span class="policy-info-value text-magenta">${formatHKD(totalPremium)}</span></div>
+        <div class="policy-info-item"><span class="policy-info-label">已供款總額</span><span class="policy-info-value text-emerald">${formatHKD(paidTotal)}</span></div>
+        <div class="policy-info-item"><span class="policy-info-label">剩餘供款</span><span class="policy-info-value text-orange">${formatHKD(remaining)}</span></div>
       </div>
       <div class="policy-progress" style="margin-top:12px;">
         <div class="policy-progress-text"><span>整體供款進度</span><span>${done} / ${totalPeriods} 期 (${pct}%)</span></div>
@@ -470,7 +478,7 @@ function renderCard(p, isCompleted) {
 }
 
 /* ============================================
-   表格渲染 — 新增「本期年繳」欄位（B）
+   表格渲染 — 新增「已供款總額」欄位
    ============================================ */
 function renderTable(list) {
   const tbody = document.getElementById('policy-table-body');
@@ -489,6 +497,7 @@ function renderTable(list) {
     const pct = totalPeriods > 0 ? Math.min(100, Math.round((done / totalPeriods) * 100)) : 0;
     const currentAnnual = p._currentAnnualPremium || 0;
     const totalPremium = p._totalPremium || 0;
+    const paidTotal = p._paidTotal || 0;   // 🆕
     const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
     const monthly = isFund ? p.monthlyPremium : (p.periods?.[String(p.currentPeriodIndex || 1)]?.monthlyAverage || p.monthlyAverage || 0);
     const payments = p._payments || {};
@@ -508,6 +517,7 @@ function renderTable(list) {
         <td class="hide-mobile" style="font-size:12px; color:var(--text-muted);">${escapeHtml(p.company || '—')}</td>
         <td class="num text-cyan">${formatHKD(currentAnnual)}</td>
         <td class="num text-magenta hide-mobile">${formatHKD(totalPremium)}</td>
+        <td class="num text-emerald">${formatHKD(paidTotal)}</td>
         <td class="num text-magenta hide-mobile">${formatHKD(monthly)}</td>
         <td class="progress-cell">
           <div class="progress-text">${done} / ${totalPeriods} 期 (${pct}%)</div>
@@ -520,7 +530,7 @@ function renderTable(list) {
         </td>
       </tr>
       <tr class="insurance-table-detail-row" style="display:${isExpanded ? 'table-row' : 'none'};">
-        <td colspan="10" style="padding:12px;">
+        <td colspan="11" style="padding:12px;">
           ${renderPolicyDetail(p, payments)}
         </td>
       </tr>
