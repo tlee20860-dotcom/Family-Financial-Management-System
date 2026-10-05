@@ -510,3 +510,34 @@ export function listenAssets(callback, onError) {
 export async function saveAssets(data) {
   await update(familyRef('assets'), { bankBalance: Number(data.bankBalance) || 0 });
 }
+/* ============================================
+   刪除保單（含關聯支出與扣款紀錄清理）
+   ============================================ */
+
+export async function deleteInsurancePolicyAndData(policyId, memberId) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  // 1. 取得該保單的所有扣款紀錄（用於找出所有相關的年月）
+  const paymentsSnap = await get(ref(db, `families/${familyId}/insurance_payments/${policyId}`));
+  const payments = paymentsSnap.val() || {};
+
+  const updates = {};
+
+  // 2. 準備刪除所有關聯的成員支出
+  for (const [year, months] of Object.entries(payments)) {
+    for (const [month, data] of Object.entries(months)) {
+      const expensePath = `families/${familyId}/expenses/${year}/${month}/member_expenses/${memberId}/linked_${policyId}`;
+      updates[expensePath] = null;
+    }
+  }
+
+  // 3. 準備刪除保險扣款紀錄本身
+  updates[`families/${familyId}/insurance_payments/${policyId}`] = null;
+
+  // 4. 準備刪除保單本身
+  updates[`families/${familyId}/insurance_policies/${policyId}`] = null;
+
+  // 5. 執行批量刪除
+  await update(ref(db), updates);
+}
