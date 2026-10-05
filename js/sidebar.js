@@ -1,10 +1,9 @@
 // ============================================
-// sidebar.js — 左側導覽選單（多家庭版）
+// sidebar.js — 左側導覽選單（成員版面可折疊）
 // ============================================
 
 import { listenMembers } from './db.js';
 import { escapeHtml, sortMembers } from './utils.js';
-import { AppState } from './state.js';
 
 const STATIC_TOP = [
   { icon: 'home', label: '總覽儀表板', href: 'index.html' },
@@ -14,7 +13,6 @@ const STATIC_BOTTOM = [
   { icon: 'dollar-sign',  label: '每月收入',   href: 'income.html' },
   { icon: 'landmark',     label: '銀行管理',   href: 'banks.html' },
   { icon: 'shield',       label: '保險付款',   href: 'insurance.html' },
-  { icon: 'receipt',      label: '每月總開銷', href: 'expenses.html' },
   { icon: 'clipboard-check', label: '結算清單', href: 'settlements.html' },
   { icon: 'file-text',    label: '固定支出',   href: 'fixed-expenses.html' },
   { icon: 'tags',         label: '支出項目庫', href: 'expense-categories.html' },
