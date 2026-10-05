@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 自動同步 + 徹底刪除）
+// insurance.js — 保險付款（年度化重構 + 自動同步 + 徹底刪除 + 自訂公司）
 // ============================================
 
 import {
@@ -7,14 +7,17 @@ import {
   listenMembers, listenInsurancePayment, addInsurancePeriod,
   getInsurancePaymentsOnce, saveInsurancePaymentBatch, removeInsurancePaymentBatch,
   deleteInsurancePolicyAndData,
+  listenInsuranceCompanies, addInsuranceCompany,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
-const COMPANIES = ['富通', '保誠', 'FWD', 'AIA', '宏利', 'AXA'];
+const DEFAULT_COMPANIES = ['富通', '保誠', 'FWD', 'AIA', '宏利', 'AXA'];
+
 let policies = [];
 let members = [];
+let companies = [];
 let editingId = null;
 let currentDetailPolicy = null;
 
@@ -28,7 +31,7 @@ export function initInsurancePage() {
   bindAddPeriodModalEvents();
   bindDetailModalEvents();
 
-  // 🆕 同步所有支出按鈕
+  // 同步所有支出按鈕
   document.getElementById('sync-all-btn').addEventListener('click', async () => {
     if (!confirm('確定要重新同步所有保單的已扣款支出嗎？\n（這會覆蓋成員支出中保險平攤的金額）')) return;
     try {
@@ -39,9 +42,44 @@ export function initInsurancePage() {
     }
   });
 
+  // 監聽保險公司清單
+  listenInsuranceCompanies((list) => {
+    companies = list;
+    // 若資料庫為空，自動寫入預設公司
+    if (list.length === 0 && !window._seededCompanies) {
+      window._seededCompanies = true;
+      DEFAULT_COMPANIES.forEach(async (name) => {
+        try { await addInsuranceCompany(name); } catch (err) { console.warn('寫入預設公司失敗：', err); }
+      });
+    }
+    renderCompanyOptions();
+  });
+
   listenInsurancePolicies((list) => { policies = list; renderGrid(); });
   listenMembers((list) => { members = list; renderMemberOptions(); });
   AppState.on('ym-change', () => renderGrid());
+}
+
+/* ============================================
+   保險公司下拉選單
+   ============================================ */
+function renderCompanyOptions() {
+  const sel = document.getElementById('policy-company');
+  if (!sel) return;
+
+  const current = sel.value;
+  const list = companies.length ? companies : DEFAULT_COMPANIES.map((name) => ({ name }));
+
+  sel.innerHTML = list.map((c) => `<option value="${c.name}">${escapeHtml(c.name)}</option>`).join('');
+
+  // 若當前選中的值不在列表中（例如編輯舊保單，該公司已被刪除），動態加入
+  if (current && !list.some((c) => c.name === current)) {
+    const opt = document.createElement('option');
+    opt.value = current;
+    opt.textContent = current;
+    sel.appendChild(opt);
+  }
+  if (current) sel.value = current;
 }
 
 /* ============================================
@@ -58,7 +96,7 @@ async function autoSyncPolicyExpenses(policy) {
         const curM = Number(month);
         const info = getPeriodInfo(policy, curY, curM);
         if (!info) continue;
-        
+
         const periodData = (policy.periods || {})[String(info.periodIndex)];
         const amount = data.amount || (periodData ? periodData.monthlyAverage : policy.monthlyAverage);
 
@@ -226,7 +264,24 @@ function bindPolicyModalEvents() {
     document.getElementById('policy-current-period').value = 1;
     document.getElementById('policy-total-years').value = 5;
     monthlyInput.value = '';
+    renderCompanyOptions();
     modal.classList.add('active');
+  });
+
+  // 🆕 新增保險公司按鈕
+  document.getElementById('add-company-btn').addEventListener('click', async () => {
+    const name = prompt('請輸入新的保險公司名稱：');
+    if (!name || !name.trim()) return;
+    try {
+      await addInsuranceCompany(name.trim());
+      // 等待 companies 更新後，自動選中
+      setTimeout(() => {
+        const sel = document.getElementById('policy-company');
+        if (sel) sel.value = name.trim();
+      }, 500);
+    } catch (err) {
+      alert('新增失敗：' + err.message);
+    }
   });
 
   document.getElementById('policy-cancel-btn').addEventListener('click', () => modal.classList.remove('active'));
@@ -270,9 +325,9 @@ function bindPolicyModalEvents() {
       const newPolicyObj = { ...payload, id: savedPolicyId };
       await autoSyncPolicyExpenses(newPolicyObj);
     }
-    
+
     modal.classList.remove('active');
-    
+
     if (editingId) {
       const updatedPolicy = policies.find((x) => x.id === editingId);
       if (updatedPolicy) await autoSyncPolicyExpenses(updatedPolicy);
@@ -307,10 +362,10 @@ function bindAddPeriodModalEvents() {
       startYear: range.startY, startMonth: range.startM,
       annualPremium: annual, monthlyAverage: annual / 12
     });
-    
+
     modal.classList.remove('active');
     alert(`✅ 已設定第 ${periodIndex} 年度保費`);
-    
+
     const updatedPolicy = policies.find((x) => x.id === policyId);
     if (updatedPolicy) {
       if (!updatedPolicy.periods) updatedPolicy.periods = {};
@@ -505,7 +560,8 @@ document.addEventListener('click', async (e) => {
     document.getElementById('policy-type').value = p.type || 'normal';
     document.getElementById('policy-member').value = p.memberId || '';
     document.getElementById('policy-name').value = p.name || '';
-    document.getElementById('policy-company').value = p.company || COMPANIES[0];
+    renderCompanyOptions();
+    document.getElementById('policy-company').value = p.company || DEFAULT_COMPANIES[0];
     document.getElementById('policy-start-year').value = p.firstStartYear || '';
     document.getElementById('policy-start-month').value = p.firstStartMonth || '01';
     document.getElementById('policy-current-period').value = p.currentPeriodIndex || 1;
