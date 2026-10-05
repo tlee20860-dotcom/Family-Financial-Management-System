@@ -1,10 +1,10 @@
 // ============================================
-// insurance.js — 保險付款（雙視圖 + 總供款 + 已供滿歸類 + 進度即時計算）
+// insurance.js — 保險付款（雙視圖 + 總供款 + 已供滿歸類 + 進度即時計算 + 行內折疊明細）
 // ============================================
 
 import {
   listenInsurancePolicies, addInsurancePolicyV2, updateInsurancePolicyV2,
-  listenMembers, listenInsurancePayment, addInsurancePeriod,
+  listenMembers, addInsurancePeriod,
   getInsurancePaymentsOnce, saveInsurancePaymentBatch, removeInsurancePaymentBatch,
   deleteInsurancePolicyAndData,
   listenInsuranceCompanies, addInsuranceCompany, updateInsuranceCompany, updatePolicyCompanyName,
@@ -19,8 +19,8 @@ let policies = [];
 let members = [];
 let companies = [];
 let editingId = null;
-let currentDetailPolicy = null;
 let currentView = localStorage.getItem('insurance_view') || 'card';
+const expandedPolicyIds = new Set();
 
 export function initInsurancePage() {
   const monthSel = document.getElementById('policy-start-month');
@@ -30,9 +30,9 @@ export function initInsurancePage() {
 
   bindPolicyModalEvents();
   bindAddPeriodModalEvents();
-  bindDetailModalEvents();
   bindViewToggle();
   bindCompletedToggle();
+  bindInlineDetailEvents();
 
   document.getElementById('sync-all-btn').addEventListener('click', async () => {
     if (!confirm('確定要重新同步所有保單的已扣款支出嗎？\n（這會覆蓋成員支出中保險平攤的金額）')) return;
@@ -105,6 +105,66 @@ function bindCompletedToggle() {
   header.addEventListener('click', () => {
     section.classList.toggle('open');
     body.style.display = section.classList.contains('open') ? 'block' : 'none';
+  });
+}
+
+/* ============================================
+   行內明細事件（年份折疊、儲存、收起）
+   ============================================ */
+function bindInlineDetailEvents() {
+  document.addEventListener('click', async (e) => {
+    // 年份折疊
+    const header = e.target.closest('[data-toggle-year]');
+    if (header) {
+      const accordion = header.closest('.year-accordion');
+      if (!accordion) return;
+      const body = accordion.querySelector('.year-accordion-body');
+      const arrow = header.querySelector('.accordion-arrow');
+      if (!body) return;
+      if (body.style.display === 'none') {
+        body.style.display = 'block';
+        arrow?.classList.add('rotated');
+      } else {
+        body.style.display = 'none';
+        arrow?.classList.remove('rotated');
+      }
+      return;
+    }
+
+    // 儲存行內明細
+    const saveBtn = e.target.closest('button[data-action="save-inline-detail"]');
+    if (saveBtn) {
+      const container = saveBtn.closest('.inline-detail-inner');
+      if (container) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '儲存中…';
+        try {
+          await saveInlineDetail(saveBtn.dataset.id, container);
+          alert('✅ 已更新扣款狀態與連動支出');
+        } catch (err) {
+          console.error(err);
+          alert('儲存失敗：' + err.message);
+        } finally {
+          saveBtn.disabled = false;
+          saveBtn.textContent = '儲存扣款狀態';
+        }
+      }
+      return;
+    }
+
+    // 收起行內明細
+    const collapseBtn = e.target.closest('button[data-action="collapse-inline-detail"]');
+    if (collapseBtn) {
+      const id = collapseBtn.dataset.id;
+      expandedPolicyIds.delete(id);
+      // 表格視圖
+      const detailRow = document.querySelector(`.policy-detail-row[data-policy-id="${id}"]`);
+      if (detailRow) detailRow.style.display = 'none';
+      // 卡片視圖
+      const cardContainer = document.getElementById(`card-detail-${id}`);
+      if (cardContainer) cardContainer.style.display = 'none';
+      return;
+    }
   });
 }
 
@@ -186,7 +246,7 @@ function getPeriodInfo(policy, curYear, curMonth) {
 }
 
 /* ============================================
-   判斷是否已供滿（依賴即時計算的 completedPeriods）
+   判斷是否已供滿
    ============================================ */
 function isPolicyCompleted(policy) {
   if (policy.isCompleted) return true;
@@ -196,18 +256,44 @@ function isPolicyCompleted(policy) {
 }
 
 /* ============================================
-   計算總供款金額
+   計算總供款金額（多重回退）
    ============================================ */
 function getPolicyTotalPremium(policy) {
-  if (policy.totalPremium) return Number(policy.totalPremium);
-  if (policy.type === 'fund_insurance') {
-    return (Number(policy.monthlyPremium) || 0) * 12 * (Number(policy.totalPolicyYears) || 0);
+  // 1) 若有明確 totalPremium 且 > 0，直接使用
+  if (Number(policy.totalPremium) > 0) return Number(policy.totalPremium);
+
+  const totalYears = Number(policy.totalPolicyYears) || 0;
+  const periods = policy.periods || {};
+  const periodEntries = Object.entries(periods);
+
+  // 2) 從 periods 加總 annualPremium
+  let sum = 0;
+  periodEntries.forEach(([, p]) => { sum += Number(p.annualPremium) || 0; });
+  if (sum > 0) {
+    if (totalYears > periodEntries.length) {
+      // 只有部分年度有資料，用平均值推算總額
+      const avg = sum / periodEntries.length;
+      return Math.round(avg * totalYears);
+    }
+    return Math.round(sum);
   }
-  return (Number(policy.annualPremium) || 0) * (Number(policy.totalPolicyYears) || 0);
+
+  // 3) 用 monthlyAverage × 12 × 年數
+  const monthly = Number(policy.monthlyAverage)
+    || Number(periods[String(policy.currentPeriodIndex || 1)]?.monthlyAverage)
+    || 0;
+  if (monthly > 0 && totalYears > 0) return Math.round(monthly * 12 * totalYears);
+
+  // 4) 基金保險月供
+  if (policy.type === 'fund_insurance') {
+    return Math.round((Number(policy.monthlyPremium) || 0) * 12 * totalYears);
+  }
+
+  return 0;
 }
 
 /* ============================================
-   渲染主入口（異步即時計算進度）
+   渲染主入口
    ============================================ */
 async function renderAll() {
   const { year, month } = AppState.getYearMonth();
@@ -232,7 +318,7 @@ async function renderAll() {
   document.getElementById('grand-total-premium').textContent = formatHKD(grandTotal);
   document.getElementById('grand-total-hint').textContent = `共 ${enrichedPolicies.length} 張保單`;
 
-  // 3. 分類：已供滿 vs 供款中
+  // 3. 分類
   const completed = enrichedPolicies.filter(isPolicyCompleted);
   const active = enrichedPolicies.filter((p) => !isPolicyCompleted(p));
 
@@ -263,6 +349,16 @@ async function renderAll() {
       gridEl.style.display = 'grid';
       tableEl.style.display = 'none';
       gridEl.innerHTML = active.map((p) => renderCard(p, false)).join('');
+
+      // 恢復展開狀態（卡片視圖）
+      for (const id of expandedPolicyIds) {
+        const policy = active.find((p) => p.id === id);
+        const container = document.getElementById(`card-detail-${id}`);
+        if (policy && container) {
+          container.style.display = 'block';
+          renderInlineDetail(policy, container);
+        }
+      }
     } else {
       gridEl.style.display = 'none';
       tableEl.style.display = 'block';
@@ -286,7 +382,7 @@ function renderCard(p, isCompleted) {
 
   if (isFund) {
     return `
-      <div class="glass-card policy-card">
+      <div class="glass-card policy-card" data-policy-id="${p.id}">
         <div class="policy-header">
           <div>
             <div class="policy-name">${escapeHtml(p.name)}</div>
@@ -306,7 +402,7 @@ function renderCard(p, isCompleted) {
 
   const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
   return `
-    <div class="glass-card policy-card">
+    <div class="glass-card policy-card" data-policy-id="${p.id}">
       <div class="policy-header">
         <div>
           <div class="policy-name">${escapeHtml(p.name)}</div>
@@ -327,16 +423,16 @@ function renderCard(p, isCompleted) {
         <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button>
         <button class="btn btn-sm btn-danger" data-action="delete" data-id="${p.id}">刪除</button>
       </div>
+      <div class="card-inline-detail" id="card-detail-${p.id}" style="display:none;"></div>
     </div>`;
 }
 
 /* ============================================
-   表格視圖（依開始供款日排序）
+   表格視圖（含行內折疊明細）
    ============================================ */
 function renderTable(list) {
   const tbody = document.getElementById('policy-table-body');
 
-  // 依開始供款日期升序排序
   const sorted = [...list].sort((a, b) => {
     const da = new Date(Number(a.firstStartYear), Number(a.firstStartMonth) - 1, 1);
     const db = new Date(Number(b.firstStartYear), Number(b.firstStartMonth) - 1, 1);
@@ -354,8 +450,8 @@ function renderTable(list) {
     const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
     const monthly = isFund ? p.monthlyPremium : (p.periods?.[String(p.currentPeriodIndex || 1)]?.monthlyAverage || p.monthlyAverage || 0);
 
-    return `
-      <tr>
+    const mainRow = `
+      <tr class="policy-main-row" data-policy-id="${p.id}">
         <td class="mono" style="font-size:12px;">${startDateText}</td>
         <td>${escapeHtml(memberName)}</td>
         <td>${escapeHtml(p.name)}</td>
@@ -373,89 +469,140 @@ function renderTable(list) {
         </td>
       </tr>
     `;
+
+    const detailRow = `
+      <tr class="policy-detail-row" data-policy-id="${p.id}" style="display:none;">
+        <td colspan="8">
+          <div class="inline-detail-container" id="table-detail-${p.id}"></div>
+        </td>
+      </tr>
+    `;
+
+    return mainRow + detailRow;
   }).join('');
+
+  // 恢復展開狀態（表格視圖）
+  for (const id of expandedPolicyIds) {
+    const policy = sorted.find((p) => p.id === id);
+    const detailRow = tbody.querySelector(`.policy-detail-row[data-policy-id="${id}"]`);
+    if (policy && detailRow) {
+      detailRow.style.display = 'table-row';
+      const container = detailRow.querySelector('.inline-detail-container');
+      if (container) renderInlineDetail(policy, container);
+    }
+  }
 
   if (window.lucide) window.lucide.createIcons();
 }
 
 /* ============================================
-   年度明細彈窗
+   行內明細渲染（年度 > 月份折疊）
    ============================================ */
-async function renderDetailBody(policy, periodIndex) {
-  const range = getPeriodRange(policy, periodIndex);
+async function renderInlineDetail(policy, container) {
+  if (!container) return;
   const payments = await getInsurancePaymentsOnce(policy.id);
-  const body = document.getElementById('insurance-detail-body');
+  const totalYears = Number(policy.totalPolicyYears) || 1;
+  const currentPeriodIdx = Number(policy.currentPeriodIndex) || 1;
 
-  let rows = '';
-  let totalPaid = 0;
-  const detailStartDate = new Date(range.startY, Number(range.startM) - 1, 1);
+  let accordionsHTML = '';
+  for (let i = 1; i <= totalYears; i++) {
+    const range = getPeriodRange(policy, i);
+    const startDate = new Date(range.startY, Number(range.startM) - 1, 1);
+    const periodData = (policy.periods || {})[String(i)];
+    const defaultAmount = Math.round(periodData?.monthlyAverage || policy.monthlyAverage || 0);
 
-  for (let i = 0; i < 12; i++) {
-    const current = new Date(detailStartDate);
-    current.setMonth(current.getMonth() + i);
-    const y = current.getFullYear();
-    const m = String(current.getMonth() + 1).padStart(2, '0');
-    const monthKey = `${y}-${m}`;
-    const payment = payments[y]?.[m] || {};
-    const defaultAmount = Math.round((policy.periods?.[String(periodIndex)]?.monthlyAverage) || policy.monthlyAverage || 0);
-    const amount = payment.amount ? Math.round(payment.amount) : defaultAmount;
-    const isPaid = payment.status === '已扣款';
-    if (isPaid) totalPaid += amount;
+    let yearPaid = 0;
+    let monthRowsHTML = '';
+    for (let m = 0; m < 12; m++) {
+      const d = new Date(startDate);
+      d.setMonth(d.getMonth() + m);
+      const y = d.getFullYear();
+      const mo = String(d.getMonth() + 1).padStart(2, '0');
+      const monthKey = `${y}-${mo}`;
+      const payment = payments[y]?.[mo] || {};
+      const amount = payment.amount ? Math.round(payment.amount) : defaultAmount;
+      const isPaid = payment.status === '已扣款';
+      if (isPaid) yearPaid += amount;
 
-    rows += `
-      <div class="insurance-detail-row" data-month="${monthKey}" style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
-        <div style="width:80px; font-family:var(--font-mono); font-size:12px;">${y}-${m}</div>
-        <input type="number" class="input ins-amount" value="${amount}" min="0" step="1" style="flex:1; padding:6px 10px; font-size:13px;">
-        <label style="display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap;">
-          <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''} style="width:auto;"> 已扣款
-        </label>
+      monthRowsHTML += `
+        <div class="month-row" data-month="${monthKey}">
+          <span class="month-label">${y}-${mo}</span>
+          <input type="number" class="input ins-amount" value="${amount}" min="0" step="1" style="flex:1; padding:6px 10px; font-size:13px; min-width:80px;">
+          <label style="display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap;">
+            <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''} style="width:auto;"> 已扣款
+          </label>
+        </div>
+      `;
+    }
+
+    accordionsHTML += `
+      <div class="year-accordion" data-year-index="${i}">
+        <div class="year-accordion-header" data-toggle-year="${i}">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <i data-lucide="chevron-right" class="accordion-arrow" style="width:16px;height:16px;"></i>
+            <span style="font-weight:600;">第 ${i} 年度</span>
+            <span style="font-size:12px; color:var(--text-muted);">${range.rangeText}</span>
+          </div>
+          <span style="font-size:12px; color:var(--neon-emerald);">已扣款：${formatHKD(yearPaid)}</span>
+        </div>
+        <div class="year-accordion-body" style="display:none;">
+          ${monthRowsHTML}
+        </div>
       </div>
     `;
   }
 
-  const totalYears = policy.totalPolicyYears || 1;
-  let periodOptions = '';
-  for (let i = 1; i <= totalYears; i++) {
-    const r = getPeriodRange(policy, i);
-    periodOptions += `<option value="${i}" ${i === periodIndex ? 'selected' : ''}>第 ${i} 年度 (${r.rangeText})</option>`;
-  }
-
-  body.innerHTML = `
-    <div style="margin-bottom:12px;">
-      <label class="field-label" style="margin-bottom:6px;">選擇年度</label>
-      <select class="select" id="detail-period-select" style="width:100%; padding:8px 12px; font-size:14px;">${periodOptions}</select>
-    </div>
-    <div style="max-height:50vh; overflow-y:auto;">${rows}</div>
-    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--glass-border); display:flex; justify-content:space-between;">
-      <span style="font-size:12px; color:var(--text-muted);">本期已扣款：${formatHKD(totalPaid)}</span>
+  container.innerHTML = `
+    <div class="inline-detail-inner">
+      <div class="inline-detail-actions">
+        <button class="btn btn-sm btn-primary" data-action="save-inline-detail" data-id="${policy.id}">儲存扣款狀態</button>
+        <button class="btn btn-sm btn-ghost" data-action="collapse-inline-detail" data-id="${policy.id}">收起</button>
+      </div>
+      <div class="year-accordions-container">${accordionsHTML}</div>
     </div>
   `;
 
-  document.getElementById('detail-period-select').addEventListener('change', (e) => {
-    renderDetailBody(policy, Number(e.target.value));
-  });
+  // 自動展開當前年度
+  const currentAccordion = container.querySelector(`.year-accordion[data-year-index="${currentPeriodIdx}"]`);
+  if (currentAccordion) {
+    const body = currentAccordion.querySelector('.year-accordion-body');
+    const arrow = currentAccordion.querySelector('.accordion-arrow');
+    if (body) body.style.display = 'block';
+    if (arrow) arrow.classList.add('rotated');
+  }
+
+  if (window.lucide) window.lucide.createIcons();
 }
 
-async function openDetailModal(p) {
-  let curY, curM;
-  if (AppState.month === 'all') {
-    const firstY = Number(p.firstStartYear);
-    const firstM = Number(p.firstStartMonth);
-    const cp = Number(p.currentPeriodIndex) || 1;
-    const startDate = new Date(firstY, firstM - 1, 1);
-    startDate.setMonth(startDate.getMonth() + (cp - 1) * 12);
-    curY = startDate.getFullYear();
-    curM = startDate.getMonth() + 1;
-  } else {
-    curY = Number(AppState.year);
-    curM = Number(AppState.month);
-  }
-  const info = getPeriodInfo(p, curY, curM);
-  if (!info) return alert('無法計算保單年度，請確認保單開始日期是否正確。');
-  currentDetailPolicy = p;
-  document.getElementById('insurance-detail-title').textContent = `${p.name} - 付款明細`;
-  await renderDetailBody(p, info.periodIndex);
-  document.getElementById('insurance-detail-modal').classList.add('active');
+/* ============================================
+   儲存行內明細
+   ============================================ */
+async function saveInlineDetail(policyId, container) {
+  const policy = policies.find((p) => p.id === policyId);
+  if (!policy) throw new Error('找不到保單');
+
+  const rows = container.querySelectorAll('.month-row');
+  const promises = [];
+
+  rows.forEach((row) => {
+    const monthKey = row.dataset.month;
+    const amount = Math.round(Number(row.querySelector('.ins-amount').value) || 0);
+    const isPaid = row.querySelector('.ins-paid').checked;
+    const [yearStr, monthStr] = monthKey.split('-');
+
+    if (isPaid) {
+      promises.push(saveInsurancePaymentBatch(policy.id, yearStr, monthStr, { status: '已扣款', amount }));
+      promises.push(api.insuranceSync({
+        policyId: policy.id, memberId: policy.memberId, policyName: policy.name,
+        monthlyAverage: amount, year: yearStr, month: monthStr,
+      }));
+    } else {
+      promises.push(removeInsurancePaymentBatch(policy.id, yearStr, monthStr));
+      promises.push(api.insuranceUnsync({ policyId: policy.id, memberId: policy.memberId, year: yearStr, month: monthStr }));
+    }
+  });
+
+  await Promise.all(promises);
 }
 
 /* ============================================
@@ -598,45 +745,6 @@ function bindAddPeriodModalEvents() {
   });
 }
 
-function bindDetailModalEvents() {
-  const modal = document.getElementById('insurance-detail-modal');
-  document.getElementById('insurance-detail-cancel-btn').addEventListener('click', () => modal.classList.remove('active'));
-
-  document.getElementById('insurance-detail-save-btn').addEventListener('click', async () => {
-    if (!currentDetailPolicy) return;
-    const p = currentDetailPolicy;
-    const rows = document.querySelectorAll('.insurance-detail-row');
-    const promises = [];
-
-    rows.forEach((row) => {
-      const month = row.dataset.month;
-      const amount = Math.round(Number(row.querySelector('.ins-amount').value) || 0);
-      const isPaid = row.querySelector('.ins-paid').checked;
-      const [yearStr, monthStr] = month.split('-');
-      if (isPaid) {
-        promises.push(saveInsurancePaymentBatch(p.id, yearStr, monthStr, { status: '已扣款', amount }));
-        promises.push(api.insuranceSync({
-          policyId: p.id, memberId: p.memberId, policyName: p.name,
-          monthlyAverage: amount, year: yearStr, month: monthStr,
-        }));
-      } else {
-        promises.push(removeInsurancePaymentBatch(p.id, yearStr, monthStr));
-        promises.push(api.insuranceUnsync({ policyId: p.id, memberId: p.memberId, year: yearStr, month: monthStr }));
-      }
-    });
-
-    try {
-      await Promise.all(promises);
-      alert('✅ 已批次更新扣款狀態與連動支出');
-      modal.classList.remove('active');
-      renderAll();
-    } catch (err) {
-      console.error('批次同步失敗：', err);
-      alert('批次更新失敗：' + err.message);
-    }
-  });
-}
-
 function renderMemberOptions() {
   const sel = document.getElementById('policy-member');
   if (!sel) return;
@@ -686,7 +794,32 @@ document.addEventListener('click', async (e) => {
     }
     document.getElementById('policy-modal').classList.add('active');
   } else if (action === 'detail') {
-    openDetailModal(p);
+    // 行內展開 / 收起
+    const isTable = currentView === 'table';
+    if (isTable) {
+      const detailRow = document.querySelector(`.policy-detail-row[data-policy-id="${id}"]`);
+      if (!detailRow) return;
+      if (detailRow.style.display === 'none') {
+        detailRow.style.display = 'table-row';
+        expandedPolicyIds.add(id);
+        const container = detailRow.querySelector('.inline-detail-container');
+        if (container) await renderInlineDetail(p, container);
+      } else {
+        detailRow.style.display = 'none';
+        expandedPolicyIds.delete(id);
+      }
+    } else {
+      const container = document.getElementById(`card-detail-${id}`);
+      if (!container) return;
+      if (container.style.display === 'none') {
+        container.style.display = 'block';
+        expandedPolicyIds.add(id);
+        await renderInlineDetail(p, container);
+      } else {
+        container.style.display = 'none';
+        expandedPolicyIds.delete(id);
+      }
+    }
   } else if (action === 'restore') {
     if (confirm('確定要恢復此保單的供款狀態嗎？')) {
       await updateInsurancePolicyV2(p.id, { ...p, isCompleted: false });
@@ -699,24 +832,4 @@ document.addEventListener('click', async (e) => {
       } catch (err) { alert('刪除失敗：' + err.message); }
     }
   }
-});
-
-document.addEventListener('change', async (e) => {
-  const cb = e.target.closest('input[data-action="toggle-paid"]');
-  if (!cb) return;
-  const { year, month } = AppState.getYearMonth();
-  if (month === 'all') return;
-  const p = policies.find((x) => x.id === cb.dataset.id);
-  if (!p) return;
-  const info = getPeriodInfo(p, Number(year), Number(month));
-  if (!info) return;
-  const periodData = (p.periods || {})[String(info.periodIndex)];
-  if (!periodData) return;
-
-  if (cb.checked) {
-    try { await api.insuranceSync({ policyId: p.id, memberId: p.memberId, policyName: p.name, monthlyAverage: periodData.monthlyAverage, year, month }); } catch (err) { console.warn('同步失敗：', err); }
-  } else {
-    try { await api.insuranceUnsync({ policyId: p.id, memberId: p.memberId, year, month }); } catch (err) { console.warn('取消連動失敗：', err); }
-  }
-  renderAll();
 });
