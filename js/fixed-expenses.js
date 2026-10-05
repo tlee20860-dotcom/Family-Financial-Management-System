@@ -1,5 +1,7 @@
 // ============================================
-// fixed-expenses.js — 家庭固定支出（方案 A：模板 > 年份 > 月份 三層折疊）
+// fixed-expenses.js — 家庭固定支出
+// 方案 A：模板 > 年份 > 月份 三層折疊
+// 年份改為手動新增，不預設載入
 // ============================================
 
 import {
@@ -18,6 +20,9 @@ let categories = [];
 let items = [];
 let members = [];
 
+// 依家庭隔離的「已新增年份」儲存：{ [templateId]: [year, ...] }
+let yearStore = {};
+
 // 資料快取：yearlyData[yearNumber][monthStr] = [expense, ...]
 const yearlyData = {};
 const loadedYears = new Set();      // Set<number>
@@ -28,9 +33,7 @@ const expandedYears = new Set();              // Set<`${templateId}|${yearNumber
 
 // 新增後自動展開
 let pendingExpandTemplateName = null;
-
-const YEAR_RANGE_BEFORE = 3;
-const YEAR_RANGE_AFTER = 1;
+let pendingExpandYear = null;
 
 /** 安全取得當前年份（強制數字） */
 function getCurrentYear() {
@@ -38,7 +41,51 @@ function getCurrentYear() {
   return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear();
 }
 
+/* ============ 依家庭隔離的年份儲存 ============ */
+function getFamilyKey() {
+  return AppState.currentFamilyId || 'default';
+}
+
+function loadYearStore() {
+  try {
+    const raw = localStorage.getItem(`fixed_expense_years_${getFamilyKey()}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveYearStore(store) {
+  try {
+    localStorage.setItem(`fixed_expense_years_${getFamilyKey()}`, JSON.stringify(store));
+  } catch (e) { console.warn('儲存年份失敗：', e); }
+}
+
+function getAddedYears(templateId) {
+  return yearStore[templateId] || [];
+}
+
+function addYearToTemplate(templateId, year) {
+  const y = Number(year);
+  if (!Number.isFinite(y)) return;
+  if (!yearStore[templateId]) yearStore[templateId] = [];
+  if (!yearStore[templateId].includes(y)) {
+    yearStore[templateId].push(y);
+    yearStore[templateId].sort((a, b) => b - a);
+  }
+  saveYearStore(yearStore);
+}
+
+function removeYearFromTemplate(templateId, year) {
+  const y = Number(year);
+  if (yearStore[templateId]) {
+    yearStore[templateId] = yearStore[templateId].filter((x) => x !== y);
+    saveYearStore(yearStore);
+  }
+}
+
+/* ============ 初始化 ============ */
 export function initFixedExpensesPage() {
+  yearStore = loadYearStore();
+
   const container = document.getElementById('fixed-templates-container');
   const modal = document.getElementById('fixed-modal');
   const form = document.getElementById('fixed-form');
@@ -49,6 +96,16 @@ export function initFixedExpensesPage() {
   const amountInput = document.getElementById('fixed-amount');
   const noteInput = document.getElementById('fixed-note');
   const addItemBtn = document.getElementById('add-fixed-item-btn');
+  const yearSel = document.getElementById('fixed-year');
+
+  // 初始化年份下拉（前後 5 年）
+  const nowY = new Date().getFullYear();
+  let yearOpts = '';
+  for (let y = nowY - 5; y <= nowY + 5; y++) {
+    yearOpts += `<option value="${y}">${y} 年</option>`;
+  }
+  yearSel.innerHTML = yearOpts;
+  yearSel.value = getCurrentYear();
 
   listenMembers((list) => {
     members = list;
@@ -83,26 +140,27 @@ export function initFixedExpensesPage() {
     const prevIds = new Set(templates.map((t) => t.id));
     templates = list;
 
-    // 自動展開新添加的模板
+    // 自動展開新添加的模板（來自表單送出）
     if (pendingExpandTemplateName) {
       const newT = list.find((t) => t.name === pendingExpandTemplateName && !prevIds.has(t.id));
       if (newT) {
+        const y = pendingExpandYear || getCurrentYear();
+        addYearToTemplate(newT.id, y);
         expandedTemplates.add(newT.id);
-        expandedYears.add(`${newT.id}|${getCurrentYear()}`);
+        expandedYears.add(`${newT.id}|${y}`);
         pendingExpandTemplateName = null;
+        pendingExpandYear = null;
       }
     }
 
-    // 重新載入當前年份資料（新增/刪除模板後資料會變動）
-    const y = getCurrentYear();
-    invalidateYear(y);
-    await loadYear(y);
+    // 載入所有已新增年份的資料
+    await loadAllAddedYears();
     render();
   });
 
-  // 年份切換時，確保當前年份資料已載入
-  AppState.on('ym-change', async () => {
-    await loadYear(getCurrentYear());
+  // 年份切換：只更新表單預設值，不影響已新增年份
+  AppState.on('ym-change', () => {
+    yearSel.value = getCurrentYear();
     render();
   });
 
@@ -111,6 +169,7 @@ export function initFixedExpensesPage() {
     memberSel.value = 'shared';
     categorySel.value = '';
     itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
+    yearSel.value = getCurrentYear();
     modal.classList.add('active');
   });
 
@@ -125,25 +184,27 @@ export function initFixedExpensesPage() {
     const amount = Number(amountInput.value) || 0;
     const cycle = cycleSelect.value;
     const note = noteInput.value.trim();
+    const targetYear = Number(yearSel.value);
 
-    if (!itemName || !amount) return;
+    if (!itemName || !amount || !Number.isFinite(targetYear)) return;
+
+    pendingExpandTemplateName = itemName;
+    pendingExpandYear = targetYear;
 
     // 1. 寫入模板
-    pendingExpandTemplateName = itemName;
     await addFixedTemplate({
       name: itemName, categoryId: catId, itemId: itemId,
       amount: amount, cycle: cycle, note: note,
       memberId: memberId,
     });
 
-    // 2. 分配到 12 個月
+    // 2. 分配到該年份的 12 個月
     const targetMonths = getMonthsByCycle(cycle);
-    const year = getCurrentYear();
     const promises = [];
     for (let m = 1; m <= 12; m++) {
       const monthStr = String(m).padStart(2, '0');
       const isTarget = targetMonths.includes(m);
-      promises.push(addFixedExpenseV2(year, monthStr, {
+      promises.push(addFixedExpenseV2(targetYear, monthStr, {
         name: itemName, amount: isTarget ? amount : 0,
         cycle: cycle, note: note,
         categoryId: catId, itemId: itemId,
@@ -153,16 +214,16 @@ export function initFixedExpensesPage() {
     }
     await Promise.all(promises);
 
-    // 3. 重新載入並渲染
-    invalidateYear(year);
-    await loadYear(year);
+    // 3. 重新載入該年份並渲染
+    invalidateYear(targetYear);
+    await loadYear(targetYear);
     render();
 
     modal.classList.remove('active');
-    showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`);
+    showToast(`✅ 已新增「${itemName}」至 ${targetYear} 年，分配到 ${targetMonths.length} 個月份`);
   });
 
-  // ============ 點擊事件委派 ============
+  /* ============ 點擊事件委派 ============ */
   container.addEventListener('click', async (e) => {
     // 1) 刪除模板
     const deleteBtn = e.target.closest('button[data-action="delete-template"]');
@@ -170,13 +231,15 @@ export function initFixedExpensesPage() {
       e.stopPropagation();
       const templateId = deleteBtn.dataset.id;
       const templateName = deleteBtn.dataset.name;
-      if (confirm(`⚠️ 確定要刪除「${templateName}」嗎？\n\n這將會刪除該支出在所有月份的紀錄，此操作無法復原。`)) {
+      if (confirm(`⚠️ 確定要刪除「${templateName}」嗎？\n\n這將會刪除該支出在所有年份的紀錄，此操作無法復原。`)) {
         try {
           await deleteFixedTemplateAndMonths(templateId, templateName);
           expandedTemplates.delete(templateId);
           for (const key of [...expandedYears]) {
             if (key.startsWith(`${templateId}|`)) expandedYears.delete(key);
           }
+          delete yearStore[templateId];
+          saveYearStore(yearStore);
           alert('✅ 已徹底刪除');
         } catch (err) {
           alert('刪除失敗：' + err.message);
@@ -189,11 +252,8 @@ export function initFixedExpensesPage() {
     const toggleTemplate = e.target.closest('[data-action="toggle-template"]');
     if (toggleTemplate) {
       const id = toggleTemplate.dataset.id;
-      if (expandedTemplates.has(id)) {
-        expandedTemplates.delete(id);
-      } else {
-        expandedTemplates.add(id);
-      }
+      if (expandedTemplates.has(id)) expandedTemplates.delete(id);
+      else expandedTemplates.add(id);
       render();
       return;
     }
@@ -202,30 +262,89 @@ export function initFixedExpensesPage() {
     const toggleYear = e.target.closest('[data-action="toggle-year"]');
     if (toggleYear) {
       const tId = toggleYear.dataset.templateId;
-      const year = Number(toggleYear.dataset.year);  // ★ 強制數字
+      const year = Number(toggleYear.dataset.year);
       const key = `${tId}|${year}`;
 
       if (expandedYears.has(key)) {
         expandedYears.delete(key);
         render();
       } else {
-        // 若該年份尚未載入，先載入
-        if (!loadedYears.has(year)) {
-          await loadYear(year);
-        }
+        if (!loadedYears.has(year)) await loadYear(year);
         expandedYears.add(key);
         render();
       }
       return;
     }
+
+    // 4) 新增年份
+    const addYearBtn = e.target.closest('button[data-action="add-year"]');
+    if (addYearBtn) {
+      e.stopPropagation();
+      const templateId = addYearBtn.dataset.id;
+      const t = templates.find((x) => x.id === templateId);
+      if (!t) return;
+
+      const input = prompt('請輸入要新增的年份（YYYY）：', String(getCurrentYear()));
+      if (!input) return;
+      const year = Number(input);
+      if (!Number.isFinite(year) || year < 2000 || year > 2100) {
+        return alert('年份無效，請輸入 2000-2100 之間的數字。');
+      }
+
+      // 若已存在，直接展開
+      if (getAddedYears(templateId).includes(year)) {
+        expandedYears.add(`${templateId}|${year}`);
+        if (!loadedYears.has(year)) await loadYear(year);
+        render();
+        return;
+      }
+
+      // 為該年份建立 12 個月資料
+      const targetMonths = getMonthsByCycle(t.cycle || '每月');
+      const promises = [];
+      for (let m = 1; m <= 12; m++) {
+        const monthStr = String(m).padStart(2, '0');
+        const isTarget = targetMonths.includes(m);
+        promises.push(addFixedExpenseV2(year, monthStr, {
+          name: t.name,
+          amount: isTarget ? (Number(t.amount) || 0) : 0,
+          cycle: t.cycle, note: t.note,
+          categoryId: t.categoryId, itemId: t.itemId,
+          memberId: t.memberId,
+          isSkipped: !isTarget,
+        }));
+      }
+      await Promise.all(promises);
+
+      addYearToTemplate(templateId, year);
+      expandedYears.add(`${templateId}|${year}`);
+      invalidateYear(year);
+      await loadYear(year);
+      render();
+      showToast(`✅ 已為「${t.name}」新增 ${year} 年度`);
+      return;
+    }
+
+    // 5) 從檢視移除年份（不刪除資料）
+    const removeYearBtn = e.target.closest('button[data-action="remove-year"]');
+    if (removeYearBtn) {
+      e.stopPropagation();
+      const tId = removeYearBtn.dataset.templateId;
+      const year = Number(removeYearBtn.dataset.year);
+      if (!confirm(`確定要從檢視中移除 ${year} 年嗎？\n（資料仍會保留在資料庫中，之後可再手動加入）`)) return;
+      removeYearFromTemplate(tId, year);
+      expandedYears.delete(`${tId}|${year}`);
+      render();
+      return;
+    }
   });
 
-  // ============ 輸入變更事件 ============
+  /* ============ 輸入變更事件 ============ */
   container.addEventListener('change', async (e) => {
     const el = e.target;
     if (!el.dataset.action) return;
 
-    const year = Number(el.dataset.year);   // ★ 強制數字
+    const year = Number(el.dataset.year);
     const month = el.dataset.month;
     const id = el.dataset.id;
     if (!id) return;
@@ -251,7 +370,7 @@ export function initFixedExpensesPage() {
     }
   });
 
-  // ============ 內部函式 ============
+  /* ============ 內部函式 ============ */
   function renderCategoryOptions() {
     const current = categorySel.value;
     categorySel.innerHTML = `<option value="">— 請選擇類別 —</option>` + categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
@@ -263,17 +382,6 @@ export function initFixedExpensesPage() {
     if (!catId) { itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`; return; }
     const filtered = items.filter((i) => i.categoryId === catId);
     itemSel.innerHTML = `<option value="">— 請選擇項目 —</option>` + filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
-  }
-
-  function getMonthsByCycle(cycle) {
-    switch (cycle) {
-      case '每月': return [1,2,3,4,5,6,7,8,9,10,11,12];
-      case '每2個月': return [1,3,5,7,9,11];
-      case '每季': return [1,4,7,10];
-      case '每年': return [1];
-      case '一次性': return [1];
-      default: return [1,2,3,4,5,6,7,8,9,10,11,12];
-    }
   }
 
   function updateLocalCache(year, month, id, updates) {
@@ -314,9 +422,9 @@ export function initFixedExpensesPage() {
     if (totalEl) totalEl.textContent = `總金額：${formatHKD(yearTotal)}`;
   }
 
-  // ============ 渲染主函式 ============
+  /* ============ 渲染 ============ */
   function render() {
-    const currentYear = getCurrentYear();   // ★ 強制數字
+    const currentYear = getCurrentYear();
     document.getElementById('fixed-month').textContent = `${currentYear} 年度明細`;
 
     if (!templates.length) {
@@ -339,12 +447,19 @@ export function initFixedExpensesPage() {
     const member = members.find((m) => m.id === t.memberId);
     const memberName = t.memberId === 'shared' ? '家庭共用支出' : (member ? member.name : '（未指定）');
     const isExpanded = expandedTemplates.has(t.id);
+    const addedYears = getAddedYears(t.id);
 
-    const minYear = currentYear - YEAR_RANGE_BEFORE;
-    const maxYear = currentYear + YEAR_RANGE_AFTER;
     let yearAccordions = '';
-    for (let y = maxYear; y >= minYear; y--) {
-      yearAccordions += renderYearAccordion(t, y, currentYear);
+    if (addedYears.length === 0) {
+      yearAccordions = `
+        <div class="empty-state" style="padding:16px; font-size:13px;">
+          尚未新增任何年份，點擊下方「新增年份」按鈕開始。
+        </div>
+      `;
+    } else {
+      for (const y of addedYears) {
+        yearAccordions += renderYearAccordion(t, y, currentYear);
+      }
     }
 
     return `
@@ -361,6 +476,9 @@ export function initFixedExpensesPage() {
         </div>
         <div class="fixed-card-body" style="display:${isExpanded ? 'block' : 'none'};">
           ${yearAccordions}
+          <button class="btn btn-sm btn-primary add-year-btn" data-action="add-year" data-id="${t.id}" style="margin-top:8px;">
+            <i data-lucide="plus" style="width:14px;height:14px;"></i> 新增年份
+          </button>
         </div>
       </div>
     `;
@@ -397,7 +515,7 @@ export function initFixedExpensesPage() {
 
     const infoText = isYearLoaded
       ? `<span class="year-info" style="font-size:12px; color:var(--text-muted);">已付款 ${paidCount} 個月${skipCount > 0 ? `・不適用 ${skipCount} 個月` : ''}</span>`
-      : `<span class="year-info" style="font-size:12px; color:var(--text-muted);">點擊載入</span>`;
+      : `<span class="year-info" style="font-size:12px; color:var(--text-muted);">載入中…</span>`;
 
     return `
       <div class="year-accordion" data-template-id="${t.id}" data-year="${yearNum}">
@@ -407,7 +525,12 @@ export function initFixedExpensesPage() {
             ${yearLabel}
             ${infoText}
           </div>
-          <span class="year-total" style="font-size:12px; color:var(--neon-emerald);">總金額：${formatHKD(yearTotal)}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="year-total" style="font-size:12px; color:var(--neon-emerald);">總金額：${formatHKD(yearTotal)}</span>
+            <button class="btn btn-sm btn-ghost" data-action="remove-year" data-template-id="${t.id}" data-year="${yearNum}" title="從檢視中移除（不刪除資料）" style="padding:2px 6px;">
+              <i data-lucide="x" style="width:14px;height:14px;"></i>
+            </button>
+          </div>
         </div>
         <div class="year-accordion-body" style="display:${isYearExpanded ? 'block' : 'none'};">
           ${isYearExpanded ? (isYearLoaded ? renderYearMonths(t, yearNum) : '<div style="padding:12px; text-align:center; color:var(--text-muted);">載入中…</div>') : ''}
@@ -453,7 +576,7 @@ export function initFixedExpensesPage() {
   }
 }
 
-/* ============ 年份資料載入（統一數字年份 key）============ */
+/* ============ 年份資料載入 ============ */
 async function loadYear(year) {
   const y = Number(year);
   if (!Number.isFinite(y)) return;
@@ -471,10 +594,34 @@ async function loadYear(year) {
   loadedYears.add(y);
 }
 
+/* 載入所有已新增年份的資料 */
+async function loadAllAddedYears() {
+  const yearsToLoad = new Set();
+  for (const tId of Object.keys(yearStore)) {
+    for (const y of yearStore[tId]) {
+      if (!loadedYears.has(y)) yearsToLoad.add(y);
+    }
+  }
+  if (yearsToLoad.size > 0) {
+    await Promise.all([...yearsToLoad].map((y) => loadYear(y)));
+  }
+}
+
 function invalidateYear(year) {
   const y = Number(year);
   loadedYears.delete(y);
   delete yearlyData[y];
+}
+
+function getMonthsByCycle(cycle) {
+  switch (cycle) {
+    case '每月': return [1,2,3,4,5,6,7,8,9,10,11,12];
+    case '每2個月': return [1,3,5,7,9,11];
+    case '每季': return [1,4,7,10];
+    case '每年': return [1];
+    case '一次性': return [1];
+    default: return [1,2,3,4,5,6,7,8,9,10,11,12];
+  }
 }
 
 function showToast(msg) {
