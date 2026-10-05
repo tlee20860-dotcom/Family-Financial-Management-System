@@ -94,12 +94,9 @@ function renderCompanyOptions() {
 }
 
 /* ============================================
-   金額計算（3 種 + 已供款總額）
+   金額計算
    ============================================ */
 
-/**
- * 【B】本期年繳：保單在指定年度的年繳保費
- */
 function getPolicyAnnualPremium(policy, targetYear) {
   if (policy.type === 'fund_insurance') return 0;
 
@@ -130,9 +127,6 @@ function getPolicyAnnualPremium(policy, targetYear) {
   return Math.round(Number(policy.annualPremium) || 0);
 }
 
-/**
- * 【C】保單總供款：該保單所有供款年期的年繳加總
- */
 function getPolicyTotalPremium(policy) {
   if (policy.type === 'fund_insurance') {
     return (Number(policy.monthlyPremium) || 0) * 12 * (Number(policy.totalPolicyYears) || 0);
@@ -165,11 +159,6 @@ function getPolicyTotalPremium(policy) {
   return total;
 }
 
-/**
- * 【D】🆕 已供款總額：實際已扣款的月份金額加總
- * - 遍歷 payments 結構，累加所有 status === '已扣款' 的 amount
- * - 基金保險沒有扣款機制，回傳 0
- */
 function getPolicyPaidTotal(payments) {
   let total = 0;
   Object.values(payments || {}).forEach((yearData) => {
@@ -248,7 +237,6 @@ async function renderAll() {
   const displayYear = Number(year);
   document.getElementById('insurance-month').textContent = isAnnual ? `${year} 年 全年總覽` : `${year} 年 ${month} 月`;
 
-  // 即時計算每張保單的付款紀錄與金額
   const enrichedPolicies = await Promise.all(policies.map(async (p) => {
     let payments = {};
     let completed = 0;
@@ -264,7 +252,7 @@ async function renderAll() {
 
     const currentAnnualPremium = getPolicyAnnualPremium(p, displayYear);
     const totalPremium = getPolicyTotalPremium(p);
-    const paidTotal = getPolicyPaidTotal(payments);   // 🆕
+    const paidTotal = getPolicyPaidTotal(payments);
 
     return {
       ...p,
@@ -272,7 +260,7 @@ async function renderAll() {
       _payments: payments,
       _currentAnnualPremium: currentAnnualPremium,
       _totalPremium: totalPremium,
-      _paidTotal: paidTotal,   // 🆕
+      _paidTotal: paidTotal,
     };
   }));
 
@@ -339,6 +327,12 @@ async function renderAll() {
   if (window.lucide) window.lucide.createIcons();
 }
 
+/* ============================================
+   🔧 renderPolicyDetail：移除所有 inline style
+   -------------------------------------------------
+   - 月 row 的 HTML 改為純 class，不再有 flex:1 inline
+   - 讓 components.css 完全掌控佈局
+   ============================================ */
 function renderPolicyDetail(policy, payments) {
   const totalYears = policy.totalPolicyYears || 1;
   const detailRows = [];
@@ -364,26 +358,26 @@ function renderPolicyDetail(policy, payments) {
       if (isPaid) totalPaid += amount;
 
       months.push(`
-        <div class="insurance-month-row" data-policy="${policy.id}" data-year="${y}" data-month="${m}" style="display:flex; align-items:center; gap:10px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
-          <div style="width:80px; font-family:var(--font-mono); font-size:12px;">${y}-${m}</div>
-          <input type="number" class="input ins-amount" value="${amount}" min="0" step="1" style="flex:1; padding:4px 10px; font-size:12px;">
-          <label style="display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap;">
-            <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''} style="width:auto;"> 已扣款
+        <div class="insurance-month-row" data-policy="${policy.id}" data-year="${y}" data-month="${m}">
+          <div class="ins-date">${y}-${m}</div>
+          <input type="number" class="input ins-amount" value="${amount}" min="0" step="1">
+          <label class="ins-paid-label">
+            <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''}> 已扣款
           </label>
         </div>
       `);
     }
 
     detailRows.push(`
-      <div class="insurance-year-block" style="margin-bottom:8px; border:1px solid rgba(255,255,255,0.05); border-radius:var(--radius-sm); overflow:hidden;">
-        <div class="insurance-year-header" data-toggle-key="${key}" style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:rgba(0,240,255,0.04); cursor:pointer; user-select:none;">
-          <span style="font-size:13px; font-weight:600; color:var(--neon-cyan);">第 ${i} 年度（${range.rangeText}）</span>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span class="mono" style="font-size:11px; color:var(--text-muted);">已扣款：${formatHKD(totalPaid)}</span>
+      <div class="insurance-year-block">
+        <div class="insurance-year-header" data-toggle-key="${key}">
+          <span class="ins-year-title">第 ${i} 年度（${range.rangeText}）</span>
+          <div class="ins-year-right">
+            <span class="mono ins-paid-sum">已扣款：${formatHKD(totalPaid)}</span>
             <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}" style="width:14px;height:14px;color:var(--text-muted);"></i>
           </div>
         </div>
-        <div class="insurance-year-body" style="display:${isOpen ? 'block' : 'none'}; padding:8px 12px;">
+        <div class="insurance-year-body" style="display:${isOpen ? 'block' : 'none'};">
           ${months.join('')}
         </div>
       </div>
@@ -394,7 +388,7 @@ function renderPolicyDetail(policy, payments) {
 }
 
 /* ============================================
-   卡片渲染 — 顯示 B / C / D
+   卡片渲染
    ============================================ */
 function renderCard(p, isCompleted) {
   const member = members.find((m) => m.id === p.memberId);
@@ -478,7 +472,7 @@ function renderCard(p, isCompleted) {
 }
 
 /* ============================================
-   表格渲染 — 新增「已供款總額」欄位
+   表格渲染
    ============================================ */
 function renderTable(list) {
   const tbody = document.getElementById('policy-table-body');
@@ -541,6 +535,7 @@ function renderTable(list) {
 
   if (window.lucide) window.lucide.createIcons();
 }
+
 function bindGlobalListeners() {
   if (globalListenersBound) return;
   globalListenersBound = true;
