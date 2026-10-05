@@ -266,28 +266,20 @@ function bindDetailModalEvents() {
     const rows = document.querySelectorAll('.insurance-detail-row');
     const promises = [];
 
-    // 先確保拿到當前的期間資訊，以便呼叫 API
-    const firstY = Number(p.firstStartYear);
-    const firstM = Number(p.firstStartMonth);
-    const currentDate = new Date(firstY, firstM - 1, 1);
-
     rows.forEach((row) => {
       const month = row.dataset.month;
       const amount = Number(row.querySelector('.ins-amount').value) || 0;
       const isPaid = row.querySelector('.ins-paid').checked;
       const [yearStr, monthStr] = month.split('-');
 
-      // 同步寫入 insurance_payments
       if (isPaid) {
         promises.push(saveInsurancePaymentBatch(p.id, yearStr, monthStr, { status: '已扣款', amount }));
-        // 🆕 同步寫入 family_expenses
         promises.push(api.insuranceSync({
           policyId: p.id, memberId: p.memberId, policyName: p.name,
           monthlyAverage: amount, year: yearStr, month: monthStr
         }));
       } else {
         promises.push(removeInsurancePaymentBatch(p.id, yearStr, monthStr));
-        // 🆕 同步移除 family_expenses
         promises.push(api.insuranceUnsync({
           policyId: p.id, memberId: p.memberId, year: yearStr, month: monthStr
         }));
@@ -295,11 +287,13 @@ function bindDetailModalEvents() {
     });
 
     try {
-      await Promise.all(promises);
+      const results = await Promise.all(promises);
+      console.log('✅ 批次同步結果：', results);
       alert('✅ 已批次更新扣款狀態與連動支出');
       modal.classList.remove('active');
       renderGrid();
     } catch (err) {
+      console.error('❌ 批次同步失敗：', err);
       alert('批次更新失敗：' + err.message);
     }
   });
