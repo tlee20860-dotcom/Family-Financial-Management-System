@@ -17,6 +17,8 @@ const STATIC_ASSETS = [
   // ... 原本的內容 ...
   './js/admin.js',   // 🆕 新增
   // ...
+    './js/personal-expenses.js',
+  './personal-expenses.html',
 ];
 
 self.addEventListener('install', (e) => {
