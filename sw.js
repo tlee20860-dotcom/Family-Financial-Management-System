@@ -10,7 +10,7 @@ const STATIC_ASSETS = [
   './js/auth.js', './js/auth-guard.js', './js/db.js', './js/api.js',
   './js/state.js', './js/dashboard.js', './js/settings.js',
   './js/insurance.js', './js/portfolio.js', './js/members.js',
-  './js/member-detail.js','./js/expense-categories.js',
+  './js/member-detail.js', './js/expense-categories.js',
   './js/settlements.js', './js/fixed-expenses.js', './js/income.js',
   './js/banks.js', './js/annual-report.js', './js/pwa.js',
   './manifest.json', './icons/icon.svg',
