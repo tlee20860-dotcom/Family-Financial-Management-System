@@ -1,5 +1,5 @@
 // ============================================
-// member-detail.js — 成員個人版面（含除錯提示）
+// member-detail.js — 成員個人版面（含強制錯誤提示）
 // ============================================
 
 import {
@@ -8,6 +8,7 @@ import {
 } from './db.js';
 import { formatHKD, todayISO, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
+import { api } from './api.js';
 
 let memberId = null;
 let memberName = '';
@@ -20,11 +21,13 @@ let unsubscribeExpenses = null;
 export async function initMemberDetailPage(id) {
   memberId = id;
 
-  // 🆕 檢查 familyId
+  // 🆕 檢查 familyId，若為空直接顯示錯誤
   if (!AppState.getFamilyId()) {
     document.getElementById('member-name').textContent = '錯誤：未選擇家庭';
     document.getElementById('expense-tbody').innerHTML =
       '<tr><td colspan="5" class="empty-state text-red">無法取得家庭資訊，請重新登入。</td></tr>';
+    const container = document.getElementById('annual-monthly-cards');
+    if (container) container.innerHTML = '<div class="glass-card"><div class="empty-state text-red">家庭 ID 丟失，請重新登入。</div></div>';
     return;
   }
 
@@ -59,6 +62,91 @@ export async function initMemberDetailPage(id) {
 
 async function loadData() {
   const { year, month } = AppState.getYearMonth();
+  const isAnnual = month === 'all';
+
+  const annualView = document.getElementById('annual-view');
+  const monthlyView = document.getElementById('monthly-view');
+
+  if (annualView) annualView.style.display = isAnnual ? 'block' : 'none';
+  if (monthlyView) monthlyView.style.display = isAnnual ? 'none' : 'block';
+
+  if (isAnnual) {
+    await loadAnnual(year);
+  } else {
+    await loadMonthly(year, month);
+  }
+}
+
+async function loadAnnual(year) {
+  try {
+    const data = await api.fetchAnnualSummary(year);
+    renderAnnual(data);
+  } catch (err) {
+    console.error('全年資料載入失敗：', err);
+    const container = document.getElementById('annual-monthly-cards');
+    if (container) {
+      container.innerHTML = `<div class="glass-card"><div class="empty-state text-red">載入失敗：${escapeHtml(err.message)}</div></div>`;
+    }
+  }
+}
+
+function renderAnnual(data) {
+  let total = 0;
+  const container = document.getElementById('annual-monthly-cards');
+  if (!container) {
+    console.warn('❌ 找不到 #annual-monthly-cards');
+    return;
+  }
+
+  if (!data || !data.monthly || data.monthly.length === 0) {
+    container.innerHTML = '<div class="glass-card"><div class="empty-state">本年度尚無支出紀錄</div></div>';
+    return;
+  }
+
+  const cards = data.monthly.map((m) => {
+    const md = m.perMember ? m.perMember[memberId] : null;
+    if (!md || md.itemCount === 0) return '';
+
+    total += md.sum;
+    const rows = md.items.map((it) => `
+      <tr>
+        <td>${escapeHtml(it.name)}</td>
+        <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(it.categoryName || '—')}</td>
+        <td class="mono" style="font-size:11px; color:var(--text-muted);">${escapeHtml(it.date || '—')}</td>
+        <td class="num">${formatHKD(it.amount)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div class="glass-card" style="margin-bottom:10px; padding:14px;">
+        <div class="month-toggle" style="display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; user-select:none;">
+          <div style="font-weight:700; font-size:15px; color:var(--neon-cyan);">${m.monthNum} 月</div>
+          <div class="mono text-magenta" style="font-weight:700;">${formatHKD(md.sum)}</div>
+        </div>
+        <div class="month-detail" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1);">
+          <table class="data-table" style="font-size:12px;">
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+
+  const totalEl = document.getElementById('annual-total');
+  if (totalEl) totalEl.textContent = formatHKD(total);
+  container.innerHTML = cards || '<div class="glass-card"><div class="empty-state">本年度尚無支出紀錄</div></div>';
+
+  container.querySelectorAll('.month-toggle').forEach((el) => {
+    el.addEventListener('click', () => {
+      const d = el.nextElementSibling;
+      d.style.display = d.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function loadMonthly(year, month) {
   const monthLabel = document.getElementById('expense-month-label');
   if (monthLabel) monthLabel.textContent = `${year} 年 ${month} 月`;
 
@@ -151,7 +239,6 @@ function bindEvents() {
 
   if (categorySel) categorySel.addEventListener('change', renderItemOptions);
 
-  // 🆕 新增項目按鈕
   const addItemBtn = document.getElementById('add-expense-item-btn');
   if (addItemBtn) {
     addItemBtn.addEventListener('click', async () => {
