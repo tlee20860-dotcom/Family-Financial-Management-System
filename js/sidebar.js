@@ -11,6 +11,7 @@ const STATIC_TOP = [
 
 const STATIC_BOTTOM = [
   { icon: 'dollar-sign',  label: '每月收入',   href: 'income.html' },
+  { icon: 'user',         label: '個人支出',   href: 'personal-expenses.html' }, // 🆕 新增
   { icon: 'landmark',     label: '銀行管理',   href: 'banks.html' },
   { icon: 'shield',       label: '保險付款',   href: 'insurance.html' },
   { icon: 'clipboard-check', label: '結算清單', href: 'settlements.html' },
