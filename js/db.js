@@ -636,3 +636,76 @@ export async function deleteFixedTemplateAndMonths(templateId, templateName) {
 
   await update(ref(db), updates);
 }
+/* ============================================
+   批次更新支出（支援跨月份、跨成員移動）
+   ============================================ */
+
+export async function batchUpdateExpenses(updates) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const finalUpdates = {};
+
+  for (const item of updates) {
+    const { oldYear, oldMonth, oldMemberId, expenseId, data } = item;
+    const newYear = data.year || oldYear;
+    const newMonth = data.month || oldMonth;
+    const newMemberId = data.memberId || oldMemberId;
+
+    // 如果年份/月份/成員有變，需要先刪除舊資料，再新增
+    const pathChanged = newYear !== oldYear || newMonth !== oldMonth || newMemberId !== oldMemberId;
+
+    if (pathChanged) {
+      // 刪除舊節點
+      finalUpdates[`families/${familyId}/expenses/${oldYear}/${oldMonth}/member_expenses/${oldMemberId}/${expenseId}`] = null;
+      // 新增到新節點
+      const newRef = push(ref(db, `families/${familyId}/expenses/${newYear}/${newMonth}/member_expenses/${newMemberId}`));
+      finalUpdates[`families/${familyId}/expenses/${newYear}/${newMonth}/member_expenses/${newMemberId}/${newRef.key}`] = {
+        name: data.name || '',
+        amount: Number(data.amount) || 0,
+        status: data.status || '未處理',
+        date: data.date || '',
+        categoryId: data.categoryId || '',
+        itemId: data.itemId || '',
+        isAutoLinked: false,
+        createdAt: Date.now(),
+      };
+    } else {
+      // 路徑不變，直接更新
+      finalUpdates[`families/${familyId}/expenses/${oldYear}/${oldMonth}/member_expenses/${oldMemberId}/${expenseId}`] = {
+        name: data.name || '',
+        amount: Number(data.amount) || 0,
+        status: data.status || '未處理',
+        date: data.date || '',
+        categoryId: data.categoryId || '',
+        itemId: data.itemId || '',
+      };
+    }
+  }
+
+  await update(ref(db), finalUpdates);
+}
+
+/* ============================================
+   家庭共用支出（固定支出所屬成員）
+   ============================================ */
+
+export async function addFixedExpenseWithMember(year, month, data) {
+  if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
+  const r = familyRef(`fixed_expenses/${year}/${month}`);
+  const newRef = push(r);
+  await set(newRef, {
+    name: data.name || '',
+    amount: Number(data.amount) || 0,
+    cycle: data.cycle || '每月',
+    note: data.note || '',
+    categoryId: data.categoryId || '',
+    itemId: data.itemId || '',
+    memberId: data.memberId || 'shared', // 'shared' 代表家庭共用
+    status: data.status || '未付款',
+    paidDate: data.paidDate || '',
+    isSkipped: data.isSkipped || false,
+    createdAt: Date.now(),
+  });
+  return newRef.key;
+}
