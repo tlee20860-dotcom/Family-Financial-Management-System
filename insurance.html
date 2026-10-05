@@ -7,26 +7,6 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
-  <style>
-    /* 行內明細樣式 */
-    .policy-detail-row > td { padding: 0 !important; background: rgba(0,0,0,0.15); }
-    .inline-detail-inner { padding: 14px 16px; }
-    .inline-detail-actions { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-    .year-accordion { border: 1px solid var(--glass-border, rgba(255,255,255,0.1)); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
-    .year-accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; cursor: pointer; background: rgba(255,255,255,0.03); user-select: none; gap: 10px; flex-wrap: wrap; }
-    .year-accordion-header:hover { background: rgba(255,255,255,0.06); }
-    .year-accordion-body { padding: 6px 14px; }
-    .month-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .month-row:last-child { border-bottom: none; }
-    .month-label { width: 80px; font-family: var(--font-mono, monospace); font-size: 12px; flex-shrink: 0; }
-    .accordion-arrow { transition: transform 0.2s ease; flex-shrink: 0; }
-    .accordion-arrow.rotated { transform: rotate(90deg); }
-    .card-inline-detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--glass-border, rgba(255,255,255,0.1)); }
-    @media (max-width: 640px) {
-      .month-row { flex-wrap: wrap; }
-      .month-label { width: 70px; }
-    }
-  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -41,9 +21,9 @@
             <p class="page-subtitle" id="insurance-month"></p>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <div class="view-toggle-group" id="view-toggle-group">
-              <button class="btn btn-sm btn-primary" id="view-card-btn" data-view="card">卡片視圖</button>
-              <button class="btn btn-sm btn-ghost" id="view-table-btn" data-view="table">表格視圖</button>
+            <div class="view-toggle-group">
+              <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
+              <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
             </div>
             <button class="btn btn-magenta" id="sync-all-btn">
               <i data-lucide="refresh-cw"></i> 同步所有支出
@@ -55,7 +35,7 @@
         </div>
 
         <div class="banner">
-          ℹ️ 每張保單依「保單年度」自動產生每月分攤。每當進入新年度，請輸入該年度的年繳保費。
+          ℹ️ 每張保單依「保單年度」自動產生每月分攤。點擊「展開明細」可直接編輯每月金額與扣款狀態。
         </div>
 
         <!-- 總供款金額統計 -->
@@ -100,6 +80,7 @@
               <table class="policy-table">
                 <thead>
                   <tr>
+                    <th style="width:40px;"></th>
                     <th>開始日期</th>
                     <th>受保人</th>
                     <th>保單名稱</th>
@@ -116,7 +97,6 @@
           </div>
         </div>
 
-        <!-- 無資料時的提示 -->
         <div class="glass-card" id="empty-state" style="display:none;">
           <div class="empty-state">
             <i data-lucide="shield" style="width:48px;height:48px;opacity:0.4;"></i>
@@ -151,55 +131,29 @@
           <label class="field-label" for="policy-company">保險公司</label>
           <div style="display:flex; gap:8px;">
             <select class="select" id="policy-company" style="flex:1;"></select>
-            <button type="button" class="btn btn-sm btn-ghost" id="edit-company-btn" title="編輯保險公司" style="padding:0 12px;">
-              <i data-lucide="pencil" style="width:16px;height:16px;"></i>
-            </button>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-company-btn" title="新增保險公司" style="padding:0 12px;">
-              <i data-lucide="plus" style="width:16px;height:16px;"></i>
-            </button>
+            <button type="button" class="btn btn-sm btn-ghost" id="edit-company-btn" style="padding:0 12px;"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>
+            <button type="button" class="btn btn-sm btn-ghost" id="add-company-btn" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
           </div>
         </div>
         <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="policy-start-year">保單開始年份</label>
-            <input class="input mono" id="policy-start-year" type="number" min="2000" max="2100" placeholder="2026" required>
-          </div>
-          <div class="field">
-            <label class="field-label" for="policy-start-month">保單開始月份</label>
-            <select class="select" id="policy-start-month" required></select>
-          </div>
+          <div class="field"><label class="field-label" for="policy-start-year">保單開始年份</label><input class="input mono" id="policy-start-year" type="number" min="2000" max="2100" required></div>
+          <div class="field"><label class="field-label" for="policy-start-month">保單開始月份</label><select class="select" id="policy-start-month" required></select></div>
         </div>
         <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="policy-current-period">目前是第幾年度（例如：3）</label>
-            <input class="input mono" id="policy-current-period" type="number" min="1" max="50" placeholder="1" required>
-          </div>
-          <div class="field">
-            <label class="field-label" for="policy-total-years">總供款年期</label>
-            <input class="input mono" id="policy-total-years" type="number" min="1" max="50" placeholder="5" required>
-          </div>
+          <div class="field"><label class="field-label" for="policy-current-period">目前是第幾年度</label><input class="input mono" id="policy-current-period" type="number" min="1" max="50" required></div>
+          <div class="field"><label class="field-label" for="policy-total-years">總供款年期</label><input class="input mono" id="policy-total-years" type="number" min="1" max="50" required></div>
         </div>
         <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="policy-payment-type">付款類型</label>
+          <div class="field"><label class="field-label" for="policy-payment-type">付款類型</label>
             <select class="select" id="policy-payment-type">
               <option value="年繳">年繳</option><option value="月繳">月繳</option><option value="一次付款">一次付款</option>
             </select>
           </div>
-          <div class="field">
-            <label class="field-label" for="policy-account">扣款帳戶</label>
-            <input class="input" id="policy-account" maxlength="60" placeholder="例如：匯豐扣數">
-          </div>
+          <div class="field"><label class="field-label" for="policy-account">扣款帳戶</label><input class="input" id="policy-account" maxlength="60"></div>
         </div>
         <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label>
-            <input class="input mono" id="policy-annual" type="number" min="0" step="1" placeholder="0" required>
-          </div>
-          <div class="field">
-            <label class="field-label" for="policy-monthly">每月分攤（自動）</label>
-            <input class="input mono" id="policy-monthly" disabled placeholder="自動計算">
-          </div>
+          <div class="field"><label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label><input class="input mono" id="policy-annual" type="number" min="0" step="1" required></div>
+          <div class="field"><label class="field-label" for="policy-monthly">每月分攤（自動）</label><input class="input mono" id="policy-monthly" disabled></div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="policy-cancel-btn">取消</button>
@@ -212,13 +166,13 @@
   <!-- 新增年度保費 Modal -->
   <div class="modal-overlay" id="add-period-modal">
     <div class="modal">
-      <h2 class="modal-title" id="add-period-title">新增年度保費</h2>
+      <h2 class="modal-title">新增年度保費</h2>
       <form id="add-period-form">
         <input type="hidden" id="add-period-policy-id">
         <input type="hidden" id="add-period-index">
         <div class="field"><label class="field-label">年度區間</label><input class="input" id="add-period-range" disabled></div>
-        <div class="field"><label class="field-label" for="add-period-annual">年繳保費（HK$）</label><input class="input mono" id="add-period-annual" type="number" min="0" step="1" required placeholder="0"></div>
-        <div class="field"><label class="field-label" for="add-period-monthly">每月分攤（自動）</label><input class="input mono" id="add-period-monthly" disabled placeholder="自動計算"></div>
+        <div class="field"><label class="field-label" for="add-period-annual">年繳保費（HK$）</label><input class="input mono" id="add-period-annual" type="number" min="0" step="1" required></div>
+        <div class="field"><label class="field-label" for="add-period-monthly">每月分攤（自動）</label><input class="input mono" id="add-period-monthly" disabled></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="add-period-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
