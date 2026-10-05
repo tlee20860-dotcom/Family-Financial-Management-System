@@ -497,7 +497,7 @@ function renderTable(list) {
     const pct = totalPeriods > 0 ? Math.min(100, Math.round((done / totalPeriods) * 100)) : 0;
     const currentAnnual = p._currentAnnualPremium || 0;
     const totalPremium = p._totalPremium || 0;
-    const paidTotal = p._paidTotal || 0;   // 🆕
+    const paidTotal = p._paidTotal || 0;
     const startDateText = `${p.firstStartYear}-${p.firstStartMonth}`;
     const monthly = isFund ? p.monthlyPremium : (p.periods?.[String(p.currentPeriodIndex || 1)]?.monthlyAverage || p.monthlyAverage || 0);
     const payments = p._payments || {};
@@ -513,7 +513,7 @@ function renderTable(list) {
         </td>
         <td class="mono hide-mobile" style="font-size:12px;">${startDateText}</td>
         <td class="hide-mobile">${escapeHtml(memberName)}</td>
-        <td>${escapeHtml(p.name)}</td>
+        <td class="policy-name-cell">${escapeHtml(p.name)}</td>
         <td class="hide-mobile" style="font-size:12px; color:var(--text-muted);">${escapeHtml(p.company || '—')}</td>
         <td class="num text-cyan">${formatHKD(currentAnnual)}</td>
         <td class="num text-magenta hide-mobile">${formatHKD(totalPremium)}</td>
@@ -530,8 +530,10 @@ function renderTable(list) {
         </td>
       </tr>
       <tr class="insurance-table-detail-row" style="display:${isExpanded ? 'table-row' : 'none'};">
-        <td colspan="11" style="padding:12px;">
-          ${renderPolicyDetail(p, payments)}
+        <td colspan="11">
+          <div class="detail-wrapper">
+            ${renderPolicyDetail(p, payments)}
+          </div>
         </td>
       </tr>
     `;
@@ -539,7 +541,6 @@ function renderTable(list) {
 
   if (window.lucide) window.lucide.createIcons();
 }
-
 function bindGlobalListeners() {
   if (globalListenersBound) return;
   globalListenersBound = true;
