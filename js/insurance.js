@@ -21,7 +21,7 @@ let editingId = null;
 let currentView = localStorage.getItem('insurance_view') || 'card';
 let expandedKeys = new Set();
 
-// 🆕 防止全域事件監聽重複綁定
+// 防止全域事件監聽重複綁定
 let globalListenersBound = false;
 
 export function initInsurancePage() {
@@ -34,7 +34,7 @@ export function initInsurancePage() {
   bindAddPeriodModalEvents();
   bindViewToggle();
   bindCompletedToggle();
-  bindGlobalListeners();   // 🆕
+  bindGlobalListeners();
 
   document.getElementById('sync-all-btn').addEventListener('click', async () => {
     if (!confirm('確定要重新同步所有保單的已扣款支出嗎？')) return;
@@ -140,11 +140,21 @@ function getPeriodInfo(policy, curYear, curMonth) {
   return { periodIndex, ...getPeriodRange(policy, periodIndex) };
 }
 
+/* ============================================
+   🔧 修復：已供滿保單判斷
+   - 基金保險：一律視為供款中（沒有年期概念）
+   - 普通保險：已扣款期數 >= 總期數 才視為已供滿
+   - 邊界：total 為 0 或未設定時，不視為已供滿
+   ============================================ */
 function isPolicyCompleted(policy) {
   if (policy.isCompleted) return true;
+  if (policy.type === 'fund_insurance') return false;
+
   const total = Number(policy.totalPolicyPeriods) || 0;
+  if (total <= 0) return false;
+
   const done = Number(policy.completedPeriods) || 0;
-  return total > 0 && done >= total;
+  return done >= total;
 }
 
 function getPolicyTotalPremium(policy) {
@@ -155,51 +165,95 @@ function getPolicyTotalPremium(policy) {
   return (Number(policy.annualPremium) || 0) * (Number(policy.totalPolicyYears) || 0);
 }
 
+/* ============================================
+   🔧 修復：renderAll 完整重構
+   - 三個統計卡同步更新
+   - 已供滿區塊只在 completed.length > 0 時顯示，並重置折疊狀態
+   - 所有保單已供滿時不顯示「尚無保單」
+   ============================================ */
 async function renderAll() {
   const { year, month } = AppState.getYearMonth();
   const isAnnual = month === 'all';
   document.getElementById('insurance-month').textContent = isAnnual ? `${year} 年 全年總覽` : `${year} 年 ${month} 月`;
 
+  // 1. 讀取所有保單即時付款紀錄，重新計算 completedPeriods
   const enrichedPolicies = await Promise.all(policies.map(async (p) => {
-    if (p.type === 'fund_insurance') return p;
+    if (p.type === 'fund_insurance') {
+      return { ...p, completedPeriods: 0, _payments: {} };
+    }
     const payments = await getInsurancePaymentsOnce(p.id);
     let completed = 0;
     Object.values(payments).forEach((yearData) => {
-      Object.values(yearData || {}).forEach((mData) => { if (mData.status === '已扣款') completed++; });
+      Object.values(yearData || {}).forEach((mData) => {
+        if (mData.status === '已扣款') completed++;
+      });
     });
     return { ...p, completedPeriods: completed, _payments: payments };
   }));
 
-  const grandTotal = enrichedPolicies.reduce((s, p) => s + getPolicyTotalPremium(p), 0);
-  document.getElementById('grand-total-premium').textContent = formatHKD(grandTotal);
-  document.getElementById('grand-total-hint').textContent = `共 ${enrichedPolicies.length} 張保單`;
-
+  // 2. 分類
   const completed = enrichedPolicies.filter(isPolicyCompleted);
   const active = enrichedPolicies.filter((p) => !isPolicyCompleted(p));
-  document.getElementById('active-policy-count').textContent = `${active.length} 張`;
 
+  // 3. 更新頂部三統計卡
+  const grandTotal = enrichedPolicies.reduce((s, p) => s + getPolicyTotalPremium(p), 0);
+  const grandTotalEl = document.getElementById('grand-total-premium');
+  const grandTotalHintEl = document.getElementById('grand-total-hint');
+  const activeCountEl = document.getElementById('active-policy-count');
+  const statCompletedEl = document.getElementById('stat-completed-policies');
+
+  if (grandTotalEl) grandTotalEl.textContent = formatHKD(grandTotal);
+  if (grandTotalHintEl) grandTotalHintEl.textContent = `共 ${enrichedPolicies.length} 張保單`;
+  if (activeCountEl) activeCountEl.textContent = `${active.length} 張`;
+  if (statCompletedEl) statCompletedEl.textContent = `${completed.length} 張`;
+
+  // 4. 已供滿保單區塊（🔧 完整處理顯示 / 隱藏 / 重置）
   const completedSection = document.getElementById('completed-section');
+  const completedBody = document.getElementById('completed-body');
+  const completedCountEl = document.getElementById('completed-count');
+  const completedGridEl = document.getElementById('completed-grid');
+
   if (completed.length > 0) {
-    completedSection.style.display = 'block';
-    document.getElementById('completed-count').textContent = completed.length;
-    document.getElementById('completed-grid').innerHTML = completed.map((p) => renderCard(p, true)).join('');
+    if (completedSection) completedSection.style.display = 'block';
+    if (completedCountEl) completedCountEl.textContent = completed.length;
+    if (completedGridEl) completedGridEl.innerHTML = completed.map((p) => renderCard(p, true)).join('');
   } else {
-    completedSection.style.display = 'none';
+    // 完全隱藏，並重置折疊狀態
+    if (completedSection) {
+      completedSection.style.display = 'none';
+      completedSection.classList.remove('open');
+    }
+    if (completedBody) completedBody.style.display = 'none';
+    if (completedCountEl) completedCountEl.textContent = '0';
+    if (completedGridEl) completedGridEl.innerHTML = '';
   }
 
+  // 5. 供款中保單顯示
   const emptyState = document.getElementById('empty-state');
   const gridEl = document.getElementById('policy-grid');
   const tableEl = document.getElementById('policy-table-view');
 
-  if (active.length === 0) {
-    gridEl.style.display = 'none'; tableEl.style.display = 'none'; emptyState.style.display = 'block';
+  if (enrichedPolicies.length === 0) {
+    // 完全無保單 → 顯示空狀態
+    if (gridEl) gridEl.style.display = 'none';
+    if (tableEl) tableEl.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'block';
+  } else if (active.length === 0) {
+    // 全部已供滿 → 不顯示空狀態，只顯示已供滿區塊
+    if (gridEl) gridEl.style.display = 'none';
+    if (tableEl) tableEl.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
   } else {
-    emptyState.style.display = 'none';
+    if (emptyState) emptyState.style.display = 'none';
     if (currentView === 'card') {
-      gridEl.style.display = 'grid'; tableEl.style.display = 'none';
-      gridEl.innerHTML = active.map((p) => renderCard(p, false)).join('');
+      if (gridEl) {
+        gridEl.style.display = 'grid';
+        gridEl.innerHTML = active.map((p) => renderCard(p, false)).join('');
+      }
+      if (tableEl) tableEl.style.display = 'none';
     } else {
-      gridEl.style.display = 'none'; tableEl.style.display = 'block';
+      if (gridEl) gridEl.style.display = 'none';
+      if (tableEl) tableEl.style.display = 'block';
       renderTable(active);
     }
   }
@@ -373,9 +427,6 @@ function renderTable(list) {
   if (window.lucide) window.lucide.createIcons();
 }
 
-/* ============================================
-   全域事件監聽（用 flag 防止重複綁定）
-   ============================================ */
 function bindGlobalListeners() {
   if (globalListenersBound) return;
   globalListenersBound = true;
