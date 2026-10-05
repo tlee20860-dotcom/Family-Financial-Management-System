@@ -1,5 +1,5 @@
 // ============================================
-// db.js — Firebase Realtime Database 讀寫封裝（多家庭版 + 錯誤處理）
+// db.js — Firebase Realtime Database 讀寫封裝（多家庭版）
 // ============================================
 
 import { db } from './firebase-config.js';
@@ -25,13 +25,13 @@ function familyRef(subpath) {
 function listen(subpath, callback, onError) {
   const familyId = AppState.getFamilyId();
   if (!familyId) {
-    console.warn('尚未選擇家庭，無法讀取資料');
+    console.warn('⚠️ 尚未選擇家庭，略過 Firebase 讀取：', subpath);
     if (onError) onError(new Error('尚未選擇家庭'));
     return () => {};
   }
   const r = ref(db, `families/${familyId}/${subpath}`);
   return onValue(r, callback, (err) => {
-    console.error(`Firebase 讀取失敗 [${subpath}]：`, err);
+    console.error(`❌ Firebase 讀取失敗 [${subpath}]：`, err);
     if (onError) onError(err);
   });
 }
