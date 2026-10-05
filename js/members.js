@@ -1,9 +1,10 @@
 // ============================================
-// members.js — 成員管理頁邏輯（含自訂排序）
+// members.js — 成員管理頁邏輯
 // ============================================
 
 import {
-  listenMembers, addMember, updateMember, removeMember, updateMemberOrders,
+  listenMembers, addMember, updateMember, updateMemberOrders,
+  deleteMemberAndData,
 } from './db.js';
 import { escapeHtml, sortMembers } from './utils.js';
 
@@ -51,11 +52,9 @@ export function initMembersPage() {
     if (editingId) {
       await updateMember(editingId, { name, role });
     } else {
-      // 新成員的 order = 目前最大 order + 1
       const maxOrder = currentMembers.reduce(
         (max, m) => Math.max(max, m.order != null ? m.order : -1), -1
       );
-      // 建立新成員時直接設定 order，確保排序穩定
       await addMember({ name, role, order: maxOrder + 1 });
     }
     modal.classList.remove('active');
@@ -78,8 +77,13 @@ export function initMembersPage() {
       modal.classList.add('active');
       setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
-      if (confirm(`確定要刪除成員「${member.name}」嗎？\n（該成員的支出紀錄不會被刪除）`)) {
-        await removeMember(id);
+      if (confirm(`⚠️ 確定要刪除成員「${member.name}」嗎？\n\n這將會一併刪除該成員在所有月份的所有支出紀錄（含保險平攤），此操作無法復原。`)) {
+        try {
+          await deleteMemberAndData(id);
+          alert('✅ 成員與相關紀錄已徹底刪除');
+        } catch (err) {
+          alert('刪除失敗：' + err.message);
+        }
       }
     } else if (action === 'move-up') {
       await moveMember(id, 'up');
