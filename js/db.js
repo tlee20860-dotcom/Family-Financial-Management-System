@@ -649,3 +649,42 @@ export async function updatePolicyCompanyName(oldName, newName) {
   }
   return Object.keys(updates).length;
 }
+/* ============================================
+   修正版：從上個月複製固定支出（含類別與項目）
+   ============================================ */
+
+export async function copyFixedExpensesFromPrevMonth(year, month) {
+  const y = Number(year); const m = Number(month);
+  let prevY = y; let prevM = m - 1;
+  if (prevM < 1) { prevY = y - 1; prevM = 12; }
+  const prevMonthStr = String(prevM).padStart(2, '0');
+
+  const currentSnap = await get(familyRef(`fixed_expenses/${year}/${month}`));
+  if (currentSnap.exists() && Object.keys(currentSnap.val() || {}).length > 0) return 0;
+
+  const prevSnap = await get(familyRef(`fixed_expenses/${prevY}/${prevMonthStr}`));
+  const prevVal = prevSnap.val() || {};
+  const prevList = Object.entries(prevVal);
+  if (prevList.length === 0) return 0;
+
+  let count = 0;
+  for (const [id, item] of prevList) {
+    const newRef = push(familyRef(`fixed_expenses/${year}/${month}`));
+    await set(newRef, {
+      name: item.name || '',
+      amount: Number(item.amount) || 0,
+      cycle: item.cycle || '每月',
+      note: item.note || '',
+      // 🆕 關鍵修正：補上 categoryId 與 itemId
+      categoryId: item.categoryId || '',
+      itemId: item.itemId || '',
+      status: '未付款',
+      paidDate: '',
+      isSkipped: false,
+      createdAt: Date.now() + count,
+      copiedFrom: `${prevY}-${prevMonthStr}`,
+    });
+    count++;
+  }
+  return count;
+}
