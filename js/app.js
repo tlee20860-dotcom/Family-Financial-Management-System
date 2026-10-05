@@ -11,31 +11,40 @@ import { initPWA } from './pwa.js';
 import { AppState } from './state.js';
 
 export async function initApp({ activeHref = '', title = '', needAuth = true, requireFamily = true } = {}) {
-  initPWA();
+  try { initPWA(); } catch (err) { console.warn('PWA 初始化失敗：', err); }
   AppState.init();
 
   let user = null;
   if (needAuth) {
-    user = await requireLogin({ requireFamily });
+    try {
+      user = await requireLogin({ requireFamily });
+    } catch (err) {
+      console.error('❌ 登入驗證失敗：', err);
+      return null;
+    }
     if (!user) return null;
   }
 
-  // 最關鍵的修正：如果 familyId 為空，強制使用 UID 設定
   if (user && !AppState.getFamilyId()) {
     AppState.setFamily(user.uid, '我的家庭');
     console.log('✅ 已強制設定 familyId：', user.uid);
   }
 
-  // 渲染 Sidebar
   const sidebarRoot = document.getElementById('sidebar-root');
   if (sidebarRoot) {
-    await renderSidebar('sidebar-root', activeHref);
+    try {
+      await renderSidebar('sidebar-root', activeHref);
+    } catch (err) {
+      console.error('❌ Sidebar 渲染失敗：', err);
+    }
   }
 
-  // 渲染 Navbar
-  renderNavbar('navbar-root', title);
+  try {
+    renderNavbar('navbar-root', title);
+  } catch (err) {
+    console.error('❌ Navbar 渲染失敗：', err);
+  }
 
-  // 自動注入 Date Filter（排除 admin.html）
   if (activeHref !== 'admin.html') {
     try {
       let dateFilterRoot = document.getElementById('date-filter-root');
@@ -55,7 +64,6 @@ export async function initApp({ activeHref = '', title = '', needAuth = true, re
     }
   }
 
-  // 更新 Navbar 使用者資訊
   const userBox = document.getElementById('navbar-user');
   if (userBox && user) {
     const name = getDisplayName(user);
