@@ -31,6 +31,7 @@ export function initPersonalExpensesPage() {
   const resetBtn = document.getElementById('pe-reset-btn');
 
   // 篩選器元素
+  const filterYear = document.getElementById('pe-filter-year');
   const filterMonth = document.getElementById('pe-filter-month');
   const filterMember = document.getElementById('pe-filter-member');
   const filterCategory = document.getElementById('pe-filter-category');
@@ -41,9 +42,12 @@ export function initPersonalExpensesPage() {
 
   const now = new Date();
   const currentYear = now.getFullYear();
+
+  // 填充年份選項
   let yearOpts = '';
   for (let y = currentYear - 5; y <= currentYear + 5; y++) yearOpts += `<option value="${y}">${y} 年</option>`;
   yearSel.innerHTML = yearOpts;
+  filterYear.innerHTML = yearOpts;
 
   // 填充編輯 Modal 的年份／月份
   const editYearSel = document.getElementById('pe-edit-year');
@@ -86,7 +90,6 @@ export function initPersonalExpensesPage() {
 
   // 載入整年資料（1～12 月）
   function loadAnnualData(year) {
-    // 清除舊監聽
     unsubscribers.forEach(unsub => unsub());
     unsubscribers = [];
     allExpenses = [];
@@ -95,19 +98,16 @@ export function initPersonalExpensesPage() {
     for (let m = 1; m <= 12; m++) {
       const monthStr = String(m).padStart(2, '0');
       const unsub = listenAllMemberExpenses(year, monthStr, (list) => {
-        // 先移除該月份舊資料
         const prefix = `${year}-${monthStr}-`;
         for (const key of expenseMap.keys()) {
           if (key.startsWith(prefix)) {
             expenseMap.delete(key);
           }
         }
-        // 加入新資料
         list.forEach(item => {
           const key = `${year}-${monthStr}-${item.memberId}-${item.id}`;
           expenseMap.set(key, { ...item, _year: year, _month: monthStr });
         });
-        // 重新構建 allExpenses
         allExpenses = Array.from(expenseMap.values());
         renderExpenses();
       });
@@ -116,17 +116,19 @@ export function initPersonalExpensesPage() {
   }
 
   // 預設表單的年月為當前全局年月
-  const { year, month } = AppState.getYearMonth();
-  yearSel.value = year;
-  monthSel.value = month === 'all' ? String(now.getMonth() + 1).padStart(2, '0') : month;
+  const { year: initialYear, month: initialMonth } = AppState.getYearMonth();
+  yearSel.value = initialYear;
+  monthSel.value = initialMonth === 'all' ? String(now.getMonth() + 1).padStart(2, '0') : initialMonth;
+  filterYear.value = initialYear;
 
   // 載入整年資料
-  loadAnnualData(year);
+  loadAnnualData(initialYear);
 
   AppState.on('ym-change', () => {
     const { year, month } = AppState.getYearMonth();
     yearSel.value = year;
     monthSel.value = month === 'all' ? String(now.getMonth() + 1).padStart(2, '0') : month;
+    filterYear.value = year;
     // 重新載入整年資料
     loadAnnualData(year);
     // 重置篩選器
@@ -349,6 +351,12 @@ export function initPersonalExpensesPage() {
   });
 
   // ========== 篩選器事件 ==========
+  filterYear.addEventListener('change', () => {
+    const newYear = filterYear.value;
+    filterMonth.value = 'all'; // 切換年份時重置月份
+    loadAnnualData(newYear);
+  });
+
   filterMonth.addEventListener('change', renderExpenses);
   filterMember.addEventListener('change', renderExpenses);
   filterStatus.addEventListener('change', renderExpenses);
@@ -362,6 +370,7 @@ export function initPersonalExpensesPage() {
   filterItem.addEventListener('change', renderExpenses);
 
   filterResetBtn.addEventListener('click', () => {
+    filterYear.value = AppState.getYearMonth().year;
     filterMonth.value = 'all';
     filterMember.value = 'all';
     filterCategory.value = 'all';
@@ -412,6 +421,7 @@ export function initPersonalExpensesPage() {
     const tbody = document.getElementById('pe-tbody');
     if (!tbody) return;
 
+    const yearFilter = filterYear.value;
     const monthFilter = filterMonth.value;
     const memberFilter = filterMember.value;
     const categoryFilter = filterCategory.value;
@@ -421,6 +431,7 @@ export function initPersonalExpensesPage() {
 
     // 過濾
     let filtered = allExpenses.filter(x => {
+      if (yearFilter !== 'all' && x._year !== yearFilter) return false;
       if (monthFilter !== 'all' && x._month !== monthFilter) return false;
       if (memberFilter !== 'all' && x.memberId !== memberFilter) return false;
       if (categoryFilter !== 'all' && x.categoryId !== categoryFilter) return false;
@@ -441,7 +452,7 @@ export function initPersonalExpensesPage() {
     });
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">沒有符合條件的支出紀錄</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">沒有符合條件的支出紀錄</td></tr>';
       updateSelectedCount();
       return;
     }
@@ -469,6 +480,8 @@ export function initPersonalExpensesPage() {
           <td>${escapeHtml(memberName)}</td>
           <td>${escapeHtml(x.name)}${x.isAutoLinked ? '<span class="badge badge-info" style="margin-left:6px;">保險連動</span>' : ''}</td>
           <td style="font-size:12px; color:var(--text-muted);">${escapeHtml(cat?.name || '—')}</td>
+          <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x._year)}</td>
+          <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x._month)}</td>
           <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x.date || '—')}</td>
           <td class="num">${formatHKD(x.amount)}</td>
           <td>${statusBadge}</td>
