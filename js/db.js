@@ -619,3 +619,33 @@ export async function addInsuranceCompany(name) {
   await set(newRef, { name: name || '', createdAt: Date.now() });
   return newRef.key;
 }
+/* ============================================
+   保險公司：編輯與同步
+   ============================================ */
+
+export async function updateInsuranceCompany(id, newName) {
+  await update(familyRef(`insurance_companies/${id}`), { name: newName });
+}
+
+/**
+ * 更新所有引用該公司名稱的保單
+ */
+export async function updatePolicyCompanyName(oldName, newName) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  const snap = await get(ref(db, `families/${familyId}/insurance_policies`));
+  const policies = snap.val() || {};
+
+  const updates = {};
+  Object.entries(policies).forEach(([id, p]) => {
+    if (p.company === oldName) {
+      updates[`families/${familyId}/insurance_policies/${id}/company`] = newName;
+    }
+  });
+
+  if (Object.keys(updates).length > 0) {
+    await update(ref(db), updates);
+  }
+  return Object.keys(updates).length;
+}
