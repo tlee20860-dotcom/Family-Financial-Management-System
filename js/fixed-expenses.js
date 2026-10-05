@@ -1,7 +1,7 @@
 // ============================================
 // fixed-expenses.js — 家庭固定支出
 // 方案 A：模板 > 年份 > 月份 三層折疊
-// 年份改為手動新增，不預設載入
+// 年份清單即時同步 Firebase（無 localStorage）
 // ============================================
 
 import {
@@ -11,6 +11,8 @@ import {
   getFixedExpensesOnce,
   listenCategories, listenItems, addItem,
   listenMembers,
+  listenFixedExpenseYears, addFixedExpenseYear,
+  removeFixedExpenseYear, removeAllFixedExpenseYears,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
@@ -20,7 +22,7 @@ let categories = [];
 let items = [];
 let members = [];
 
-// 依家庭隔離的「已新增年份」儲存：{ [templateId]: [year, ...] }
+// 已新增年份：{ [templateId]: [year, ...] }，由 Firebase 監聽即時更新
 let yearStore = {};
 
 // 資料快取：yearlyData[yearNumber][monthStr] = [expense, ...]
@@ -31,61 +33,19 @@ const loadedYears = new Set();      // Set<number>
 const expandedTemplates = new Set();          // Set<templateId>
 const expandedYears = new Set();              // Set<`${templateId}|${yearNumber}`>
 
-// 新增後自動展開
-let pendingExpandTemplateName = null;
-let pendingExpandYear = null;
-
 /** 安全取得當前年份（強制數字） */
 function getCurrentYear() {
   const y = Number(AppState.year);
   return Number.isFinite(y) && y > 2000 ? y : new Date().getFullYear();
 }
 
-/* ============ 依家庭隔離的年份儲存 ============ */
-function getFamilyKey() {
-  return AppState.currentFamilyId || 'default';
-}
-
-function loadYearStore() {
-  try {
-    const raw = localStorage.getItem(`fixed_expense_years_${getFamilyKey()}`);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function saveYearStore(store) {
-  try {
-    localStorage.setItem(`fixed_expense_years_${getFamilyKey()}`, JSON.stringify(store));
-  } catch (e) { console.warn('儲存年份失敗：', e); }
-}
-
+/** 取得某模板已新增的年份（從記憶體快取，由 Firebase 監聽填充） */
 function getAddedYears(templateId) {
   return yearStore[templateId] || [];
 }
 
-function addYearToTemplate(templateId, year) {
-  const y = Number(year);
-  if (!Number.isFinite(y)) return;
-  if (!yearStore[templateId]) yearStore[templateId] = [];
-  if (!yearStore[templateId].includes(y)) {
-    yearStore[templateId].push(y);
-    yearStore[templateId].sort((a, b) => b - a);
-  }
-  saveYearStore(yearStore);
-}
-
-function removeYearFromTemplate(templateId, year) {
-  const y = Number(year);
-  if (yearStore[templateId]) {
-    yearStore[templateId] = yearStore[templateId].filter((x) => x !== y);
-    saveYearStore(yearStore);
-  }
-}
-
 /* ============ 初始化 ============ */
 export function initFixedExpensesPage() {
-  yearStore = loadYearStore();
-
   const container = document.getElementById('fixed-templates-container');
   const modal = document.getElementById('fixed-modal');
   const form = document.getElementById('fixed-form');
@@ -137,28 +97,19 @@ export function initFixedExpensesPage() {
 
   // 模板清單監聽
   listenFixedTemplates(async (list) => {
-    const prevIds = new Set(templates.map((t) => t.id));
     templates = list;
-
-    // 自動展開新添加的模板（來自表單送出）
-    if (pendingExpandTemplateName) {
-      const newT = list.find((t) => t.name === pendingExpandTemplateName && !prevIds.has(t.id));
-      if (newT) {
-        const y = pendingExpandYear || getCurrentYear();
-        addYearToTemplate(newT.id, y);
-        expandedTemplates.add(newT.id);
-        expandedYears.add(`${newT.id}|${y}`);
-        pendingExpandTemplateName = null;
-        pendingExpandYear = null;
-      }
-    }
-
-    // 載入所有已新增年份的資料
     await loadAllAddedYears();
     render();
   });
 
-  // 年份切換：只更新表單預設值，不影響已新增年份
+  // 年份清單監聽（即時同步 Firebase）
+  listenFixedExpenseYears(async (store) => {
+    yearStore = store || {};
+    await loadAllAddedYears();
+    render();
+  });
+
+  // 年份切換：只更新表單預設值
   AppState.on('ym-change', () => {
     yearSel.value = getCurrentYear();
     render();
@@ -175,6 +126,7 @@ export function initFixedExpensesPage() {
 
   document.getElementById('fixed-cancel-btn').addEventListener('click', () => modal.classList.remove('active'));
 
+  /* ============ 新增固定支出 ============ */
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const memberId = memberSel.value;
@@ -188,11 +140,8 @@ export function initFixedExpensesPage() {
 
     if (!itemName || !amount || !Number.isFinite(targetYear)) return;
 
-    pendingExpandTemplateName = itemName;
-    pendingExpandYear = targetYear;
-
-    // 1. 寫入模板
-    await addFixedTemplate({
+    // 1. 寫入模板（取得新 ID）
+    const newTemplateId = await addFixedTemplate({
       name: itemName, categoryId: catId, itemId: itemId,
       amount: amount, cycle: cycle, note: note,
       memberId: memberId,
@@ -214,7 +163,14 @@ export function initFixedExpensesPage() {
     }
     await Promise.all(promises);
 
-    // 3. 重新載入該年份並渲染
+    // 3. 登記年份（寫入 Firebase）
+    await addFixedExpenseYear(newTemplateId, targetYear);
+
+    // 4. 展開該模板的該年份
+    expandedTemplates.add(newTemplateId);
+    expandedYears.add(`${newTemplateId}|${targetYear}`);
+
+    // 5. 重新載入並渲染
     invalidateYear(targetYear);
     await loadYear(targetYear);
     render();
@@ -234,12 +190,12 @@ export function initFixedExpensesPage() {
       if (confirm(`⚠️ 確定要刪除「${templateName}」嗎？\n\n這將會刪除該支出在所有年份的紀錄，此操作無法復原。`)) {
         try {
           await deleteFixedTemplateAndMonths(templateId, templateName);
+          await removeAllFixedExpenseYears(templateId);
           expandedTemplates.delete(templateId);
           for (const key of [...expandedYears]) {
             if (key.startsWith(`${templateId}|`)) expandedYears.delete(key);
           }
           delete yearStore[templateId];
-          saveYearStore(yearStore);
           alert('✅ 已徹底刪除');
         } catch (err) {
           alert('刪除失敗：' + err.message);
@@ -276,7 +232,7 @@ export function initFixedExpensesPage() {
       return;
     }
 
-    // 4) 新增年份
+    // 4) 新增年份（寫入 Firebase）
     const addYearBtn = e.target.closest('button[data-action="add-year"]');
     if (addYearBtn) {
       e.stopPropagation();
@@ -316,7 +272,9 @@ export function initFixedExpensesPage() {
       }
       await Promise.all(promises);
 
-      addYearToTemplate(templateId, year);
+      // 登記年份（寫入 Firebase，監聽器會自動更新 yearStore）
+      await addFixedExpenseYear(templateId, year);
+
       expandedYears.add(`${templateId}|${year}`);
       invalidateYear(year);
       await loadYear(year);
@@ -332,9 +290,14 @@ export function initFixedExpensesPage() {
       const tId = removeYearBtn.dataset.templateId;
       const year = Number(removeYearBtn.dataset.year);
       if (!confirm(`確定要從檢視中移除 ${year} 年嗎？\n（資料仍會保留在資料庫中，之後可再手動加入）`)) return;
-      removeYearFromTemplate(tId, year);
-      expandedYears.delete(`${tId}|${year}`);
-      render();
+
+      try {
+        await removeFixedExpenseYear(tId, year);
+        expandedYears.delete(`${tId}|${year}`);
+        // 監聽器會自動更新 yearStore 並重新渲染
+      } catch (err) {
+        alert('移除失敗：' + err.message);
+      }
       return;
     }
   });
@@ -594,11 +557,11 @@ async function loadYear(year) {
   loadedYears.add(y);
 }
 
-/* 載入所有已新增年份的資料 */
+/* 載入所有已新增年份的資料（由 yearStore 決定） */
 async function loadAllAddedYears() {
   const yearsToLoad = new Set();
   for (const tId of Object.keys(yearStore)) {
-    for (const y of yearStore[tId]) {
+    for (const y of yearStore[tId] || []) {
       if (!loadedYears.has(y)) yearsToLoad.add(y);
     }
   }
