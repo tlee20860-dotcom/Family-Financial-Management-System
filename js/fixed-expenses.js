@@ -95,11 +95,15 @@ export function initFixedExpensesPage() {
     }
     await Promise.all(promises);
 
+    // 🆕 手動重新載入年度資料，確保 UI 正確顯示新分配的月份資料
+    await loadYearData();
+    render();
+
     modal.classList.remove('active');
     showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`);
   });
 
-  // 事件委派：處理卡片內的編輯與刪除
+  // 事件委派：處理卡片內的刪除
   container.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -124,10 +128,12 @@ export function initFixedExpensesPage() {
     if (el.dataset.action === 'update-amount') {
       const monthStr = el.dataset.month;
       const id = el.dataset.id;
+      if (!id) return;
       await updateFixedExpenseV2(AppState.year, monthStr, id, { amount: Number(el.value) || 0 });
     } else if (el.dataset.action === 'toggle-paid') {
       const monthStr = el.dataset.month;
       const id = el.dataset.id;
+      if (!id) return;
       await updateFixedExpenseV2(AppState.year, monthStr, id, {
         status: el.checked ? '已付款' : '未付款',
         paidDate: el.checked ? new Date().toISOString().slice(0, 10) : '',
@@ -135,6 +141,7 @@ export function initFixedExpensesPage() {
     } else if (el.dataset.action === 'toggle-skip') {
       const monthStr = el.dataset.month;
       const id = el.dataset.id;
+      if (!id) return;
       await updateFixedExpenseV2(AppState.year, monthStr, id, { isSkipped: el.checked });
     }
   });
