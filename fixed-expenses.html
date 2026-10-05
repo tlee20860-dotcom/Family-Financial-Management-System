@@ -32,6 +32,8 @@
     .fixed-table .month-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); min-width: 50px; }
     .skip-row { opacity: 0.4; text-decoration: line-through; }
 
+    .add-year-btn { display: inline-flex; align-items: center; gap: 6px; }
+
     @media (max-width: 640px) {
       .fixed-card-header { align-items: flex-start; }
     }
@@ -55,7 +57,7 @@
         </div>
 
         <div class="banner">
-          ℹ️ 點擊固定支出卡片可展開，按「年份 &gt; 月份」查看與編輯明細。新增時系統會自動分配到所屬月份。
+          ℹ️ 新增時選擇年份與週期，系統會自動分配到所屬月份。展開卡片後，可按「年份 &gt; 月份」查看與編輯明細，並可隨時手動新增其他年份。
         </div>
 
         <div id="fixed-templates-container">
@@ -67,9 +69,13 @@
 
   <!-- 新增固定支出 Modal -->
   <div class="modal-overlay" id="fixed-modal">
-    <div class="modal" style="max-width:520px;">
+    <div class="modal" style="max-width:520px; max-height:90vh; overflow-y:auto;">
       <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
       <form id="fixed-form">
+        <div class="field">
+          <label class="field-label" for="fixed-year">年份</label>
+          <select class="select" id="fixed-year" required></select>
+        </div>
         <div class="field">
           <label class="field-label" for="fixed-member">所屬成員</label>
           <select class="select" id="fixed-member">
