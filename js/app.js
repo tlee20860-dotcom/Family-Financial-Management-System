@@ -20,7 +20,7 @@ export async function initApp({ activeHref = '', title = '', needAuth = true, re
     if (!user) return null;
   }
 
-  // 🆕 最關鍵的修正：如果 familyId 為空，強制使用 UID 設定
+  // 最關鍵的修正：如果 familyId 為空，強制使用 UID 設定
   if (user && !AppState.getFamilyId()) {
     AppState.setFamily(user.uid, '我的家庭');
     console.log('✅ 已強制設定 familyId：', user.uid);
@@ -37,16 +37,22 @@ export async function initApp({ activeHref = '', title = '', needAuth = true, re
 
   // 自動注入 Date Filter（排除 admin.html）
   if (activeHref !== 'admin.html') {
-    let dateFilterRoot = document.getElementById('date-filter-root');
-    if (!dateFilterRoot) {
-      dateFilterRoot = document.createElement('div');
-      dateFilterRoot.id = 'date-filter-root';
-      const navbar = document.getElementById('navbar-root');
-      if (navbar && navbar.parentNode) {
-        navbar.parentNode.insertBefore(dateFilterRoot, navbar.nextSibling);
+    try {
+      let dateFilterRoot = document.getElementById('date-filter-root');
+      if (!dateFilterRoot) {
+        dateFilterRoot = document.createElement('div');
+        dateFilterRoot.id = 'date-filter-root';
+        const navbar = document.getElementById('navbar-root');
+        if (navbar && navbar.parentNode) {
+          navbar.parentNode.insertBefore(dateFilterRoot, navbar.nextSibling);
+        } else {
+          document.body.insertBefore(dateFilterRoot, document.body.firstChild);
+        }
       }
+      renderDateFilter('date-filter-root');
+    } catch (err) {
+      console.error('❌ Date Filter 注入失敗：', err);
     }
-    renderDateFilter('date-filter-root');
   }
 
   // 更新 Navbar 使用者資訊
