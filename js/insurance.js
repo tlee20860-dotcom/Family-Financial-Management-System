@@ -1,5 +1,5 @@
 // ============================================
-// insurance.js — 保險付款（年度化重構 + 自動同步 + 徹底刪除 + 自訂公司）
+// insurance.js — 保險付款（年度化重構 + 自動同步 + 徹底刪除 + 自訂公司 + 整數化）
 // ============================================
 
 import {
@@ -31,7 +31,6 @@ export function initInsurancePage() {
   bindAddPeriodModalEvents();
   bindDetailModalEvents();
 
-  // 同步所有支出按鈕
   document.getElementById('sync-all-btn').addEventListener('click', async () => {
     if (!confirm('確定要重新同步所有保單的已扣款支出嗎？\n（這會覆蓋成員支出中保險平攤的金額）')) return;
     try {
@@ -42,10 +41,8 @@ export function initInsurancePage() {
     }
   });
 
-  // 監聽保險公司清單
   listenInsuranceCompanies((list) => {
     companies = list;
-    // 若資料庫為空，自動寫入預設公司
     if (list.length === 0 && !window._seededCompanies) {
       window._seededCompanies = true;
       DEFAULT_COMPANIES.forEach(async (name) => {
@@ -60,19 +57,12 @@ export function initInsurancePage() {
   AppState.on('ym-change', () => renderGrid());
 }
 
-/* ============================================
-   保險公司下拉選單
-   ============================================ */
 function renderCompanyOptions() {
   const sel = document.getElementById('policy-company');
   if (!sel) return;
-
   const current = sel.value;
   const list = companies.length ? companies : DEFAULT_COMPANIES.map((name) => ({ name }));
-
   sel.innerHTML = list.map((c) => `<option value="${c.name}">${escapeHtml(c.name)}</option>`).join('');
-
-  // 若當前選中的值不在列表中（例如編輯舊保單，該公司已被刪除），動態加入
   if (current && !list.some((c) => c.name === current)) {
     const opt = document.createElement('option');
     opt.value = current;
@@ -82,9 +72,6 @@ function renderCompanyOptions() {
   if (current) sel.value = current;
 }
 
-/* ============================================
-   自動同步邏輯
-   ============================================ */
 async function autoSyncPolicyExpenses(policy) {
   const payments = await getInsurancePaymentsOnce(policy.id);
   const promises = [];
@@ -96,10 +83,8 @@ async function autoSyncPolicyExpenses(policy) {
         const curM = Number(month);
         const info = getPeriodInfo(policy, curY, curM);
         if (!info) continue;
-
         const periodData = (policy.periods || {})[String(info.periodIndex)];
-        const amount = data.amount || (periodData ? periodData.monthlyAverage : policy.monthlyAverage);
-
+        const amount = Math.round(data.amount || (periodData ? periodData.monthlyAverage : policy.monthlyAverage) || 0);
         promises.push(api.insuranceSync({
           policyId: policy.id, memberId: policy.memberId, policyName: policy.name,
           monthlyAverage: amount, year, month
@@ -115,23 +100,17 @@ async function syncAllPolicyExpenses() {
   await Promise.all(promises);
 }
 
-/* ============================================
-   年度區間計算工具
-   ============================================ */
 function getPeriodRange(policy, periodIndex) {
   const firstY = Number(policy.firstStartYear);
   const firstM = Number(policy.firstStartMonth);
   const startDate = new Date(firstY, firstM - 1, 1);
   startDate.setMonth(startDate.getMonth() + (periodIndex - 1) * 12);
-
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + 11);
-
   const sY = startDate.getFullYear();
   const sM = String(startDate.getMonth() + 1).padStart(2, '0');
   const eY = endDate.getFullYear();
   const eM = String(endDate.getMonth() + 1).padStart(2, '0');
-
   return { startY: sY, startM: sM, endY: eY, endM: eM, rangeText: `${sY}-${sM} ~ ${eY}-${eM}` };
 }
 
@@ -139,22 +118,16 @@ function getPeriodInfo(policy, curYear, curMonth) {
   const firstY = Number(policy.firstStartYear);
   const firstM = Number(policy.firstStartMonth);
   if (!firstY || !firstM || firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) return null;
-
   const startDate = new Date(firstY, firstM - 1, 1);
   const currentDate = new Date(curYear, curMonth - 1, 1);
   const diffMonths = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
-
   if (diffMonths < 0) return null;
   const periodIndex = Math.floor(diffMonths / 12) + 1;
   if (policy.totalPolicyYears && periodIndex > policy.totalPolicyYears) return null;
-
   const range = getPeriodRange(policy, periodIndex);
   return { periodIndex, ...range };
 }
 
-/* ============================================
-   彈窗內動態渲染明細
-   ============================================ */
 async function renderDetailBody(policy, periodIndex) {
   const range = getPeriodRange(policy, periodIndex);
   const payments = await getInsurancePaymentsOnce(policy.id);
@@ -171,15 +144,15 @@ async function renderDetailBody(policy, periodIndex) {
     const m = String(current.getMonth() + 1).padStart(2, '0');
     const monthKey = `${y}-${m}`;
     const payment = payments[y]?.[m] || {};
-    const defaultAmount = (policy.periods?.[String(periodIndex)]?.monthlyAverage) || policy.monthlyAverage || 0;
-    const amount = payment.amount || defaultAmount;
+    const defaultAmount = Math.round((policy.periods?.[String(periodIndex)]?.monthlyAverage) || policy.monthlyAverage || 0);
+    const amount = payment.amount ? Math.round(payment.amount) : defaultAmount;
     const isPaid = payment.status === '已扣款';
     if (isPaid) totalPaid += amount;
 
     rows += `
       <div class="insurance-detail-row" data-month="${monthKey}" style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05);">
         <div style="width:80px; font-family:var(--font-mono); font-size:12px;">${y}-${m}</div>
-        <input type="number" class="input ins-amount" value="${amount}" min="0" step="0.01" style="flex:1; padding:6px 10px; font-size:13px;">
+        <input type="number" class="input ins-amount" value="${amount}" min="0" step="1" style="flex:1; padding:6px 10px; font-size:13px;">
         <label style="display:flex; align-items:center; gap:6px; font-size:12px; white-space:nowrap;">
           <input type="checkbox" class="ins-paid" ${isPaid ? 'checked' : ''} style="width:auto;"> 已扣款
         </label>
@@ -197,9 +170,7 @@ async function renderDetailBody(policy, periodIndex) {
   body.innerHTML = `
     <div style="margin-bottom:12px;">
       <label class="field-label" style="margin-bottom:6px;">選擇年度</label>
-      <select class="select" id="detail-period-select" style="width:100%; padding:8px 12px; font-size:14px;">
-        ${periodOptions}
-      </select>
+      <select class="select" id="detail-period-select" style="width:100%; padding:8px 12px; font-size:14px;">${periodOptions}</select>
     </div>
     <div style="max-height:50vh; overflow-y:auto;">${rows}</div>
     <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--glass-border); display:flex; justify-content:space-between;">
@@ -208,8 +179,7 @@ async function renderDetailBody(policy, periodIndex) {
   `;
 
   document.getElementById('detail-period-select').addEventListener('change', (e) => {
-    const newPeriodIndex = Number(e.target.value);
-    renderDetailBody(policy, newPeriodIndex);
+    renderDetailBody(policy, Number(e.target.value));
   });
 }
 
@@ -227,20 +197,13 @@ async function openDetailModal(p) {
     curY = Number(AppState.year);
     curM = Number(AppState.month);
   }
-
   const info = getPeriodInfo(p, curY, curM);
   if (!info) return alert('無法計算保單年度，請確認保單開始日期是否正確。');
-
   currentDetailPolicy = p;
   document.getElementById('insurance-detail-title').textContent = `${p.name} - 付款明細`;
-
   await renderDetailBody(p, info.periodIndex);
   document.getElementById('insurance-detail-modal').classList.add('active');
 }
-
-/* ============================================
-   原有邏輯
-   ============================================ */
 
 function bindPolicyModalEvents() {
   const modal = document.getElementById('policy-modal');
@@ -250,8 +213,8 @@ function bindPolicyModalEvents() {
   const monthlyInput = document.getElementById('policy-monthly');
 
   annualInput.addEventListener('input', () => {
-    const annual = Number(annualInput.value) || 0;
-    monthlyInput.value = annual > 0 ? (annual / 12).toFixed(2) : '';
+    const annual = Math.round(Number(annualInput.value) || 0);
+    monthlyInput.value = annual > 0 ? Math.round(annual / 12) : '';
   });
 
   document.getElementById('add-policy-btn').addEventListener('click', () => {
@@ -268,69 +231,42 @@ function bindPolicyModalEvents() {
     modal.classList.add('active');
   });
 
-  // 新增保險公司按鈕
   document.getElementById('add-company-btn').addEventListener('click', async () => {
     const name = prompt('請輸入新的保險公司名稱：');
     if (!name || !name.trim()) return;
     try {
       await addInsuranceCompany(name.trim());
-      setTimeout(() => {
-        const sel = document.getElementById('policy-company');
-        if (sel) sel.value = name.trim();
-      }, 500);
-    } catch (err) {
-      alert('新增失敗：' + err.message);
-    }
+      setTimeout(() => { const sel = document.getElementById('policy-company'); if (sel) sel.value = name.trim(); }, 500);
+    } catch (err) { alert('新增失敗：' + err.message); }
   });
 
-  // 🆕 編輯保險公司按鈕
   document.getElementById('edit-company-btn').addEventListener('click', async () => {
     const sel = document.getElementById('policy-company');
     const oldName = sel.value;
     if (!oldName) return alert('請先選擇一個要編輯的保險公司。');
-
     const targetCompany = companies.find((c) => c.name === oldName);
     if (!targetCompany) return alert('找不到該保險公司的資料，請確認是否為預設值。');
-
     const newName = prompt(`請輸入「${oldName}」的新名稱：`, oldName);
     if (!newName || !newName.trim() || newName.trim() === oldName) return;
-
     const trimmedNewName = newName.trim();
-
-    // 檢查是否重複
-    if (companies.some((c) => c.name === trimmedNewName)) {
-      return alert('此名稱已存在，請使用其他名稱。');
-    }
-
+    if (companies.some((c) => c.name === trimmedNewName)) return alert('此名稱已存在，請使用其他名稱。');
     try {
-      // 1. 更新公司本身
       await updateInsuranceCompany(targetCompany.id, trimmedNewName);
-
-      // 2. 更新所有引用該公司的保單
       const updatedCount = await updatePolicyCompanyName(oldName, trimmedNewName);
-
       alert(`✅ 已將「${oldName}」更名為「${trimmedNewName}」\n同步更新了 ${updatedCount} 張保單。`);
-
-      // 3. 重新選中新的公司
-      setTimeout(() => {
-        const sel2 = document.getElementById('policy-company');
-        if (sel2) sel2.value = trimmedNewName;
-      }, 500);
-    } catch (err) {
-      alert('編輯失敗：' + err.message);
-    }
+      setTimeout(() => { const sel2 = document.getElementById('policy-company'); if (sel2) sel2.value = trimmedNewName; }, 500);
+    } catch (err) { alert('編輯失敗：' + err.message); }
   });
 
   document.getElementById('policy-cancel-btn').addEventListener('click', () => modal.classList.remove('active'));
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const annual = Number(annualInput.value) || 0;
+    const annual = Math.round(Number(annualInput.value) || 0);
     const firstY = Number(document.getElementById('policy-start-year').value);
     const firstM = Number(document.getElementById('policy-start-month').value);
     const currentPeriod = Number(document.getElementById('policy-current-period').value);
     const totalYears = Number(document.getElementById('policy-total-years').value);
-
     if (firstY < 2000 || firstY > 2100 || firstM < 1 || firstM > 12) return alert('請填寫正確的保單開始年份與月份。');
     if (currentPeriod < 1 || currentPeriod > 100) return alert('「目前是第幾年度」請填寫合理數字。');
 
@@ -345,26 +281,19 @@ function bindPolicyModalEvents() {
 
     const range = getPeriodRange(payload, currentPeriod);
     payload.periods[String(currentPeriod)] = {
-      periodIndex: currentPeriod,
-      startYear: range.startY,
-      startMonth: range.startM,
-      annualPremium: annual,
-      monthlyAverage: annual / 12
+      periodIndex: currentPeriod, startYear: range.startY, startMonth: range.startM,
+      annualPremium: annual, monthlyAverage: Math.round(annual / 12),
     };
 
     if (!payload.name || !payload.memberId) return;
-
     let savedPolicyId = editingId;
     if (editingId) {
       await updateInsurancePolicyV2(editingId, payload);
     } else {
       savedPolicyId = await addInsurancePolicyV2(payload);
-      const newPolicyObj = { ...payload, id: savedPolicyId };
-      await autoSyncPolicyExpenses(newPolicyObj);
+      await autoSyncPolicyExpenses({ ...payload, id: savedPolicyId });
     }
-
     modal.classList.remove('active');
-
     if (editingId) {
       const updatedPolicy = policies.find((x) => x.id === editingId);
       if (updatedPolicy) await autoSyncPolicyExpenses(updatedPolicy);
@@ -380,8 +309,8 @@ function bindAddPeriodModalEvents() {
   const monthlyInput = document.getElementById('add-period-monthly');
 
   annualInput.addEventListener('input', () => {
-    const annual = Number(annualInput.value) || 0;
-    monthlyInput.value = annual > 0 ? (annual / 12).toFixed(2) : '';
+    const annual = Math.round(Number(annualInput.value) || 0);
+    monthlyInput.value = annual > 0 ? Math.round(annual / 12) : '';
   });
 
   document.getElementById('add-period-cancel-btn').addEventListener('click', () => modal.classList.remove('active'));
@@ -390,25 +319,22 @@ function bindAddPeriodModalEvents() {
     e.preventDefault();
     const policyId = document.getElementById('add-period-policy-id').value;
     const periodIndex = Number(document.getElementById('add-period-index').value);
-    const annual = Number(annualInput.value) || 0;
+    const annual = Math.round(Number(annualInput.value) || 0);
     const p = policies.find((x) => x.id === policyId);
     if (!p) return;
-
     const range = getPeriodRange(p, periodIndex);
     await addInsurancePeriod(policyId, periodIndex, {
       startYear: range.startY, startMonth: range.startM,
-      annualPremium: annual, monthlyAverage: annual / 12
+      annualPremium: annual, monthlyAverage: Math.round(annual / 12),
     });
-
     modal.classList.remove('active');
     alert(`✅ 已設定第 ${periodIndex} 年度保費`);
-
     const updatedPolicy = policies.find((x) => x.id === policyId);
     if (updatedPolicy) {
       if (!updatedPolicy.periods) updatedPolicy.periods = {};
       updatedPolicy.periods[String(periodIndex)] = {
         periodIndex, startYear: range.startY, startMonth: range.startM,
-        annualPremium: annual, monthlyAverage: annual / 12
+        annualPremium: annual, monthlyAverage: Math.round(annual / 12),
       };
       await autoSyncPolicyExpenses(updatedPolicy);
     }
@@ -427,7 +353,7 @@ function bindDetailModalEvents() {
 
     rows.forEach((row) => {
       const month = row.dataset.month;
-      const amount = Number(row.querySelector('.ins-amount').value) || 0;
+      const amount = Math.round(Number(row.querySelector('.ins-amount').value) || 0);
       const isPaid = row.querySelector('.ins-paid').checked;
       const [yearStr, monthStr] = month.split('-');
 
@@ -435,13 +361,11 @@ function bindDetailModalEvents() {
         promises.push(saveInsurancePaymentBatch(p.id, yearStr, monthStr, { status: '已扣款', amount }));
         promises.push(api.insuranceSync({
           policyId: p.id, memberId: p.memberId, policyName: p.name,
-          monthlyAverage: amount, year: yearStr, month: monthStr
+          monthlyAverage: amount, year: yearStr, month: monthStr,
         }));
       } else {
         promises.push(removeInsurancePaymentBatch(p.id, yearStr, monthStr));
-        promises.push(api.insuranceUnsync({
-          policyId: p.id, memberId: p.memberId, year: yearStr, month: monthStr
-        }));
+        promises.push(api.insuranceUnsync({ policyId: p.id, memberId: p.memberId, year: yearStr, month: monthStr }));
       }
     });
 
@@ -487,7 +411,7 @@ function renderGrid() {
       const isFund = p.type === 'fund_insurance';
       const totalPeriods = p.totalPolicyPeriods || 0;
       let yearlyPremium = 0;
-      Object.values(p.periods || {}).forEach((per) => { if (per.startYear === curY) yearlyPremium += Number(per.annualPremium) || 0; });
+      Object.values(p.periods || {}).forEach((per) => { if (per.startYear === curY) yearlyPremium += Math.round(Number(per.annualPremium) || 0); });
 
       if (isFund) {
         return `<div class="glass-card policy-card"><div class="policy-header"><div><div class="policy-name">${escapeHtml(p.name)}</div><div class="policy-company">${escapeHtml(p.company)} · 基金保險</div></div></div><div class="policy-info-grid"><div class="policy-info-item"><span class="policy-info-label">受保成員</span><span class="policy-info-value">${escapeHtml(memberName)}</span></div><div class="policy-info-item"><span class="policy-info-label">每月供款</span><span class="policy-info-value text-cyan">${formatHKD(p.monthlyPremium)}</span></div></div><div class="policy-actions"><button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button><button class="btn btn-sm btn-danger" data-action="delete" data-id="${p.id}">刪除</button></div></div>`;
@@ -583,7 +507,6 @@ document.addEventListener('click', async (e) => {
   if (action === 'add-period') {
     const periodIndex = Number(btn.dataset.index);
     const range = getPeriodRange(p, periodIndex);
-
     document.getElementById('add-period-policy-id').value = p.id;
     document.getElementById('add-period-index').value = periodIndex;
     document.getElementById('add-period-range').value = `第 ${periodIndex} 年度 (${range.rangeText})`;
@@ -615,9 +538,7 @@ document.addEventListener('click', async (e) => {
       try {
         await deleteInsurancePolicyAndData(p.id, p.memberId);
         alert('✅ 保單與相關紀錄已徹底刪除');
-      } catch (err) {
-        alert('刪除失敗：' + err.message);
-      }
+      } catch (err) { alert('刪除失敗：' + err.message); }
     }
   }
 });
