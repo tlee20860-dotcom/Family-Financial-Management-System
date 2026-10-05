@@ -541,3 +541,33 @@ export async function deleteInsurancePolicyAndData(policyId, memberId) {
   // 5. 執行批量刪除
   await update(ref(db), updates);
 }
+/* ============================================
+   刪除成員（含關聯支出與扣款紀錄清理）
+   ============================================ */
+
+export async function deleteMemberAndData(memberId) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  // 1. 取得該家庭所有年月，找出該成員的所有支出
+  const expensesSnap = await get(ref(db, `families/${familyId}/expenses`));
+  const allExpenses = expensesSnap.val() || {};
+
+  const updates = {};
+
+  // 2. 遍歷所有年月，刪除該成員的支出
+  Object.entries(allExpenses).forEach(([year, months]) => {
+    Object.entries(months || {}).forEach(([month, monthData]) => {
+      const memberExpenses = monthData.member_expenses || {};
+      if (memberExpenses[memberId]) {
+        updates[`families/${familyId}/expenses/${year}/${month}/member_expenses/${memberId}`] = null;
+      }
+    });
+  });
+
+  // 3. 準備刪除成員本身
+  updates[`families/${familyId}/members/${memberId}`] = null;
+
+  // 4. 執行批量刪除
+  await update(ref(db), updates);
+}
