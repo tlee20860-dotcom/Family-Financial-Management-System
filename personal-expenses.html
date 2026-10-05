@@ -95,11 +95,70 @@
         <!-- 明細表 -->
         <div class="glass-card">
           <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
-            <div class="glass-card-title" style="margin:0;">本月支出明細</div>
+            <div class="glass-card-title" style="margin:0;">支出明細</div>
             <div style="display:flex; gap:10px; align-items:center;">
               <span id="pe-selected-count" class="mono" style="font-size:12px; color:var(--text-muted);">已選取 0 筆</span>
               <button class="btn btn-sm btn-ghost" id="pe-batch-edit-btn" disabled>批次編輯</button>
               <button class="btn btn-sm btn-danger" id="pe-batch-delete-btn" disabled>批次刪除</button>
+            </div>
+          </div>
+
+          <!-- 多層篩選 -->
+          <div class="grid grid-4" style="gap:12px; margin-bottom:16px;">
+            <div class="field">
+              <label class="field-label" for="pe-filter-month">月份</label>
+              <select class="select" id="pe-filter-month">
+                <option value="all">全年</option>
+                <option value="01">1 月</option>
+                <option value="02">2 月</option>
+                <option value="03">3 月</option>
+                <option value="04">4 月</option>
+                <option value="05">5 月</option>
+                <option value="06">6 月</option>
+                <option value="07">7 月</option>
+                <option value="08">8 月</option>
+                <option value="09">9 月</option>
+                <option value="10">10 月</option>
+                <option value="11">11 月</option>
+                <option value="12">12 月</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="pe-filter-member">成員</label>
+              <select class="select" id="pe-filter-member">
+                <option value="all">全部成員</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="pe-filter-category">類別</label>
+              <select class="select" id="pe-filter-category">
+                <option value="all">全部類別</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label" for="pe-filter-item">項目</label>
+              <select class="select" id="pe-filter-item">
+                <option value="all">全部項目</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-3" style="gap:12px; margin-bottom:16px;">
+            <div class="field">
+              <label class="field-label" for="pe-filter-keyword">關鍵字</label>
+              <input class="input" id="pe-filter-keyword" type="text" placeholder="搜尋項目名稱...">
+            </div>
+            <div class="field">
+              <label class="field-label" for="pe-filter-status">狀態</label>
+              <select class="select" id="pe-filter-status">
+                <option value="all">全部狀態</option>
+                <option value="未處理">未處理</option>
+                <option value="已處理">已處理</option>
+                <option value="未還款">未還款</option>
+                <option value="已還款">已還款</option>
+              </select>
+            </div>
+            <div class="field" style="display:flex; align-items:flex-end;">
+              <button class="btn btn-ghost" id="pe-filter-reset-btn">重置篩選</button>
             </div>
           </div>
 
