@@ -228,6 +228,7 @@
   background: rgba(217, 70, 239, 0.06);
   color: var(--neon-magenta);
 }
+
 /* ================= Modal ================= */
 .modal-overlay {
   position: fixed;
@@ -272,6 +273,7 @@
   justify-content: flex-end;
   margin-top: 20px;
 }
+
 /* ================= 保險卡片 ================= */
 .policy-card {
   display: flex;
@@ -347,9 +349,9 @@
   flex-wrap: wrap;
   margin-top: 4px;
 }
+
 /* ================= 手機版優化 ================= */
 @media (max-width: 640px) {
-  /* 表格優化：讓內容不擁擠 */
   .data-table th, .data-table td {
     padding: 8px 6px;
     font-size: 12px;
@@ -359,8 +361,7 @@
     font-size: 10px;
     white-space: nowrap;
   }
-  
-  /* 保險卡片優化 */
+
   .policy-info-grid {
     grid-template-columns: 1fr 1fr;
     gap: 8px;
@@ -375,8 +376,7 @@
   .policy-company {
     font-size: 10px;
   }
-  
-  /* 按鈕優化 */
+
   .btn {
     padding: 8px 12px;
     font-size: 12px;
@@ -385,14 +385,12 @@
     padding: 4px 8px;
     font-size: 11px;
   }
-  
-  /* 解決「已還款」垂直排列的問題 */
+
   .badge {
     display: inline-block;
     white-space: nowrap;
   }
-  
-  /* Modal 優化 */
+
   .modal {
     padding: 16px;
     max-height: 85vh;
@@ -400,8 +398,7 @@
   .modal-title {
     font-size: 16px;
   }
-  
-  /* 年度明細彈窗的輸入框 */
+
   .insurance-detail-row input[type="number"],
   .fixed-detail-row input[type="number"] {
     padding: 4px 6px !important;
@@ -413,6 +410,7 @@
     transform: scale(0.9);
   }
 }
+
 /* ================= 保險頁面：視圖切換 ================= */
 .view-toggle-group {
   display: inline-flex;
@@ -498,18 +496,6 @@
   opacity: 0.85;
 }
 
-/* ================= 手機版優化 ================= */
-@media (max-width: 640px) {
-  .policy-table thead th,
-  .policy-table td {
-    padding: 8px 6px;
-    font-size: 11px;
-  }
-  .view-toggle-group .btn {
-    padding: 4px 8px;
-    font-size: 11px;
-  }
-}
 /* ================= 篩選欄 ================= */
 .filter-bar {
   display: flex;
@@ -530,21 +516,6 @@
 .filter-group .select {
   padding: 6px 10px;
   font-size: 13px;
-}
-
-/* ================= 雙模式切換 ================= */
-.view-toggle-group {
-  display: inline-flex;
-  gap: 4px;
-  padding: 3px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-}
-.view-toggle-group .btn {
-  padding: 5px 12px;
-  font-size: 12px;
-  border: none;
 }
 
 /* ================= 保險 / 固定支出：年度折疊 ================= */
@@ -583,22 +554,43 @@
   to { opacity: 1; }
 }
 
-/* ================= 手機版優化 ================= */
+/* ================= 🆕 手機版：保險表格強化 ================= */
 @media (max-width: 640px) {
+  /* 防止中文逐字換行 */
   .policy-table thead th,
   .policy-table td {
+    white-space: nowrap;
     padding: 8px 6px;
     font-size: 11px;
   }
-  .view-toggle-group .btn {
-    padding: 4px 8px;
-    font-size: 11px;
+  /* 手機版隱藏次要欄位 */
+  .policy-table .hide-mobile {
+    display: none;
   }
-  .filter-bar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .filter-group {
+  .policy-table .progress-cell {
     min-width: auto;
+  }
+  .policy-table .progress-text {
+    font-size: 10px;
+    white-space: nowrap;
+    margin-bottom: 3px;
+  }
+  .policy-table .progress {
+    height: 5px;
+  }
+  /* 允許橫向滾動，避免破版 */
+  .policy-table-wrapper > div {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  /* 手機版卡片內金額縮小 */
+  .policy-card .policy-info-value {
+    font-size: 12px;
+  }
+  /* 手機版操作按鈕緊湊 */
+  .policy-table .btn-sm {
+    padding: 3px 6px;
+    font-size: 10px;
+    margin-right: 2px;
   }
 }
