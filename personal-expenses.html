@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>個人支出 | 家庭財務</title>
+  <link rel="stylesheet" href="./css/theme.css">
+  <link rel="stylesheet" href="./css/layout.css">
+  <link rel="stylesheet" href="./css/components.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside id="sidebar-root"></aside>
+    <div class="main-area">
+      <header id="navbar-root"></header>
+
+      <main class="content">
+        <div class="page-header">
+          <h1 class="page-title">個人支出</h1>
+          <p class="page-subtitle">為家庭成員輸入支出，並自動分配到個人帳目</p>
+        </div>
+
+        <!-- 輸入表單 -->
+        <div class="glass-card" style="margin-bottom:20px;">
+          <div class="glass-card-title">新增支出</div>
+          <form id="personal-expense-form">
+            <div class="grid grid-3" style="gap:12px;">
+              <div class="field">
+                <label class="field-label" for="pe-year">所屬年份</label>
+                <select class="select" id="pe-year"></select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="pe-month">所屬月份</label>
+                <select class="select" id="pe-month"></select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="pe-member">支出成員</label>
+                <select class="select" id="pe-member" required>
+                  <option value="">— 請選擇 —</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-2" style="gap:12px;">
+              <div class="field">
+                <label class="field-label" for="pe-date">支出日期</label>
+                <input class="input" id="pe-date" type="text" placeholder="例如：2026-10-05">
+              </div>
+              <div class="field">
+                <label class="field-label" for="pe-category">支出類別</label>
+                <select class="select" id="pe-category" required>
+                  <option value="">— 請選擇類別 —</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-2" style="gap:12px;">
+              <div class="field">
+                <label class="field-label" for="pe-item">項目</label>
+                <select class="select" id="pe-item" required>
+                  <option value="">— 請先選擇類別 —</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="pe-amount">費用（HK$）</label>
+                <input class="input mono" id="pe-amount" type="number" min="0" step="0.01" required placeholder="0">
+              </div>
+            </div>
+
+            <div class="grid grid-2" style="gap:12px;">
+              <div class="field">
+                <label class="field-label" for="pe-status">狀態</label>
+                <select class="select" id="pe-status">
+                  <option value="未處理">未處理</option>
+                  <option value="已處理">已處理</option>
+                  <option value="未還款">未還款</option>
+                  <option value="已還款">已還款</option>
+                </select>
+              </div>
+              <div class="field" style="display:flex; align-items:center; gap:8px; padding-top:20px;">
+                <input type="checkbox" id="pe-fixed" style="width:auto; cursor:pointer;">
+                <label for="pe-fixed" style="font-size:13px; color:var(--text-secondary); cursor:pointer;">設為每月固定支出</label>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+              <button type="button" class="btn btn-ghost" id="pe-reset-btn">重置</button>
+              <button type="submit" class="btn btn-primary" id="pe-submit-btn">
+                <i data-lucide="plus"></i> 新增支出
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 明細表 -->
+        <div class="glass-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:16px;">
+            <div class="glass-card-title" style="margin:0;">本月支出明細</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span id="pe-selected-count" class="mono" style="font-size:12px; color:var(--text-muted);">已選取 0 筆</span>
+              <button class="btn btn-sm btn-ghost" id="pe-batch-edit-btn" disabled>批次編輯</button>
+              <button class="btn btn-sm btn-danger" id="pe-batch-delete-btn" disabled>批次刪除</button>
+            </div>
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:36px;"><input type="checkbox" id="pe-select-all" style="width:auto; cursor:pointer;"></th>
+                  <th>成員</th>
+                  <th>項目名稱</th>
+                  <th>類別</th>
+                  <th>日期</th>
+                  <th style="text-align:right;">金額</th>
+                  <th>狀態</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="pe-tbody">
+                <tr><td colspan="8" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- 單筆編輯 Modal -->
+  <div class="modal-overlay" id="pe-edit-modal">
+    <div class="modal" style="max-width:520px;">
+      <h2 class="modal-title">編輯支出</h2>
+      <form id="pe-edit-form">
+        <input type="hidden" id="pe-edit-id">
+        <input type="hidden" id="pe-edit-old-year">
+        <input type="hidden" id="pe-edit-old-month">
+        <input type="hidden" id="pe-edit-old-member">
+        <div class="grid grid-3" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="pe-edit-year">年份</label>
+            <select class="select" id="pe-edit-year"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-edit-month">月份</label>
+            <select class="select" id="pe-edit-month"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-edit-member">成員</label>
+            <select class="select" id="pe-edit-member" required></select>
+          </div>
+        </div>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="pe-edit-date">日期</label>
+            <input class="input" id="pe-edit-date" type="text">
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-edit-category">類別</label>
+            <select class="select" id="pe-edit-category" required></select>
+          </div>
+        </div>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="pe-edit-item">項目</label>
+            <select class="select" id="pe-edit-item" required></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-edit-amount">金額（HK$）</label>
+            <input class="input mono" id="pe-edit-amount" type="number" min="0" step="0.01" required>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="pe-edit-status">狀態</label>
+          <select class="select" id="pe-edit-status">
+            <option value="未處理">未處理</option>
+            <option value="已處理">已處理</option>
+            <option value="未還款">未還款</option>
+            <option value="已還款">已還款</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="pe-edit-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 批次編輯 Modal -->
+  <div class="modal-overlay" id="pe-batch-edit-modal">
+    <div class="modal" style="max-width:520px;">
+      <h2 class="modal-title">批次編輯（留空表示不修改）</h2>
+      <form id="pe-batch-edit-form">
+        <div class="grid grid-3" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="pe-batch-year">年份</label>
+            <select class="select" id="pe-batch-year">
+              <option value="">— 不修改 —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-batch-month">月份</label>
+            <select class="select" id="pe-batch-month">
+              <option value="">— 不修改 —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-batch-member">成員</label>
+            <select class="select" id="pe-batch-member">
+              <option value="">— 不修改 —</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="pe-batch-date">日期</label>
+            <input class="input" id="pe-batch-date" type="text" placeholder="留空表示不修改">
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-batch-category">類別</label>
+            <select class="select" id="pe-batch-category">
+              <option value="">— 不修改 —</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="pe-batch-item">項目</label>
+            <select class="select" id="pe-batch-item">
+              <option value="">— 不修改 —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="pe-batch-amount">金額（HK$）</label>
+            <input class="input mono" id="pe-batch-amount" type="number" min="0" step="0.01" placeholder="留空表示不修改">
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="pe-batch-status">狀態</label>
+          <select class="select" id="pe-batch-status">
+            <option value="">— 不修改 —</option>
+            <option value="未處理">未處理</option>
+            <option value="已處理">已處理</option>
+            <option value="未還款">未還款</option>
+            <option value="已還款">已還款</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="pe-batch-edit-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">套用</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initPersonalExpensesPage } from './js/personal-expenses.js';
+
+    await initApp({ activeHref: 'personal-expenses.html', title: '個人支出' });
+    initPersonalExpensesPage();
+  </script>
+</body>
+</html>
