@@ -129,14 +129,14 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script type="module">
-    import { initApp } from './js/app.js';
-    import { initAnnualReportPage } from './js/annual-report.js';
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+  import { initApp } from './js/app.js';
+  import { initAnnualReportPage } from './js/annual-report.js';
 
-    await initApp({ activeHref: 'annual-report.html', title: '年度報表' });
-    initAnnualReportPage();
-  </script>
+  const user = await initApp({ activeHref: 'annual-report.html', title: '年度報表' });
+  if (user) initAnnualReportPage();
+</script>
 </body>
 </html>
