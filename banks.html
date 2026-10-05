@@ -25,32 +25,45 @@
           </button>
         </div>
 
-        <div class="grid grid-2" style="margin-bottom:20px;">
-          <div class="glass-card">
-            <div class="glass-card-title">本月銀行總結餘</div>
-            <div class="glass-card-value emerald mono" id="bank-total">HK$ 0</div>
+        <!-- ===== 全年模式 ===== -->
+        <div id="annual-view" style="display:none;">
+          <div class="glass-card" style="margin-bottom:20px;">
+            <div class="glass-card-title">年末銀行總結餘</div>
+            <div class="glass-card-value emerald mono" id="annual-bank-total">HK$ 0</div>
+            <div class="glass-card-hint">以該年度最後一個有紀錄的月份為準</div>
           </div>
-          <div class="glass-card">
-            <div class="glass-card-title">當月可用金額（上月結餘 + 本月收入）</div>
-            <div class="glass-card-value cyan mono" id="bank-available">HK$ 0</div>
-          </div>
+          <div id="annual-monthly-cards"></div>
         </div>
 
-        <div class="glass-card">
-          <div style="overflow-x:auto;">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>銀行</th>
-                  <th style="text-align:right;">本月結餘（HK$）</th>
-                  <th>最後更新</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="bank-tbody">
-                <tr><td colspan="4" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
+        <!-- ===== 單月模式 ===== -->
+        <div id="monthly-view" style="display:none;">
+          <div class="grid grid-2" style="margin-bottom:20px;">
+            <div class="glass-card">
+              <div class="glass-card-title">本月銀行總結餘</div>
+              <div class="glass-card-value emerald mono" id="bank-total">HK$ 0</div>
+            </div>
+            <div class="glass-card">
+              <div class="glass-card-title">當月可用金額（上月結餘 + 本月收入）</div>
+              <div class="glass-card-value cyan mono" id="bank-available">HK$ 0</div>
+            </div>
+          </div>
+
+          <div class="glass-card">
+            <div style="overflow-x:auto;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>銀行</th>
+                    <th style="text-align:right;">本月結餘（HK$）</th>
+                    <th>最後更新</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="bank-tbody">
+                  <tr><td colspan="4" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
