@@ -14,6 +14,9 @@ export function initAdminPage() {
     return;
   }
 
+  // 🆕 宣告移到最上方
+  let familiesCache = [];
+
   document.getElementById('logout-btn').addEventListener('click', () => {
     if (confirm('確定要登出嗎？')) logout();
   });
@@ -75,8 +78,6 @@ export function initAdminPage() {
       }
     }
   });
-
-  let familiesCache = [];
 
   async function loadFamilies() {
     if (!tbody) return;
