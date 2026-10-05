@@ -571,3 +571,32 @@ export async function deleteMemberAndData(memberId) {
   // 4. 執行批量刪除
   await update(ref(db), updates);
 }
+/* ============================================
+   刪除銀行（含所有歷史結餘清理）
+   ============================================ */
+
+export async function deleteBankAndBalances(bankId) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  // 1. 取得該銀行在所有月份的結餘紀錄
+  const snap = await get(ref(db, `families/${familyId}/bank_balances`));
+  const allBalances = snap.val() || {};
+
+  const updates = {};
+
+  // 2. 準備刪除所有月份的結餘
+  Object.entries(allBalances).forEach(([year, months]) => {
+    Object.entries(months || {}).forEach(([month, banks]) => {
+      if (banks && banks[bankId]) {
+        updates[`families/${familyId}/bank_balances/${year}/${month}/${bankId}`] = null;
+      }
+    });
+  });
+
+  // 3. 準備刪除銀行本身
+  updates[`families/${familyId}/banks/${bankId}`] = null;
+
+  // 4. 執行批量刪除
+  await update(ref(db), updates);
+}
