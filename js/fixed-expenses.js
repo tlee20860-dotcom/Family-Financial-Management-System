@@ -365,4 +365,28 @@ export function initFixedExpensesPage() {
     const tableBtn = document.getElementById('view-table-btn');
     const updateUI = () => {
       if (currentView === 'card') {
-        cardBtn.classList.add('btn-primary'); cardBtn.classList
+        cardBtn.classList.add('btn-primary'); cardBtn.classList.remove('btn-ghost');
+        tableBtn.classList.add('btn-ghost'); tableBtn.classList.remove('btn-primary');
+      } else {
+        cardBtn.classList.add('btn-ghost'); cardBtn.classList.remove('btn-primary');
+        tableBtn.classList.add('btn-primary'); tableBtn.classList.remove('btn-ghost');
+      }
+    };
+    cardBtn.addEventListener('click', () => { currentView = 'card'; localStorage.setItem('fixed_view', 'card'); updateUI(); render(); });
+    tableBtn.addEventListener('click', () => { currentView = 'table'; localStorage.setItem('fixed_view', 'table'); updateUI(); render(); });
+    updateUI();
+  }
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+}
