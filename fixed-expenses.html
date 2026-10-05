@@ -7,37 +7,6 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
-  <style>
-    .fixed-card { margin-bottom: 16px; padding: 16px; }
-    .fixed-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 0; }
-    .fixed-card-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0; user-select: none; }
-    .fixed-card-toggle:hover .fixed-card-title { color: var(--neon-magenta); }
-    .fixed-card-title { font-size: 15px; font-weight: 700; color: var(--neon-cyan); transition: color 0.2s; }
-    .fixed-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-    .fixed-card-body { margin-top: 12px; }
-
-    .year-accordion { border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
-    .year-accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; cursor: pointer; background: rgba(255,255,255,0.03); user-select: none; gap: 10px; flex-wrap: wrap; }
-    .year-accordion-header:hover { background: rgba(255,255,255,0.06); }
-    .year-accordion-body { padding: 6px 14px; }
-    .accordion-arrow { transition: transform 0.2s ease; flex-shrink: 0; }
-    .accordion-arrow.rotated { transform: rotate(90deg); }
-
-    .fixed-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .fixed-table th { text-align: left; padding: 6px 8px; color: var(--text-muted); font-size: 11px; border-bottom: 1px solid var(--glass-border); }
-    .fixed-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
-    .fixed-table .num { text-align: right; font-family: var(--font-mono); }
-    .fixed-table input[type="number"] { width: 100%; padding: 4px 8px; font-size: 12px; background: rgba(8, 11, 17, 0.6); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); text-align: right; }
-    .fixed-table input[type="number"]:focus { outline: none; border-color: var(--neon-cyan); }
-    .fixed-table .month-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); min-width: 50px; }
-    .skip-row { opacity: 0.4; text-decoration: line-through; }
-
-    .add-year-btn { display: inline-flex; align-items: center; gap: 6px; }
-
-    @media (max-width: 640px) {
-      .fixed-card-header { align-items: flex-start; }
-    }
-  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -51,31 +20,31 @@
             <h1 class="page-title">家庭固定支出</h1>
             <p class="page-subtitle" id="fixed-month"></p>
           </div>
-          <button class="btn btn-primary" id="add-fixed-btn">
-            <i data-lucide="plus"></i> 新增固定支出
-          </button>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div class="view-toggle-group">
+              <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
+              <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
+            </div>
+            <button class="btn btn-primary" id="add-fixed-btn">
+              <i data-lucide="plus"></i> 新增固定支出
+            </button>
+          </div>
         </div>
 
         <div class="banner">
-          ℹ️ 新增時選擇年份與週期，系統會自動分配到所屬月份。展開卡片後，可按「年份 &gt; 月份」查看與編輯明細，並可隨時手動新增其他年份。
+          ℹ️ 新增時只需輸入基本資料與週期，系統會自動分配到所屬月份。點擊「展開明細」可直接編輯每月金額與付款狀態。
         </div>
 
-        <div id="fixed-templates-container">
-          <div class="glass-card"><div class="empty-state">載入中…</div></div>
-        </div>
+        <div id="fixed-templates-container"></div>
       </main>
     </div>
   </div>
 
   <!-- 新增固定支出 Modal -->
   <div class="modal-overlay" id="fixed-modal">
-    <div class="modal" style="max-width:520px; max-height:90vh; overflow-y:auto;">
-      <h2 class="modal-title" id="fixed-modal-title">新增固定支出</h2>
+    <div class="modal" style="max-width:520px;">
+      <h2 class="modal-title">新增固定支出</h2>
       <form id="fixed-form">
-        <div class="field">
-          <label class="field-label" for="fixed-year">年份</label>
-          <select class="select" id="fixed-year" required></select>
-        </div>
         <div class="field">
           <label class="field-label" for="fixed-member">所屬成員</label>
           <select class="select" id="fixed-member">
@@ -84,19 +53,13 @@
         </div>
         <div class="field">
           <label class="field-label" for="fixed-category">支出類別</label>
-          <select class="select" id="fixed-category" required>
-            <option value="">— 請選擇類別 —</option>
-          </select>
+          <select class="select" id="fixed-category" required><option value="">— 請選擇類別 —</option></select>
         </div>
         <div class="field">
           <label class="field-label" for="fixed-item">項目</label>
           <div style="display:flex; gap:8px;">
-            <select class="select" id="fixed-item" required style="flex:1;">
-              <option value="">— 請先選擇類別 —</option>
-            </select>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-fixed-item-btn" title="新增項目" style="padding:0 12px;">
-              <i data-lucide="plus" style="width:16px;height:16px;"></i>
-            </button>
+            <select class="select" id="fixed-item" required style="flex:1;"><option value="">— 請先選擇類別 —</option></select>
+            <button type="button" class="btn btn-sm btn-ghost" id="add-fixed-item-btn" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
           </div>
         </div>
         <div class="field">
@@ -109,14 +72,8 @@
             <option value="一次性">一次性</option>
           </select>
         </div>
-        <div class="field">
-          <label class="field-label" for="fixed-amount">每月金額（HK$）</label>
-          <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
-        </div>
-        <div class="field">
-          <label class="field-label" for="fixed-note">備註（可選）</label>
-          <input class="input" id="fixed-note" maxlength="60" placeholder="例如：每期調整">
-        </div>
+        <div class="field"><label class="field-label" for="fixed-amount">每月金額（HK$）</label><input class="input mono" id="fixed-amount" type="number" min="0" step="1" required></div>
+        <div class="field"><label class="field-label" for="fixed-note">備註（可選）</label><input class="input" id="fixed-note" maxlength="60"></div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">新增並分配到各月</button>
