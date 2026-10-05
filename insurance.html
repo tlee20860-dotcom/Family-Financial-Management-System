@@ -41,9 +41,9 @@
         <!-- 統計卡（三卡） -->
         <div class="grid grid-3" style="margin-bottom:20px;">
           <div class="glass-card">
-            <div class="glass-card-title">年度總供款金額</div>
+            <div class="glass-card-title">本年度保單總供款</div>
             <div class="glass-card-value cyan mono" id="grand-total-premium">HK$ 0</div>
-            <div class="glass-card-hint" id="grand-total-hint">所有保單的總保費加總</div>
+            <div class="glass-card-hint" id="grand-total-hint">—</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">供款中保單數</div>
@@ -80,19 +80,20 @@
             </div>
           </div>
 
-          <div class="glass-card" id="policy-table-view" style="display:none; padding:0; overflow:hidden;">
+          <div class="glass-card policy-table-wrapper" id="policy-table-view" style="display:none; padding:0; overflow:hidden;">
             <div style="overflow-x:auto;">
               <table class="policy-table">
                 <thead>
                   <tr>
-                    <th style="width:40px;"></th>
-                    <th>開始日期</th>
-                    <th>受保人</th>
+                    <th style="width:36px;"></th>
+                    <th class="hide-mobile">開始日期</th>
+                    <th class="hide-mobile">受保人</th>
                     <th>保單名稱</th>
-                    <th>保險公司</th>
-                    <th class="num">總供款金額</th>
-                    <th class="num">每月分攤</th>
-                    <th>進度</th>
+                    <th class="hide-mobile">保險公司</th>
+                    <th class="num">本期年繳</th>
+                    <th class="num hide-mobile">保單總供款</th>
+                    <th class="num hide-mobile">每月分攤</th>
+                    <th class="progress-cell">進度</th>
                     <th>操作</th>
                   </tr>
                 </thead>
