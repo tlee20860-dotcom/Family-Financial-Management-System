@@ -366,17 +366,25 @@
 }
 
 /* ============================================
-   🆕 保險頁面：表格視圖（欄寬自動調整）
+   保險頁面：表格視圖（欄寬自動調整）
    -------------------------------------------------
-   核心策略：
-   - 所有欄位預設 width:1% + nowrap → 收縮到內容寬度
-   - 第 4 欄（保單名稱）→ width:auto → 佔剩餘空間
-   - 第 9 欄（進度）→ 固定 140px
+   欄位順序（🆕 已加入已供款總額為第 8 欄）：
+     1. 展開按鈕
+     2. 開始日期 (hide-mobile)
+     3. 受保人 (hide-mobile)
+     4. 保單名稱   ← width:auto
+     5. 保險公司 (hide-mobile)
+     6. 本期年繳
+     7. 保單總供款 (hide-mobile)
+     8. 已供款總額  ← 🆕
+     9. 每月分攤 (hide-mobile)
+    10. 進度        ← width:140px
+    11. 操作
    ============================================ */
 .policy-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto;      /* 內容驅動欄寬 */
+  table-layout: auto;
   font-size: 13px;
 }
 
@@ -390,7 +398,6 @@
   text-transform: uppercase;
   border-bottom: 1px solid var(--glass-border);
   background: rgba(0, 240, 255, 0.03);
-  /* 🔧 讓每欄收縮到內容寬度 */
   width: 1%;
   white-space: nowrap;
 }
@@ -399,7 +406,6 @@
   padding: 12px 10px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
-  /* 🔧 防止文字逐字換行 */
   white-space: nowrap;
 }
 
@@ -412,7 +418,7 @@
   font-family: var(--font-mono);
 }
 
-/* 🔧 第 4 欄（保單名稱）：佔據剩餘空間，允許換行 */
+/* 第 4 欄（保單名稱）：佔剩餘空間 */
 .policy-table thead th:nth-child(4),
 .policy-table td:nth-child(4) {
   width: auto;
@@ -420,9 +426,9 @@
   white-space: normal;
 }
 
-/* 🔧 第 9 欄（進度）：固定寬度 */
-.policy-table thead th:nth-child(9),
-.policy-table td:nth-child(9) {
+/* 第 10 欄（進度）：固定寬度 */
+.policy-table thead th:nth-child(10),
+.policy-table td:nth-child(10) {
   width: 140px;
   min-width: 120px;
 }
@@ -585,7 +591,7 @@
     transform: scale(0.9);
   }
 
-  /* 🔧 手機版：保險表格微調 */
+  /* 手機版：保險表格 */
   .policy-table thead th,
   .policy-table td {
     padding: 8px 6px;
@@ -594,14 +600,12 @@
   .policy-table .hide-mobile {
     display: none;
   }
-  /* 手機版保單名稱最小寬度縮小 */
   .policy-table thead th:nth-child(4),
   .policy-table td:nth-child(4) {
     min-width: 100px;
   }
-  /* 手機版進度欄縮小 */
-  .policy-table thead th:nth-child(9),
-  .policy-table td:nth-child(9) {
+  .policy-table thead th:nth-child(10),
+  .policy-table td:nth-child(10) {
     width: 110px;
     min-width: 100px;
   }
@@ -618,7 +622,6 @@
     font-size: 10px;
     margin-right: 2px;
   }
-  /* 手機版橫向捲動 */
   .policy-table-wrapper > div {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
