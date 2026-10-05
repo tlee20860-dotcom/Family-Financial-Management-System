@@ -145,7 +145,6 @@ export function initFixedExpensesPage() {
     }
   });
 
-  // 年度明細 Modal 事件
   document.getElementById('fixed-detail-cancel-btn').addEventListener('click', () => document.getElementById('fixed-detail-modal').classList.remove('active'));
   document.getElementById('fixed-detail-save-btn').addEventListener('click', async () => {
     if (!currentDetailItem) return;
