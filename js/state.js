@@ -17,8 +17,12 @@ export const AppState = {
 
   // ---------- 事件總線 ----------
   _listeners: {},
+  _initialized: false,   // 🆕 防止重複初始化
 
   init() {
+    if (this._initialized) return;
+    this._initialized = true;
+
     const savedYear = localStorage.getItem('fin_year');
     const savedMonth = localStorage.getItem('fin_month');
     const savedFamilyId = localStorage.getItem('fin_family_id');
