@@ -4,15 +4,14 @@
 
 export function formatHKD(amount) {
   if (amount == null || isNaN(amount)) return 'HK$ 0';
-  return 'HK$ ' + Number(amount).toLocaleString('zh-HK', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
+  const rounded = Math.round(Number(amount));
+  return 'HK$ ' + rounded.toLocaleString('zh-HK');
 }
 
 export function formatNumber(amount) {
   if (amount == null || isNaN(amount)) return '0';
-  return Number(amount).toLocaleString('zh-HK');
+  const rounded = Math.round(Number(amount));
+  return rounded.toLocaleString('zh-HK');
 }
 
 export function todayISO() {
@@ -27,9 +26,6 @@ export function currentYearMonth() {
   };
 }
 
-export function qs(sel, parent = document) { return parent.querySelector(sel); }
-export function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
-
 export function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({
     '&': '&amp;',
@@ -39,9 +35,12 @@ export function escapeHtml(s) {
     "'": '&#39;',
   }[c]));
 }
+
+export function qs(sel, parent = document) { return parent.querySelector(sel); }
+export function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
+
 /**
  * 成員排序（全站統一使用）
- * 規則：優先使用 order 欄位，沒有 order 的成員排在最後，同 order 時按 createdAt
  */
 export function sortMembers(members) {
   return [...members].sort((a, b) => {
