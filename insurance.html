@@ -1,159 +1,184 @@
+```html
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>保險付款 | 家庭財務</title>
-  <link rel="stylesheet" href="./css/theme.css">
-  <link rel="stylesheet" href="./css/layout.css">
-  <link rel="stylesheet" href="./css/components.css">
+  <title>保險付款 | 家庭財務與固定供款管理</title>
+  
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
   <div class="app-shell">
-    <aside id="sidebar-root"></aside>
+    <div id="sidebar-root"></div>
+
     <div class="main-area">
-      <header id="navbar-root"></header>
+      <div id="navbar-root"></div>
 
       <main class="content">
-        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+        <div class="page-header flex justify-between items-center">
           <div>
             <h1 class="page-title">保險付款</h1>
-            <p class="page-subtitle" id="insurance-month"></p>
+            <p class="page-subtitle" id="insurance-month">載入中…</p>
           </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <div class="flex gap-2">
             <div class="view-toggle-group">
-              <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
-              <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
+              <button class="btn btn-primary" id="view-card-btn">卡片模式</button>
+              <button class="btn btn-ghost" id="view-table-btn">表格模式</button>
             </div>
-            <button class="btn btn-magenta" id="sync-all-btn">
-              <i data-lucide="refresh-cw"></i> 同步所有支出
-            </button>
-            <button class="btn btn-primary" id="add-policy-btn">
-              <i data-lucide="plus"></i> 新增保單
-            </button>
+            <button class="btn" id="sync-all-btn">同步所有支出</button>
+            <button class="btn btn-primary" id="add-policy-btn">＋ 新增保單</button>
           </div>
         </div>
 
-        <div class="banner">
-          ℹ️ 每張保單依「保單年度」自動產生每月分攤。點擊「展開明細」可直接編輯每月金額與扣款狀態。
-        </div>
-
-        <!-- 總供款金額統計 -->
-        <div class="grid grid-2" style="margin-bottom:20px;">
+        <!-- 頂部統計卡片 -->
+        <div class="grid grid-3 mb-6">
           <div class="glass-card">
-            <div class="glass-card-title">總供款金額</div>
-            <div class="glass-card-value cyan mono" id="grand-total-premium">HK$ 0</div>
-            <div class="glass-card-hint" id="grand-total-hint">所有保單的總保費加總</div>
+            <div class="glass-card-title" id="grand-total-title">年度總供款金額</div>
+            <div class="glass-card-value magenta" id="grand-total-premium">HK$ 0</div>
+            <div class="glass-card-hint" id="grand-total-hint">計算中…</div>
           </div>
           <div class="glass-card">
             <div class="glass-card-title">供款中保單數</div>
-            <div class="glass-card-value emerald mono" id="active-policy-count">0 張</div>
+            <div class="glass-card-value" id="active-policy-count">0 張</div>
             <div class="glass-card-hint">未供滿的保單數量</div>
+          </div>
+          <div class="glass-card">
+            <div class="glass-card-title">已供滿保單</div>
+            <div class="glass-card-value emerald" id="completed-count">0</div>
+            <div class="glass-card-hint">已完成供款年期的保單</div>
           </div>
         </div>
 
-        <!-- 已供滿保單清單 -->
-        <div class="glass-card completed-section" id="completed-section" style="margin-bottom:20px; display:none;">
+        <!-- 表格模式視圖 -->
+        <div class="glass-card p-0 overflow-hidden mb-6" id="policy-table-view" style="display: none;">
+          <div class="table-responsive">
+            <table class="policy-table">
+              <thead>
+                <tr>
+                  <th>開始日期</th>
+                  <th>受保人</th>
+                  <th>保單名稱</th>
+                  <th>保險公司</th>
+                  <th class="num">當前年度供款</th>
+                  <th class="num">全期總供款</th>
+                  <th class="num">每月分攤</th>
+                  <th class="progress-cell">進度</th>
+                  <th style="text-align: right;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="policy-table-body">
+                <!-- 動態渲染 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 卡片模式網格 -->
+        <div class="grid grid-2 mb-6" id="policy-grid">
+          <!-- 動態渲染保單卡片 -->
+        </div>
+
+        <!-- 空狀態 -->
+        <div class="glass-card text-center py-12" id="empty-state" style="display: none;">
+          <p class="text-muted mb-4">尚無供款中的保單資料，點擊右上角「新增保單」開始紀錄。</p>
+        </div>
+
+        <!-- 已供滿保單區塊 -->
+        <div class="glass-card completed-section mb-6" id="completed-section" style="display: none;">
           <div class="completed-header" id="completed-header">
-            <div style="display:flex; align-items:center; gap:10px;">
-              <i data-lucide="check-circle" style="width:18px;height:18px;color:var(--neon-emerald);"></i>
-              <span style="font-weight:700; color:var(--neon-emerald);">已供滿保單</span>
-              <span class="badge badge-success" id="completed-count">0</span>
+            <div class="flex items-center gap-2">
+              <i data-lucide="check-circle-2" class="text-emerald"></i>
+              <span class="font-bold text-emerald">已供滿保單（<span id="completed-count-badge">0</span>）</span>
             </div>
             <i data-lucide="chevron-down" class="completed-arrow"></i>
           </div>
-          <div class="completed-body" id="completed-body" style="display:none;">
-            <div class="grid grid-3" id="completed-grid"></div>
-          </div>
-        </div>
-
-        <!-- 供款中保單 -->
-        <div id="active-section">
-          <div class="grid grid-3" id="policy-grid">
-            <div class="glass-card" style="grid-column:1/-1;">
-              <div class="empty-state">載入中…</div>
+          <div class="completed-body" id="completed-body" style="display: none;">
+            <div class="grid grid-2" id="completed-grid">
+              <!-- 動態渲染已供滿卡片 -->
             </div>
-          </div>
-
-          <div class="glass-card" id="policy-table-view" style="display:none; padding:0; overflow:hidden;">
-            <div style="overflow-x:auto;">
-              <table class="policy-table">
-                <thead>
-                  <tr>
-                    <th style="width:40px;"></th>
-                    <th>開始日期</th>
-                    <th>受保人</th>
-                    <th>保單名稱</th>
-                    <th>保險公司</th>
-                    <th class="num">總供款金額</th>
-                    <th class="num">每月分攤</th>
-                    <th>進度</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="policy-table-body"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <div class="glass-card" id="empty-state" style="display:none;">
-          <div class="empty-state">
-            <i data-lucide="shield" style="width:48px;height:48px;opacity:0.4;"></i>
-            <p style="margin-top:12px;">尚無保單資料，點擊「新增保單」開始。</p>
           </div>
         </div>
       </main>
     </div>
   </div>
 
-  <!-- 新增保單 Modal -->
+  <!-- Modal：新增/編輯保單 -->
   <div class="modal-overlay" id="policy-modal">
-    <div class="modal" style="max-width:560px; max-height:90vh; overflow-y:auto;">
+    <div class="modal">
       <h2 class="modal-title" id="policy-modal-title">新增保單</h2>
       <form id="policy-form">
         <div class="field">
-          <label class="field-label" for="policy-type">保單類型</label>
+          <label class="field-label">保單類型</label>
           <select class="select" id="policy-type">
             <option value="normal">普通保險（住院 / 人壽 / 意外）</option>
             <option value="fund_insurance">基金保險（投資型，月供）</option>
           </select>
         </div>
         <div class="field">
-          <label class="field-label" for="policy-member">受保人</label>
-          <select class="select" id="policy-member" required><option value="">— 請選擇 —</option></select>
+          <label class="field-label">受保成員</label>
+          <select class="select" id="policy-member" required>
+            <option value="">— 請選擇 —</option>
+          </select>
         </div>
         <div class="field">
-          <label class="field-label" for="policy-name">保險名稱</label>
-          <input class="input" id="policy-name" required maxlength="60" placeholder="例如：危疾+住院">
+          <label class="field-label">保險名稱</label>
+          <input type="text" class="input" id="policy-name" placeholder="例如：盛世傳承尊尚版" required>
         </div>
         <div class="field">
-          <label class="field-label" for="policy-company">保險公司</label>
-          <div style="display:flex; gap:8px;">
-            <select class="select" id="policy-company" style="flex:1;"></select>
-            <button type="button" class="btn btn-sm btn-ghost" id="edit-company-btn" style="padding:0 12px;"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-company-btn" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
+          <label class="field-label">保險公司</label>
+          <div class="flex gap-2">
+            <select class="select" id="policy-company" style="flex: 1;"></select>
+            <button type="button" class="btn btn-ghost btn-sm" id="add-company-btn">＋ 新增公司</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="edit-company-btn">編輯</button>
           </div>
         </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-start-year">保單開始年份</label><input class="input mono" id="policy-start-year" type="number" min="2000" max="2100" required></div>
-          <div class="field"><label class="field-label" for="policy-start-month">保單開始月份</label><select class="select" id="policy-start-month" required></select></div>
+        <div class="grid grid-2">
+          <div class="field">
+            <label class="field-label">保單開始年份</label>
+            <input type="number" class="input" id="policy-start-year" placeholder="例如：2020" required>
+          </div>
+          <div class="field">
+            <label class="field-label">保單開始月份</label>
+            <select class="select" id="policy-start-month"></select>
+          </div>
         </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-current-period">目前是第幾年度</label><input class="input mono" id="policy-current-period" type="number" min="1" max="50" required></div>
-          <div class="field"><label class="field-label" for="policy-total-years">總供款年期</label><input class="input mono" id="policy-total-years" type="number" min="1" max="50" required></div>
+        <div class="grid grid-2">
+          <div class="field">
+            <label class="field-label">目前是第幾年度</label>
+            <input type="number" class="input" id="policy-current-period" value="1" min="1" required>
+          </div>
+          <div class="field">
+            <label class="field-label">總供款年期（年）</label>
+            <input type="number" class="input" id="policy-total-years" value="5" min="1" required>
+          </div>
         </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-payment-type">付款類型</label>
+        <div class="grid grid-2">
+          <div class="field">
+            <label class="field-label">付款類型</label>
             <select class="select" id="policy-payment-type">
-              <option value="年繳">年繳</option><option value="月繳">月繳</option><option value="一次付款">一次付款</option>
+              <option value="年繳">年繳</option>
+              <option value="月繳">月繳</option>
+              <option value="一次付款">一次付款</option>
             </select>
           </div>
-          <div class="field"><label class="field-label" for="policy-account">扣款帳戶</label><input class="input" id="policy-account" maxlength="60"></div>
+          <div class="field">
+            <label class="field-label">扣款帳戶</label>
+            <input type="text" class="input" id="policy-account" placeholder="例如：HSBC 主帳戶">
+          </div>
         </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label><input class="input mono" id="policy-annual" type="number" min="0" step="1" required></div>
-          <div class="field"><label class="field-label" for="policy-monthly">每月分攤（自動）</label><input class="input mono" id="policy-monthly" disabled></div>
+        <div class="grid grid-2">
+          <div class="field">
+            <label class="field-label">當前年度年繳保費（HK$）</label>
+            <input type="number" class="input" id="policy-annual" placeholder="例如：24000" required>
+          </div>
+          <div class="field">
+            <label class="field-label">每月分攤（自動計算）</label>
+            <input type="number" class="input" id="policy-monthly" placeholder="自動計算" readonly>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="policy-cancel-btn">取消</button>
@@ -163,16 +188,25 @@
     </div>
   </div>
 
-  <!-- 新增年度保費 Modal -->
+  <!-- Modal：新增年度保費 -->
   <div class="modal-overlay" id="add-period-modal">
     <div class="modal">
       <h2 class="modal-title">新增年度保費</h2>
       <form id="add-period-form">
         <input type="hidden" id="add-period-policy-id">
         <input type="hidden" id="add-period-index">
-        <div class="field"><label class="field-label">年度區間</label><input class="input" id="add-period-range" disabled></div>
-        <div class="field"><label class="field-label" for="add-period-annual">年繳保費（HK$）</label><input class="input mono" id="add-period-annual" type="number" min="0" step="1" required></div>
-        <div class="field"><label class="field-label" for="add-period-monthly">每月分攤（自動）</label><input class="input mono" id="add-period-monthly" disabled></div>
+        <div class="field">
+          <label class="field-label">年度區間</label>
+          <input type="text" class="input" id="add-period-range" readonly>
+        </div>
+        <div class="field">
+          <label class="field-label">該年度年繳保費（HK$）</label>
+          <input type="number" class="input" id="add-period-annual" placeholder="例如：24000" required>
+        </div>
+        <div class="field">
+          <label class="field-label">每月分攤（自動計算）</label>
+          <input type="number" class="input" id="add-period-monthly" placeholder="自動計算" readonly>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="add-period-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
@@ -181,13 +215,15 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/lucide@latest"></script>
   <script type="module">
     import { initApp } from './js/app.js';
     import { initInsurancePage } from './js/insurance.js';
 
-    await initApp({ activeHref: 'insurance.html', title: '保險付款' });
-    initInsurancePage();
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initApp({ activeHref: 'insurance.html', title: '保險付款' });
+      initInsurancePage();
+    });
   </script>
 </body>
 </html>
+```
