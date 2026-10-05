@@ -1,169 +1,382 @@
-<!DOCTYPE html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>成員版面 | 家庭財務</title>
-  <link rel="stylesheet" href="./css/theme.css">
-  <link rel="stylesheet" href="./css/layout.css">
-  <link rel="stylesheet" href="./css/components.css">
-</head>
-<body>
-  <div class="app-shell">
-    <aside id="sidebar-root"></aside>
-    <div class="main-area">
-      <header id="navbar-root"></header>
+// ============================================
+// member-detail.js — 成員個人版面
+// ============================================
 
-      <main class="content">
-        <div class="page-header">
-          <h1 class="page-title" id="member-name">載入中…</h1>
-          <p class="page-subtitle" id="member-id-label"></p>
-        </div>
+import {
+  getMembersOnce, listenExpenses, addExpense, updateExpense, removeExpense,
+  listenCategories, listenItems, addFixedTemplate,
+} from './db.js';
+import { formatHKD, todayISO, escapeHtml } from './utils.js';
+import { AppState } from './state.js';
+import { api } from './api.js';
 
-        <!-- ===== 全年模式 ===== -->
-        <div id="annual-view" style="display:none;">
-          <div class="glass-card" style="margin-bottom:20px;">
-            <div class="glass-card-title">全年總支出</div>
-            <div class="glass-card-value red mono" id="annual-total">HK$ 0</div>
-            <div class="glass-card-hint">依月份折疊顯示明細</div>
-          </div>
-          <div id="annual-monthly-cards"></div>
-        </div>
+let memberId = null;
+let memberName = '';
+let expenses = [];
+let categories = [];
+let items = [];
+let editingId = null;
+let unsubscribeExpenses = null;
 
-        <!-- ===== 單月模式 ===== -->
-        <div id="monthly-view" style="display:none;">
-          <div class="glass-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
-              <div>
-                <div class="glass-card-title" style="margin:0;">個人支出細項</div>
-                <div class="glass-card-hint" id="expense-month-label"></div>
-              </div>
-              <div style="display:flex; align-items:center; gap:14px;">
-                <div style="text-align:right;">
-                  <div class="glass-card-title" style="margin:0;">本月合計</div>
-                  <div class="mono text-cyan" id="expense-total" style="font-size:18px; font-weight:700;">HK$ 0</div>
-                </div>
-                <button class="btn btn-primary" id="add-expense-btn">
-                  <i data-lucide="plus"></i> 新增個人支出
-                </button>
-              </div>
-            </div>
+export async function initMemberDetailPage(id) {
+  memberId = id;
 
-            <div style="overflow-x:auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>項目名稱</th>
-                    <th style="text-align:right;">金額</th>
-                    <th>狀態</th>
-                    <th>處理日期</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="expense-tbody">
-                  <tr><td colspan="5" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
-  </div>
+  const nameEl = document.getElementById('member-name');
+  const idLabel = document.getElementById('member-id-label');
+  if (idLabel) idLabel.textContent = `ID：${memberId}`;
 
-  <!-- Modal -->
-  <div class="modal-overlay" id="expense-modal">
-    <div class="modal" style="max-width:520px;">
-      <h2 class="modal-title" id="expense-modal-title">新增支出</h2>
-      <form id="expense-form">
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="expense-year">歸屬年份</label>
-            <select class="select" id="expense-year"></select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="expense-month">歸屬月份</label>
-            <select class="select" id="expense-month"></select>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-date-input">支出日期</label>
-          <input class="input" id="expense-date-input" type="text" placeholder="例如：2026-10-03" maxlength="20">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-category-input">支出類別</label>
-          <select class="select" id="expense-category-input" required>
-            <option value="">— 請選擇類別 —</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-item-input">項目</label>
-          <div style="display:flex; gap:8px;">
-            <select class="select" id="expense-item-input" required style="flex:1;">
-              <option value="">— 請先選擇類別 —</option>
-            </select>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-expense-item-btn" title="新增項目" style="padding:0 12px;">
-              <i data-lucide="plus" style="width:16px;height:16px;"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-amount-input">費用（HK$）</label>
-          <input class="input mono" id="expense-amount-input" type="number" min="0" step="0.01" required placeholder="0">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-status-input">狀態</label>
-          <select class="select" id="expense-status-input">
-            <option value="未處理">未處理</option>
-            <option value="已處理">已處理</option>
-            <option value="未還款">未還款</option>
-            <option value="已還款">已還款</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-member-input">支出成員</label>
-          <input class="input" id="expense-member-input" disabled>
-        </div>
-
-        <div class="field">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-secondary); font-size:13px;">
-            <input type="checkbox" id="expense-fixed-input" style="width:auto;">
-            設為每月固定支出
-          </label>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="expense-cancel-btn">取消</button>
-          <button type="submit" class="btn btn-primary">儲存</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script type="module">
-    import { initApp } from './js/app.js';
-    import { initMemberDetailPage } from './js/member-detail.js';
-
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id') || '';
-
-    await initApp({
-      activeHref: `member-detail.html?id=${id}`,
-      title: '成員版面'
-    });
-
-    if (!id) {
-      document.getElementById('member-name').textContent = '未指定成員';
+  try {
+    const members = await getMembersOnce();
+    const me = members.find((m) => m.id === memberId);
+    if (me) {
+      memberName = me.name;
+      if (nameEl) nameEl.textContent = me.name;
+      document.title = `${me.name} | 家庭財務`;
     } else {
-      initMemberDetailPage(id);
+      if (nameEl) nameEl.textContent = '（成員已不存在）';
     }
-  </script>
-</body>
-</html>
+  } catch (e) {
+    console.warn('讀取成員失敗', e);
+    if (nameEl) nameEl.textContent = '（無法讀取成員）';
+  }
+
+  listenCategories((list) => { categories = list; renderCategoryOptions(); });
+  listenItems((list) => { items = list; renderItemOptions(); });
+
+  bindEvents();
+  initYearMonthSelects();
+  await loadData();
+
+  AppState.on('ym-change', () => loadData());
+}
+
+async function loadData() {
+  const { year, month } = AppState.getYearMonth();
+  const isAnnual = month === 'all';
+
+  const annualView = document.getElementById('annual-view');
+  const monthlyView = document.getElementById('monthly-view');
+
+  if (annualView) annualView.style.display = isAnnual ? 'block' : 'none';
+  if (monthlyView) monthlyView.style.display = isAnnual ? 'none' : 'block';
+
+  if (isAnnual) {
+    await loadAnnual(year);
+  } else {
+    await loadMonthly(year, month);
+  }
+}
+
+async function loadAnnual(year) {
+  try {
+    const data = await api.fetchAnnualSummary(year);
+    renderAnnual(data);
+  } catch (err) {
+    console.error('全年資料載入失敗：', err);
+    const container = document.getElementById('annual-monthly-cards');
+    if (container) {
+      container.innerHTML = '<div class="glass-card"><div class="empty-state text-red">載入失敗，請稍後再試。</div></div>';
+    }
+  }
+}
+
+function renderAnnual(data) {
+  let total = 0;
+  const container = document.getElementById('annual-monthly-cards');
+  if (!container) return;
+
+  if (!data || !data.monthly || data.monthly.length === 0) {
+    container.innerHTML = '<div class="glass-card"><div class="empty-state">本年度尚無支出紀錄</div></div>';
+    return;
+  }
+
+  const cards = data.monthly.map((m) => {
+    const md = m.perMember ? m.perMember[memberId] : null;
+    if (!md || md.itemCount === 0) return '';
+
+    total += md.sum;
+    const rows = md.items.map((it) => `
+      <tr>
+        <td>${escapeHtml(it.name)}</td>
+        <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(it.categoryName || '—')}</td>
+        <td class="mono" style="font-size:11px; color:var(--text-muted);">${escapeHtml(it.date || '—')}</td>
+        <td class="num">${formatHKD(it.amount)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div class="glass-card" style="margin-bottom:10px; padding:14px;">
+        <div class="month-toggle" style="display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; user-select:none;">
+          <div style="font-weight:700; font-size:15px; color:var(--neon-cyan);">${m.monthNum} 月</div>
+          <div class="mono text-magenta" style="font-weight:700;">${formatHKD(md.sum)}</div>
+        </div>
+        <div class="month-detail" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1);">
+          <table class="data-table" style="font-size:12px;">
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }).filter(Boolean).join('');
+
+  const totalEl = document.getElementById('annual-total');
+  if (totalEl) totalEl.textContent = formatHKD(total);
+  container.innerHTML = cards || '<div class="glass-card"><div class="empty-state">本年度尚無支出紀錄</div></div>';
+
+  container.querySelectorAll('.month-toggle').forEach((el) => {
+    el.addEventListener('click', () => {
+      const d = el.nextElementSibling;
+      d.style.display = d.style.display === 'none' ? 'block' : 'none';
+    });
+  });
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+async function loadMonthly(year, month) {
+  const monthLabel = document.getElementById('expense-month-label');
+  if (monthLabel) monthLabel.textContent = `${year} 年 ${month} 月`;
+
+  if (unsubscribeExpenses) unsubscribeExpenses();
+  unsubscribeExpenses = listenExpenses(year, month, memberId, (list) => {
+    expenses = list;
+    renderExpenses();
+  });
+}
+
+function initYearMonthSelects() {
+  const yearSel = document.getElementById('expense-year');
+  const monthSel = document.getElementById('expense-month');
+  if (!yearSel || !monthSel) return;
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  let yearOpts = '';
+  for (let y = currentYear - 5; y <= currentYear + 5; y++) {
+    yearOpts += `<option value="${y}">${y} 年</option>`;
+  }
+  yearSel.innerHTML = yearOpts;
+
+  let monthOpts = '';
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, '0');
+    monthOpts += `<option value="${mm}">${m} 月</option>`;
+  }
+  monthSel.innerHTML = monthOpts;
+}
+
+function renderCategoryOptions() {
+  const sel = document.getElementById('expense-category-input');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">— 請選擇類別 —</option>` +
+    categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  if (current) sel.value = current;
+}
+
+function renderItemOptions() {
+  const sel = document.getElementById('expense-item-input');
+  if (!sel) return;
+  const catId = document.getElementById('expense-category-input')?.value;
+  if (!catId) {
+    sel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
+    return;
+  }
+  const filtered = items.filter((i) => i.categoryId === catId);
+  sel.innerHTML = `<option value="">— 請選擇項目 —</option>` +
+    filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
+}
+
+function bindEvents() {
+  const modal = document.getElementById('expense-modal');
+  const modalTitle = document.getElementById('expense-modal-title');
+  const form = document.getElementById('expense-form');
+  const categorySel = document.getElementById('expense-category-input');
+  const itemSel = document.getElementById('expense-item-input');
+  const amountInput = document.getElementById('expense-amount-input');
+  const dateInput = document.getElementById('expense-date-input');
+  const statusSel = document.getElementById('expense-status-input');
+  const memberInput = document.getElementById('expense-member-input');
+  const fixedCheck = document.getElementById('expense-fixed-input');
+  const yearSel = document.getElementById('expense-year');
+  const monthSel = document.getElementById('expense-month');
+
+  const addBtn = document.getElementById('add-expense-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => {
+      editingId = null;
+      if (modalTitle) modalTitle.textContent = '新增支出';
+      form.reset();
+      const { year, month } = AppState.getYearMonth();
+      if (yearSel) yearSel.value = year;
+      if (monthSel) monthSel.value = month === 'all' ? String(new Date().getMonth() + 1).padStart(2, '0') : month;
+      if (dateInput) dateInput.value = todayISO();
+      if (statusSel) statusSel.value = '未處理';
+      if (memberInput) memberInput.value = memberName;
+      if (fixedCheck) { fixedCheck.checked = false; fixedCheck.disabled = false; }
+      renderItemOptions();
+      if (modal) modal.classList.add('active');
+      setTimeout(() => dateInput?.focus(), 50);
+    });
+  }
+
+  const cancelBtn = document.getElementById('expense-cancel-btn');
+  if (cancelBtn) cancelBtn.addEventListener('click', () => modal?.classList.remove('active'));
+
+  if (categorySel) categorySel.addEventListener('change', renderItemOptions);
+
+  const addItemBtn = document.getElementById('add-expense-item-btn');
+  if (addItemBtn) {
+    addItemBtn.addEventListener('click', async () => {
+      const catId = categorySel.value;
+      if (!catId) return alert('請先選擇一個類別，再新增項目。');
+      const name = prompt('請輸入新項目名稱（例如：看病-濕疹）：');
+      if (!name || !name.trim()) return;
+      try {
+        const { addItem } = await import('./db.js');
+        await addItem({ name: name.trim(), categoryId: catId });
+        setTimeout(() => {
+          const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId);
+          if (newItem && itemSel) itemSel.value = newItem.id;
+        }, 500);
+      } catch (err) {
+        alert('新增項目失敗：' + err.message);
+      }
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const targetYear = yearSel?.value || AppState.year;
+      const targetMonth = monthSel?.value || AppState.month;
+
+      const catId = categorySel?.value || '';
+      const itemId = itemSel?.value || '';
+      const catName = categories.find((c) => c.id === catId)?.name || '';
+      const itemName = items.find((i) => i.id === itemId)?.name || '';
+      const displayName = itemName || catName || '未命名支出';
+
+      const payload = {
+        name: displayName,
+        amount: Number(amountInput?.value) || 0,
+        status: statusSel?.value || '未處理',
+        date: dateInput?.value.trim() || todayISO(),
+        categoryId: catId,
+        itemId: itemId,
+      };
+
+      if (!payload.name || !payload.amount) return;
+
+      if (editingId) {
+        await updateExpense(targetYear, targetMonth, memberId, editingId, payload);
+      } else {
+        await addExpense(targetYear, targetMonth, memberId, payload);
+        if (fixedCheck?.checked) {
+          await addFixedTemplate({
+            name: displayName, categoryId: catId, itemId: itemId,
+            memberId: memberId, amount: payload.amount,
+          });
+        }
+      }
+
+      modal?.classList.remove('active');
+      showToast(`✅ 已錄入 ${targetYear} 年 ${targetMonth} 月`);
+    });
+  }
+
+  const tbody = document.getElementById('expense-tbody');
+  if (tbody) {
+    tbody.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      const exp = expenses.find((x) => x.id === id);
+      if (!exp) return;
+
+      if (action === 'edit') {
+        editingId = id;
+        if (modalTitle) modalTitle.textContent = '編輯支出';
+        const { year, month } = AppState.getYearMonth();
+        if (yearSel) yearSel.value = year;
+        if (monthSel) monthSel.value = month === 'all' ? String(new Date().getMonth() + 1).padStart(2, '0') : month;
+        if (categorySel) categorySel.value = exp.categoryId || '';
+        renderItemOptions();
+        if (itemSel) itemSel.value = exp.itemId || '';
+        if (amountInput) amountInput.value = exp.amount || '';
+        if (dateInput) dateInput.value = exp.date || '';
+        if (statusSel) statusSel.value = exp.status || '未處理';
+        if (memberInput) memberInput.value = memberName;
+        if (fixedCheck) { fixedCheck.checked = false; fixedCheck.disabled = true; }
+        if (modal) modal.classList.add('active');
+        setTimeout(() => dateInput?.focus(), 50);
+      } else if (action === 'delete') {
+        if (confirm(`確定要刪除「${exp.name}」嗎？`)) {
+          const { year, month } = AppState.getYearMonth();
+          await removeExpense(year, month, memberId, id);
+        }
+      }
+    });
+  }
+}
+
+function renderExpenses() {
+  const tbody = document.getElementById('expense-tbody');
+  if (!tbody) return;
+
+  const total = expenses.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  const totalEl = document.getElementById('expense-total');
+  if (totalEl) totalEl.textContent = formatHKD(total);
+
+  if (!expenses.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">尚無支出紀錄</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = expenses.map((x) => {
+    let statusBadge = '';
+    if (x.status === '已還款' || x.status === '已處理') {
+      statusBadge = `<span class="badge badge-success">${escapeHtml(x.status)}</span>`;
+    } else if (x.status === '未還款' || x.status === '未處理') {
+      statusBadge = `<span class="badge badge-pending">${escapeHtml(x.status)}</span>`;
+    } else {
+      statusBadge = `<span class="badge badge-pending">${escapeHtml(x.status || '未處理')}</span>`;
+    }
+
+    const actionCell = x.isAutoLinked
+      ? `<span class="text-muted" style="font-size:12px;">由保險模組管理</span>`
+      : `<button class="btn btn-sm btn-ghost" data-action="edit" data-id="${x.id}">編輯</button>
+         <button class="btn btn-sm btn-danger" data-action="delete" data-id="${x.id}">刪除</button>`;
+
+    const autoBadge = x.isAutoLinked
+      ? '<span class="badge badge-info" style="margin-left:6px;">保險連動</span>'
+      : '';
+
+    return `
+      <tr>
+        <td>${escapeHtml(x.name)}${autoBadge}</td>
+        <td class="num">${formatHKD(x.amount)}</td>
+        <td>${statusBadge}</td>
+        <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x.date || '—')}</td>
+        <td>${actionCell}</td>
+      </tr>
+    `;
+  }).join('');
+
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function showToast(msg) {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+}
