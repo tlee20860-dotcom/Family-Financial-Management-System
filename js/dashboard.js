@@ -36,9 +36,6 @@ async function loadDashboard() {
   }
 }
 
-/* ============================================
-   全年模式渲染
-   ============================================ */
 function renderAnnual(data) {
   setText('annual-income', formatHKD(data.totalIncome));
   setText('annual-expense', formatHKD(data.totalExpense));
@@ -50,7 +47,6 @@ function renderAnnual(data) {
   netEl.classList.remove('emerald', 'red');
   netEl.classList.add(data.netBalance >= 0 ? 'emerald' : 'red');
 
-  // 月份折疊卡片
   const container = document.getElementById('monthly-cards');
   container.innerHTML = data.monthly.map((m, i) => {
     const monthNum = i + 1;
@@ -98,9 +94,6 @@ function renderAnnual(data) {
   if (window.lucide) window.lucide.createIcons();
 }
 
-/* ============================================
-   單月模式渲染
-   ============================================ */
 function renderMonthly(data) {
   setText('stat-income',    formatHKD(data.totalIncome));
   setText('stat-expense',   formatHKD(data.totalExpense));
@@ -113,12 +106,17 @@ function renderMonthly(data) {
   netEl.classList.remove('emerald', 'red');
   netEl.classList.add(data.netBalance >= 0 ? 'emerald' : 'red');
 
+  // 🆕 使用 API 回傳的 perMember.memberName 取代硬編碼名稱
   const breakdown = data.incomeBreakdown || {};
+  const perMember = data.perMember || {};
   const parts = [];
-  const memberMap = { mem_husband: '老公', mem_wife: '老婆', mem_son: '梓舜', mem_daughter: '梓言' };
   Object.entries(breakdown).forEach(([key, val]) => {
-    if (key === 'extra') parts.push(`額外 ${formatHKD(val)}`);
-    else parts.push(`${memberMap[key] || key} ${formatHKD(val)}`);
+    if (key === 'extra') {
+      parts.push(`額外 ${formatHKD(val)}`);
+    } else {
+      const memberName = perMember[key]?.memberName || key;
+      parts.push(`${memberName} ${formatHKD(val)}`);
+    }
   });
   setText('hint-income', parts.length ? parts.join(' ＋ ') : '本月尚未設定收入');
 
