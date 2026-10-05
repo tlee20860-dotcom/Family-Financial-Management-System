@@ -60,6 +60,12 @@ export function initFixedExpensesPage() {
     render();
   });
 
+  // 🆕 監聽年月變更，切換年月時自動重新載入並重新渲染
+  AppState.on('ym-change', async () => {
+    await loadYearData();
+    render();
+  });
+
   document.getElementById('add-fixed-btn').addEventListener('click', () => {
     form.reset();
     memberSel.value = 'shared';
@@ -191,7 +197,6 @@ export function initFixedExpensesPage() {
   }
 
   function renderTemplateDetail(t) {
-    // 只顯示當前 AppState.year 的資料
     const year = AppState.year;
     const rows = [];
     let totalPaid = 0;
