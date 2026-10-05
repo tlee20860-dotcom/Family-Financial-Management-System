@@ -43,9 +43,13 @@ export async function onRequestPost({ request }) {
 
     if (action === 'remove') {
       if (!uid) return jsonResponse({ ok: false, error: '缺少 uid' }, 400);
-      const success = await dbDelete(`platform/families/${uid}`, token);
-      if (!success) return jsonResponse({ ok: false, error: '刪除失敗' }, 500);
-      return jsonResponse({ ok: true });
+      
+      // 🆕 同時刪除 platform 記錄與整個家庭資料
+      const ok1 = await dbDelete(`platform/families/${uid}`, token);
+      const ok2 = await dbDelete(`families/${uid}`, token);
+      
+      if (!ok1 && !ok2) return jsonResponse({ ok: false, error: '刪除失敗' }, 500);
+      return jsonResponse({ ok: true, deletedPlatform: ok1, deletedFamilyData: ok2 });
     }
 
     return jsonResponse({ ok: false, error: '未知 action' }, 400);
