@@ -1,5 +1,5 @@
 // ============================================
-// pwa.js — PWA 初始化
+// pwa.js — PWA 初始化（更新 meta 標籤）
 // ============================================
 
 export function initPWA() {
@@ -19,7 +19,15 @@ export function initPWA() {
     document.head.appendChild(meta);
   }
 
-  // iOS 專屬 meta
+  // 🆕 更新 PWA meta 標籤（使用標準的 mobile-web-app-capable）
+  if (!document.querySelector('meta[name="mobile-web-app-capable"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'mobile-web-app-capable';
+    meta.content = 'yes';
+    document.head.appendChild(meta);
+  }
+
+  // iOS 相容性（保留 apple 版本，但加上標準版本）
   if (!document.querySelector('meta[name="apple-mobile-web-app-capable"]')) {
     const meta = document.createElement('meta');
     meta.name = 'apple-mobile-web-app-capable';
@@ -37,7 +45,7 @@ export function initPWA() {
     document.head.appendChild(meta3);
   }
 
-  // 註冊 Service Worker（安全包裹）
+  // 註冊 Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker
