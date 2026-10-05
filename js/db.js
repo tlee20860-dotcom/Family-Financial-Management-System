@@ -608,3 +608,31 @@ export function listenAssets(callback, onError) {
 export async function saveAssets(data) {
   await update(familyRef('assets'), { bankBalance: Number(data.bankBalance) || 0 });
 }
+/* ============================================
+   刪除整個固定支出模板（含所有月份記錄）
+   ============================================ */
+
+export async function deleteFixedTemplateAndMonths(templateId, templateName) {
+  const familyId = AppState.getFamilyId();
+  if (!familyId) throw new Error('尚未選擇家庭');
+
+  // 1. 刪除模板本身
+  const updates = {};
+  updates[`families/${familyId}/fixed_expense_templates/${templateId}`] = null;
+
+  // 2. 遍歷所有月份，刪除對應名稱的記錄
+  const snap = await get(ref(db, `families/${familyId}/fixed_expenses`));
+  const allExpenses = snap.val() || {};
+
+  Object.entries(allExpenses).forEach(([year, months]) => {
+    Object.entries(months || {}).forEach(([month, items]) => {
+      Object.entries(items || {}).forEach(([id, item]) => {
+        if (item.name === templateName) {
+          updates[`families/${familyId}/fixed_expenses/${year}/${month}/${id}`] = null;
+        }
+      });
+    });
+  });
+
+  await update(ref(db), updates);
+}
