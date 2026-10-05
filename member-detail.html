@@ -20,7 +20,7 @@
           <p class="page-subtitle" id="member-id-label"></p>
         </div>
 
-        <!-- ===== 全年模式 ===== -->
+        <!-- 全年模式 -->
         <div id="annual-view" style="display:none;">
           <div class="glass-card" style="margin-bottom:20px;">
             <div class="glass-card-title">全年總支出</div>
@@ -30,7 +30,7 @@
           <div id="annual-monthly-cards"></div>
         </div>
 
-        <!-- ===== 單月模式 ===== -->
+        <!-- 單月模式 -->
         <div id="monthly-view" style="display:none;">
           <div class="glass-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
@@ -38,14 +38,9 @@
                 <div class="glass-card-title" style="margin:0;">個人支出細項</div>
                 <div class="glass-card-hint" id="expense-month-label"></div>
               </div>
-              <div style="display:flex; align-items:center; gap:14px;">
-                <div style="text-align:right;">
-                  <div class="glass-card-title" style="margin:0;">本月合計</div>
-                  <div class="mono text-cyan" id="expense-total" style="font-size:18px; font-weight:700;">HK$ 0</div>
-                </div>
-                <button class="btn btn-primary" id="add-expense-btn">
-                  <i data-lucide="plus"></i> 新增個人支出
-                </button>
+              <div style="text-align:right;">
+                <div class="glass-card-title" style="margin:0;">本月合計</div>
+                <div class="mono text-cyan" id="expense-total" style="font-size:18px; font-weight:700;">HK$ 0</div>
               </div>
             </div>
 
@@ -57,92 +52,16 @@
                     <th style="text-align:right;">金額</th>
                     <th>狀態</th>
                     <th>處理日期</th>
-                    <th>操作</th>
                   </tr>
                 </thead>
                 <tbody id="expense-tbody">
-                  <tr><td colspan="5" class="empty-state">載入中…</td></tr>
+                  <tr><td colspan="4" class="empty-state">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </div>
       </main>
-    </div>
-  </div>
-
-  <!-- Modal -->
-  <div class="modal-overlay" id="expense-modal">
-    <div class="modal" style="max-width:520px;">
-      <h2 class="modal-title" id="expense-modal-title">新增支出</h2>
-      <form id="expense-form">
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field">
-            <label class="field-label" for="expense-year">歸屬年份</label>
-            <select class="select" id="expense-year"></select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="expense-month">歸屬月份</label>
-            <select class="select" id="expense-month"></select>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-date-input">支出日期</label>
-          <input class="input" id="expense-date-input" type="text" placeholder="例如：2026-10-03" maxlength="20">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-category-input">支出類別</label>
-          <select class="select" id="expense-category-input" required>
-            <option value="">— 請選擇類別 —</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-item-input">項目</label>
-          <div style="display:flex; gap:8px;">
-            <select class="select" id="expense-item-input" required style="flex:1;">
-              <option value="">— 請先選擇類別 —</option>
-            </select>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-expense-item-btn" title="新增項目" style="padding:0 12px;">
-              <i data-lucide="plus" style="width:16px;height:16px;"></i>
-            </button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-amount-input">費用（HK$）</label>
-          <input class="input mono" id="expense-amount-input" type="number" min="0" step="0.01" required placeholder="0">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-status-input">狀態</label>
-          <select class="select" id="expense-status-input">
-            <option value="未處理">未處理</option>
-            <option value="已處理">已處理</option>
-            <option value="未還款">未還款</option>
-            <option value="已還款">已還款</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="expense-member-input">支出成員</label>
-          <input class="input" id="expense-member-input" disabled>
-        </div>
-
-        <div class="field">
-          <label style="display:flex; align-items:center; gap:8px; cursor:pointer; color:var(--text-secondary); font-size:13px;">
-            <input type="checkbox" id="expense-fixed-input" style="width:auto;">
-            設為每月固定支出
-          </label>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="expense-cancel-btn">取消</button>
-          <button type="submit" class="btn btn-primary">儲存</button>
-        </div>
-      </form>
     </div>
   </div>
 
