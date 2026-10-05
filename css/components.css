@@ -520,9 +520,10 @@
 }
 
 /* ============================================
-   🔧 每月 row：flex，input 固定寬度，checkbox 靠右
+   🔧 每月 row：flex 順序調整
    -------------------------------------------------
-   - 移除所有 inline style 後，這個 CSS 完全生效
+   新順序： 日期  →  已扣款 checkbox  →  金額 input
+   （用 order 屬性，不必改 HTML/JS）
    ============================================ */
 .insurance-month-row {
   display: flex;
@@ -532,12 +533,34 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
+/* 🔧 用 order 控制視覺順序 */
+.insurance-month-row .ins-date       { order: 1; }
+.insurance-month-row .ins-paid-label { order: 2; }
+.insurance-month-row input.ins-amount { order: 3; }
+
 .insurance-month-row .ins-date {
   width: 70px;
   flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-secondary);
+}
+
+.insurance-month-row .ins-paid-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex: 0 0 auto;
+  min-width: 70px;
+  color: var(--text-secondary);
+}
+
+.insurance-month-row .ins-paid {
+  width: auto;
+  cursor: pointer;
 }
 
 .insurance-month-row input.ins-amount {
@@ -555,21 +578,6 @@
 .insurance-month-row input.ins-amount:focus {
   outline: none;
   border-color: var(--neon-cyan);
-}
-
-.insurance-month-row .ins-paid-label {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.insurance-month-row .ins-paid {
-  width: auto;
-  cursor: pointer;
 }
 
 /* ================= 已供滿保單區塊 ================= */
@@ -758,7 +766,7 @@
     font-size: 10px;
   }
 
-  /* 🔧 手機版每月 row：input 更窄 */
+  /* 🔧 手機版每月 row */
   .insurance-month-row {
     gap: 8px;
     padding: 4px 0;
@@ -767,14 +775,15 @@
     width: 60px;
     font-size: 11px;
   }
+  .insurance-month-row .ins-paid-label {
+    font-size: 11px;
+    gap: 4px;
+    min-width: 60px;
+  }
   .insurance-month-row input.ins-amount {
     width: 80px;
     padding: 3px 6px;
     font-size: 11px;
-  }
-  .insurance-month-row .ins-paid-label {
-    font-size: 11px;
-    gap: 4px;
   }
   .insurance-month-row .ins-paid {
     transform: scale(0.9);
