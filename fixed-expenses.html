@@ -9,9 +9,20 @@
   <link rel="stylesheet" href="./css/components.css">
   <style>
     .fixed-card { margin-bottom: 16px; padding: 16px; }
-    .fixed-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-    .fixed-card-title { font-size: 15px; font-weight: 700; color: var(--neon-cyan); }
+    .fixed-card-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 0; }
+    .fixed-card-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; flex: 1; min-width: 0; user-select: none; }
+    .fixed-card-toggle:hover .fixed-card-title { color: var(--neon-magenta); }
+    .fixed-card-title { font-size: 15px; font-weight: 700; color: var(--neon-cyan); transition: color 0.2s; }
     .fixed-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .fixed-card-body { margin-top: 12px; }
+
+    .year-accordion { border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
+    .year-accordion-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; cursor: pointer; background: rgba(255,255,255,0.03); user-select: none; gap: 10px; flex-wrap: wrap; }
+    .year-accordion-header:hover { background: rgba(255,255,255,0.06); }
+    .year-accordion-body { padding: 6px 14px; }
+    .accordion-arrow { transition: transform 0.2s ease; flex-shrink: 0; }
+    .accordion-arrow.rotated { transform: rotate(90deg); }
+
     .fixed-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .fixed-table th { text-align: left; padding: 6px 8px; color: var(--text-muted); font-size: 11px; border-bottom: 1px solid var(--glass-border); }
     .fixed-table td { padding: 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
@@ -20,6 +31,10 @@
     .fixed-table input[type="number"]:focus { outline: none; border-color: var(--neon-cyan); }
     .fixed-table .month-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); min-width: 50px; }
     .skip-row { opacity: 0.4; text-decoration: line-through; }
+
+    @media (max-width: 640px) {
+      .fixed-card-header { align-items: flex-start; }
+    }
   </style>
 </head>
 <body>
@@ -40,7 +55,7 @@
         </div>
 
         <div class="banner">
-          ℹ️ 新增時只需輸入基本資料與週期，系統會自動分配到所屬月份。明細表可直接修改金額、勾選狀態或刪除。
+          ℹ️ 點擊固定支出卡片可展開，按「年份 &gt; 月份」查看與編輯明細。新增時系統會自動分配到所屬月份。
         </div>
 
         <div id="fixed-templates-container">
