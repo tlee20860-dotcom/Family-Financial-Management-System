@@ -104,7 +104,11 @@
           </div>
 
           <!-- 多層篩選 -->
-          <div class="grid grid-4" style="gap:12px; margin-bottom:16px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:16px;">
+            <div class="field">
+              <label class="field-label" for="pe-filter-year">年份</label>
+              <select class="select" id="pe-filter-year"></select>
+            </div>
             <div class="field">
               <label class="field-label" for="pe-filter-month">月份</label>
               <select class="select" id="pe-filter-month">
@@ -142,7 +146,7 @@
               </select>
             </div>
           </div>
-          <div class="grid grid-3" style="gap:12px; margin-bottom:16px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-bottom:16px;">
             <div class="field">
               <label class="field-label" for="pe-filter-keyword">關鍵字</label>
               <input class="input" id="pe-filter-keyword" type="text" placeholder="搜尋項目名稱...">
@@ -170,6 +174,8 @@
                   <th>成員</th>
                   <th>項目名稱</th>
                   <th>類別</th>
+                  <th>年份</th>
+                  <th>月份</th>
                   <th>日期</th>
                   <th style="text-align:right;">金額</th>
                   <th>狀態</th>
@@ -177,7 +183,7 @@
                 </tr>
               </thead>
               <tbody id="pe-tbody">
-                <tr><td colspan="8" class="empty-state">載入中…</td></tr>
+                <tr><td colspan="10" class="empty-state">載入中…</td></tr>
               </tbody>
             </table>
           </div>
