@@ -1,7 +1,5 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -81,25 +79,24 @@
   </div>
 
   <script src="https://unpkg.com/lucide@latest"></script>
-<script type="module">
-  import { AppState } from './js/state.js';
-  import { initAdminPage } from './js/admin.js';
-  import { watchAuth, isSuperAdmin } from './js/auth.js';
-  import { initPWA } from './js/pwa.js';
+  <script type="module">
+    import { AppState } from './js/state.js';
+    import { initAdminPage } from './js/admin.js';
+    import { watchAuth, isSuperAdmin } from './js/auth.js';
+    import { initPWA } from './js/pwa.js';
 
-  AppState.init();
-  initPWA();
+    AppState.init();
+    initPWA();
 
-  // 監聽登入狀態，確認是 superadmin 後才初始化管理頁面
-  watchAuth((user) => {
-    if (!user) {
-      window.location.href = 'login.html';
-      return;
-    }
-    AppState.setUser(user);
-    AppState.setSuperAdmin(isSuperAdmin(user));
-    initAdminPage();
-  });
-</script>
+    watchAuth((user) => {
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
+      AppState.setUser(user);
+      AppState.setSuperAdmin(isSuperAdmin(user));
+      initAdminPage();
+    });
+  </script>
 </body>
 </html>
