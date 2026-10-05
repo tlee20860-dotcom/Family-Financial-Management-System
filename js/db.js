@@ -600,3 +600,22 @@ export async function deleteBankAndBalances(bankId) {
   // 4. 執行批量刪除
   await update(ref(db), updates);
 }
+/* ============================================
+   保險公司清單
+   ============================================ */
+
+export function listenInsuranceCompanies(callback, onError) {
+  return listen('insurance_companies', (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, c]) => ({ id, ...c }));
+    list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    callback(list);
+  }, onError);
+}
+
+export async function addInsuranceCompany(name) {
+  const r = familyRef('insurance_companies');
+  const newRef = push(r);
+  await set(newRef, { name: name || '', createdAt: Date.now() });
+  return newRef.key;
+}
