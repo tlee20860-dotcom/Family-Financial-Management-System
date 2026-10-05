@@ -7,7 +7,7 @@ import {
   listenMembers, listenInsurancePayment, addInsurancePeriod,
   getInsurancePaymentsOnce, saveInsurancePaymentBatch, removeInsurancePaymentBatch,
   deleteInsurancePolicyAndData,
-  listenInsuranceCompanies, addInsuranceCompany,
+  listenInsuranceCompanies, addInsuranceCompany, updateInsuranceCompany, updatePolicyCompanyName,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
@@ -268,19 +268,56 @@ function bindPolicyModalEvents() {
     modal.classList.add('active');
   });
 
-  // 🆕 新增保險公司按鈕
+  // 新增保險公司按鈕
   document.getElementById('add-company-btn').addEventListener('click', async () => {
     const name = prompt('請輸入新的保險公司名稱：');
     if (!name || !name.trim()) return;
     try {
       await addInsuranceCompany(name.trim());
-      // 等待 companies 更新後，自動選中
       setTimeout(() => {
         const sel = document.getElementById('policy-company');
         if (sel) sel.value = name.trim();
       }, 500);
     } catch (err) {
       alert('新增失敗：' + err.message);
+    }
+  });
+
+  // 🆕 編輯保險公司按鈕
+  document.getElementById('edit-company-btn').addEventListener('click', async () => {
+    const sel = document.getElementById('policy-company');
+    const oldName = sel.value;
+    if (!oldName) return alert('請先選擇一個要編輯的保險公司。');
+
+    const targetCompany = companies.find((c) => c.name === oldName);
+    if (!targetCompany) return alert('找不到該保險公司的資料，請確認是否為預設值。');
+
+    const newName = prompt(`請輸入「${oldName}」的新名稱：`, oldName);
+    if (!newName || !newName.trim() || newName.trim() === oldName) return;
+
+    const trimmedNewName = newName.trim();
+
+    // 檢查是否重複
+    if (companies.some((c) => c.name === trimmedNewName)) {
+      return alert('此名稱已存在，請使用其他名稱。');
+    }
+
+    try {
+      // 1. 更新公司本身
+      await updateInsuranceCompany(targetCompany.id, trimmedNewName);
+
+      // 2. 更新所有引用該公司的保單
+      const updatedCount = await updatePolicyCompanyName(oldName, trimmedNewName);
+
+      alert(`✅ 已將「${oldName}」更名為「${trimmedNewName}」\n同步更新了 ${updatedCount} 張保單。`);
+
+      // 3. 重新選中新的公司
+      setTimeout(() => {
+        const sel2 = document.getElementById('policy-company');
+        if (sel2) sel2.value = trimmedNewName;
+      }, 500);
+    } catch (err) {
+      alert('編輯失敗：' + err.message);
     }
   });
 
