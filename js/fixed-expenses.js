@@ -60,7 +60,6 @@ export function initFixedExpensesPage() {
     render();
   });
 
-  // 🆕 監聽年月變更，切換年月時自動重新載入並重新渲染
   AppState.on('ym-change', async () => {
     await loadYearData();
     render();
@@ -108,9 +107,7 @@ export function initFixedExpensesPage() {
     showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`);
   });
 
-  // 事件委派：折疊與操作
   container.addEventListener('click', async (e) => {
-    // 年度折疊
     const yearHeader = e.target.closest('.fixed-year-header');
     if (yearHeader) {
       const key = yearHeader.dataset.toggleKey;
@@ -119,7 +116,6 @@ export function initFixedExpensesPage() {
       return;
     }
 
-    // 卡片/表格展開
     const expandBtn = e.target.closest('.fixed-expand-btn');
     if (expandBtn) {
       const key = expandBtn.dataset.toggleKey;
@@ -128,7 +124,6 @@ export function initFixedExpensesPage() {
       return;
     }
 
-    // 刪除
     const delBtn = e.target.closest('button[data-action="delete-template"]');
     if (delBtn) {
       const id = delBtn.dataset.id;
@@ -139,7 +134,6 @@ export function initFixedExpensesPage() {
       return;
     }
 
-    // 儲存
     const saveBtn = e.target.closest('button[data-action="save-template"]');
     if (saveBtn) {
       const name = saveBtn.dataset.name;
@@ -148,7 +142,6 @@ export function initFixedExpensesPage() {
     }
   });
 
-  // 事件委派：修改金額、勾選
   container.addEventListener('change', async (e) => {
     const el = e.target;
     if (el.dataset.action === 'update-amount') {
@@ -196,6 +189,9 @@ export function initFixedExpensesPage() {
     }
   }
 
+  /* ============================================
+     🔧 明細渲染：移除 inline style，改用 class
+     ============================================ */
   function renderTemplateDetail(t) {
     const year = AppState.year;
     const rows = [];
@@ -212,11 +208,15 @@ export function initFixedExpensesPage() {
       if (isPaid && !isSkipped) totalPaid += amount;
 
       rows.push(`
-        <div class="fixed-month-row" style="display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04);">
-          <div style="width:50px; font-family:var(--font-mono); font-size:12px; color:var(--text-secondary);">${m}月</div>
-          <input type="number" class="input" data-action="update-amount" data-year="${year}" data-month="${monthStr}" data-id="${item.id}" value="${amount}" min="0" step="1" style="flex:1; padding:4px 8px; font-size:12px; text-align:right;">
-          <label style="display:flex; align-items:center; gap:4px; font-size:11px; white-space:nowrap;"><input type="checkbox" data-action="toggle-paid" data-year="${year}" data-month="${monthStr}" data-id="${item.id}" ${isPaid ? 'checked' : ''} style="width:auto;"> 已付款</label>
-          <label style="display:flex; align-items:center; gap:4px; font-size:11px; white-space:nowrap;"><input type="checkbox" data-action="toggle-skip" data-year="${year}" data-month="${monthStr}" data-id="${item.id}" ${isSkipped ? 'checked' : ''} style="width:auto;"> 不適用</label>
+        <div class="fixed-month-row">
+          <div class="fix-month-label">${m}月</div>
+          <input type="number" class="input fix-amount" data-action="update-amount" data-year="${year}" data-month="${monthStr}" data-id="${item.id}" value="${amount}" min="0" step="1">
+          <label class="fix-checkbox-label">
+            <input type="checkbox" data-action="toggle-paid" data-year="${year}" data-month="${monthStr}" data-id="${item.id}" ${isPaid ? 'checked' : ''}> 已付款
+          </label>
+          <label class="fix-checkbox-label">
+            <input type="checkbox" data-action="toggle-skip" data-year="${year}" data-month="${monthStr}" data-id="${item.id}" ${isSkipped ? 'checked' : ''}> 不適用
+          </label>
         </div>
       `);
     }
