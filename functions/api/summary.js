@@ -23,7 +23,7 @@ export async function onRequestGet({ request }) {
     if (prevM < 1) { prevY -= 1; prevM = 12; }
     const prevMonthStr = String(prevM).padStart(2, '0');
 
-    const [members, policies, expenses, income, funds, fixed, categories, items, bankBalances, prevBankBalances, banks] = await Promise.all([
+    const [members, policies, expenses, income, funds, fixed, categories, items, bankBalances, prevBankBalances, banks, paymentMethods] = await Promise.all([
       dbGet(`${basePath}/members`, token),
       dbGet(`${basePath}/insurance_policies`, token),
       year && month ? dbGet(`${basePath}/expenses/${year}/${month}/member_expenses`, token) : null,
@@ -35,6 +35,7 @@ export async function onRequestGet({ request }) {
       year && month ? dbGet(`${basePath}/bank_balances/${year}/${month}`, token) : null,
       dbGet(`${basePath}/bank_balances/${prevY}/${prevMonthStr}`, token),
       dbGet(`${basePath}/banks`, token),
+      dbGet(`${basePath}/payment_methods`, token),   // 🆕
     ]);
 
     const membersObj = members || {};
@@ -48,6 +49,7 @@ export async function onRequestGet({ request }) {
     const bankBalancesObj = bankBalances || {};
     const prevBankBalancesObj = prevBankBalances || {};
     const banksObj = banks || {};
+    const paymentsObj = paymentMethods || {};   // 🆕
 
     /* ---------- 支出匯總 ---------- */
     const perMember = {};
@@ -57,12 +59,15 @@ export async function onRequestGet({ request }) {
       const itemsArr = Object.entries(list || {}).map(([id, e]) => {
         const catId = e.categoryId || '';
         const itemId = e.itemId || '';
+        const pmId = e.paymentMethodId || '';
         return {
           id, name: e.name || '', amount: Math.round(Number(e.amount) || 0),
           status: e.status || '未處理', date: e.date || '',
           categoryId: catId, categoryName: categoriesObj[catId]?.name || '',
           itemId, itemName: itemsObj[itemId]?.name || '',
           isAutoLinked: e.isAutoLinked || false,
+          paymentMethodId: pmId,                                    // 🆕
+          paymentMethodName: paymentsObj[pmId]?.name || '',         // 🆕
         };
       });
       itemsArr.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -74,10 +79,11 @@ export async function onRequestGet({ request }) {
       totalExpense += sum;
     });
 
-    /* ---------- 固定支出匯總（🆕 加上 categoryId / categoryName） ---------- */
+    /* ---------- 固定支出匯總 ---------- */
     const fixedList = Object.entries(fixedObj)
       .map(([id, x]) => {
         const catId = x.categoryId || '';
+        const pmId = x.paymentMethodId || '';
         return {
           id, name: x.name || '', amount: Math.round(Number(x.amount) || 0),
           cycle: x.cycle || '每月', note: x.note || '',
@@ -85,6 +91,8 @@ export async function onRequestGet({ request }) {
           isSkipped: !!x.isSkipped,
           categoryId: catId,
           categoryName: categoriesObj[catId]?.name || '其他',
+          paymentMethodId: pmId,                                    // 🆕
+          paymentMethodName: paymentsObj[pmId]?.name || '',         // 🆕
         };
       })
       .filter((x) => !x.isSkipped);
@@ -134,6 +142,23 @@ export async function onRequestGet({ request }) {
       }
     });
 
+    /* ---------- 🆕 支付方式統計 ---------- */
+    const paymentBreakdown = {};
+    // 成員支出
+    Object.values(perMember).forEach((m) => {
+      (m.items || []).forEach((it) => {
+        const pmName = it.paymentMethodName || '（未指定）';
+        if (!paymentBreakdown[pmName]) paymentBreakdown[pmName] = 0;
+        paymentBreakdown[pmName] += it.amount;
+      });
+    });
+    // 固定支出
+    fixedList.forEach((f) => {
+      const pmName = f.paymentMethodName || '（未指定）';
+      if (!paymentBreakdown[pmName]) paymentBreakdown[pmName] = 0;
+      paymentBreakdown[pmName] += f.amount;
+    });
+
     /* ---------- 資產匯總 ---------- */
     const bankBalanceTotal = Object.values(bankBalancesObj).reduce((s, b) => s + Math.round(Number(b.amount) || 0), 0);
     const fundList = Object.values(fundsObj);
@@ -162,6 +187,7 @@ export async function onRequestGet({ request }) {
       fixedPendingCount,
       fixedList,
       incomeBreakdown,
+      paymentBreakdown,                                              // 🆕
       memberCount: Object.keys(membersObj).length,
       policyCount: policyList.length,
       fundCount: fundList.length,
