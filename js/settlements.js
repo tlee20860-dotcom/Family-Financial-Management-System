@@ -13,6 +13,7 @@ import { createInputForm } from './input-form.js';
 import { openModal, closeModal } from './modal.js';
 import { showToast } from './toast.js';
 import { AppState } from './state.js';
+import { initCollapsibleCard } from './collapsible-card.js';
 
 let members = [];
 let fixedRepayments = [];
@@ -27,7 +28,9 @@ export function initSettlementsPage() {
     fields: ['year', 'month'],
     onChange: () => loadAll(),
   });
-
+  // 🆕 v99.5：表格區塊折疊（預設展開）
+  initCollapsibleCard('fixed-repayment-table-card', 'fixed-rp-table-open', true);
+  initCollapsibleCard('member-repayment-table-card', 'member-rp-table-open', true);
   // 🆕 v99：摺疊輸入表單（新增固定還款）
   inputForm = createInputForm({
     containerId: 'repayment-input-root',
