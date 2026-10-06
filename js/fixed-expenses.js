@@ -11,6 +11,7 @@ import {
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { renderPageFilter } from './page-filter.js';
+import { showToast } from './toast.js';
 import { AppState } from './state.js';
 
 let templates = [];
@@ -25,17 +26,14 @@ let expandedKeys = new Set();
 export function initFixedExpensesPage() {
   renderPageFilter({
     containerId: 'page-filter-root',
-    fields: ['year'],  // 固定支出只需年份
+    fields: ['year'],
     onChange: async () => {
       await loadYearData();
       render();
     },
   });
-  // ... 其餘不變
-}
 
   const container = document.getElementById('fixed-templates-container');
-  // ... 其餘不變
   const modal = document.getElementById('fixed-modal');
   const form = document.getElementById('fixed-form');
   const memberSel = document.getElementById('fixed-member');
@@ -59,7 +57,6 @@ export function initFixedExpensesPage() {
   listenCategories((cats) => { categories = cats; renderCategoryOptions(); });
   listenItems((list) => { items = list; renderItemOptions(); });
 
-  // 🆕 支付方式
   listenPaymentMethods((list) => {
     payments = list;
     if (paymentSel) {
@@ -76,7 +73,15 @@ export function initFixedExpensesPage() {
     if (!catId) return alert('請先選擇一個類別，再新增項目。');
     const name = prompt('請輸入新項目名稱：');
     if (!name || !name.trim()) return;
-    try { await addItem({ name: name.trim(), categoryId: catId }); setTimeout(() => { const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId); if (newItem) itemSel.value = newItem.id; }, 500); } catch (err) { alert('新增項目失敗：' + err.message); }
+    try {
+      await addItem({ name: name.trim(), categoryId: catId });
+      setTimeout(() => {
+        const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId);
+        if (newItem) itemSel.value = newItem.id;
+      }, 500);
+    } catch (err) {
+      alert('新增項目失敗：' + err.message);
+    }
   });
 
   listenFixedTemplates(async (list) => {
@@ -135,7 +140,7 @@ export function initFixedExpensesPage() {
     render();
 
     modal.classList.remove('active');
-    showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`);
+    showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`, 'success');
   });
 
   container.addEventListener('click', async (e) => {
@@ -305,29 +310,29 @@ export function initFixedExpensesPage() {
     `;
   }
 
-  function renderTable(templates) {
-    const key = `table-${templates.id}`;
+  function renderTable(template) {
+    const key = `table-${template.id}`;
     const isExpanded = expandedKeys.has(key);
-    const member = members.find((m) => m.id === templates.memberId);
-    const memberName = templates.memberId === 'shared' ? '家庭共用支出' : (member ? member.name : '（未指定）');
-    const pm = payments.find((p) => p.id === templates.paymentMethodId);
+    const member = members.find((m) => m.id === template.memberId);
+    const memberName = template.memberId === 'shared' ? '家庭共用支出' : (member ? member.name : '（未指定）');
+    const pm = payments.find((p) => p.id === template.paymentMethodId);
     const pmName = pm ? pm.name : '—';
 
     return `
       <tr>
         <td><button class="btn btn-sm btn-ghost fixed-expand-btn" data-toggle-key="${key}" style="padding:2px 6px;"><i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px;height:14px;"></i></button></td>
-        <td>${escapeHtml(templates.name)}</td>
+        <td>${escapeHtml(template.name)}</td>
         <td>${escapeHtml(memberName)}</td>
-        <td>${escapeHtml(templates.cycle || '每月')}</td>
+        <td>${escapeHtml(template.cycle || '每月')}</td>
         <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(pmName)}</td>
-        <td style="font-size:12px; color:var(--text-muted);">${escapeHtml(templates.note || '—')}</td>
+        <td style="font-size:12px; color:var(--text-muted);">${escapeHtml(template.note || '—')}</td>
         <td>
-          <button class="btn btn-sm btn-ghost" data-action="save-template" data-name="${escapeHtml(templates.name)}">儲存</button>
-          <button class="btn btn-sm btn-danger" data-action="delete-template" data-id="${templates.id}" data-name="${escapeHtml(templates.name)}">刪除</button>
+          <button class="btn btn-sm btn-ghost" data-action="save-template" data-name="${escapeHtml(template.name)}">儲存</button>
+          <button class="btn btn-sm btn-danger" data-action="delete-template" data-id="${template.id}" data-name="${escapeHtml(template.name)}">刪除</button>
         </td>
       </tr>
       <tr style="display:${isExpanded ? 'table-row' : 'none'};">
-        <td colspan="7" style="padding:12px;">${renderTemplateDetail(templates)}</td>
+        <td colspan="7" style="padding:12px;">${renderTemplateDetail(template)}</td>
       </tr>
     `;
   }
@@ -411,17 +416,4 @@ export function initFixedExpensesPage() {
     tableBtn.addEventListener('click', () => { currentView = 'table'; localStorage.setItem('fixed_view', 'table'); updateUI(); render(); });
     updateUI();
   }
-}
-
-function showToast(msg) {
-  let toast = document.getElementById('app-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'app-toast';
-    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.opacity = '1';
-  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
