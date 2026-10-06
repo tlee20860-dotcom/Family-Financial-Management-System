@@ -17,10 +17,11 @@
       <main class="content">
         <div class="page-header">
           <h1 class="page-title">系統設定</h1>
-          <p class="page-subtitle">帳號資訊</p>
+          <p class="page-subtitle">帳號資訊與個人化設定</p>
         </div>
 
-        <div class="glass-card" style="max-width:520px;">
+        <!-- 帳號資訊 -->
+        <div class="glass-card" style="max-width:520px; margin-bottom:16px;">
           <div class="glass-card-title">帳號資訊</div>
           <div class="field">
             <label class="field-label">登入帳號</label>
@@ -31,6 +32,21 @@
             <input class="input mono" value="超級管理員" disabled>
           </div>
           <button class="btn btn-danger" id="logout-btn">登出</button>
+        </div>
+
+        <!-- 🆕 v99：側邊欄排序 -->
+        <div class="glass-card" style="max-width:640px;">
+          <div class="glass-card-title">側邊欄排序</div>
+          <p class="glass-card-hint" style="margin-bottom:16px;">
+            調整下方功能選單的顯示順序（排序同步至雲端，跨裝置生效）
+          </p>
+          <div id="sidebar-order-list"></div>
+          <div style="margin-top:16px; text-align:right;">
+            <button class="btn btn-ghost btn-sm" id="reset-sidebar-order-btn">
+              <i data-lucide="rotate-ccw" style="width:14px;height:14px;"></i>
+              重置為預設
+            </button>
+          </div>
         </div>
       </main>
     </div>
