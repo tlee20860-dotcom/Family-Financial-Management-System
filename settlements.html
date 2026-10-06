@@ -20,18 +20,22 @@
             <h1 class="page-title">結算清單</h1>
             <p class="page-subtitle" id="settlement-month"></p>
           </div>
-          <div style="text-align:right;">
-            <div class="glass-card-title" style="margin:0;">本期待還款總額</div>
-            <div class="mono text-magenta" id="settlement-pending-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
+            <div class="page-ym-selector">
+              <select class="select" id="page-year"></select>
+              <select class="select" id="page-month"></select>
+            </div>
+            <div style="text-align:right;">
+              <div class="glass-card-title" style="margin:0;">本期待還款總額</div>
+              <div class="mono text-magenta" id="settlement-pending-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
+            </div>
           </div>
         </div>
 
-        <!-- 全年模式 -->
         <div id="annual-view" style="display:none;">
           <div id="annual-monthly-cards"></div>
         </div>
 
-        <!-- 單月模式 -->
         <div id="monthly-view" style="display:none;">
           <div class="glass-card" style="margin-bottom:20px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
@@ -114,7 +118,7 @@
         </div>
         <div class="field">
           <label class="field-label" for="fixed-amount">金額（HK$）</label>
-          <input class="input mono" id="fixed-amount" type="number" min="0" step="0.01" required placeholder="0">
+          <input class="input mono" id="fixed-amount" type="number" min="0" step="1" required placeholder="0">
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
@@ -139,7 +143,7 @@
         </div>
         <div class="field">
           <label class="field-label" for="edit-expense-amount">金額（HK$）</label>
-          <input class="input mono" id="edit-expense-amount" type="number" min="0" step="0.01" required>
+          <input class="input mono" id="edit-expense-amount" type="number" min="0" step="1" required>
         </div>
         <div class="field">
           <label class="field-label" for="edit-expense-date">日期</label>
