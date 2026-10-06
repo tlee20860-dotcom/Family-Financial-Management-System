@@ -3,10 +3,11 @@
 // ============================================
 
 import { api } from './api.js';
-import { formatHKD } from './utils.js';
+import { formatHKD, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 
 export async function initDashboardPage() {
+  initPageYearMonthSelector('page-year', 'page-month');
   await loadDashboard();
   AppState.on('ym-change', () => loadDashboard());
 }
@@ -106,7 +107,6 @@ function renderMonthly(data) {
   netEl.classList.remove('emerald', 'red');
   netEl.classList.add(data.netBalance >= 0 ? 'emerald' : 'red');
 
-  // 🆕 使用 API 回傳的 perMember.memberName 取代硬編碼名稱
   const breakdown = data.incomeBreakdown || {};
   const perMember = data.perMember || {};
   const parts = [];
