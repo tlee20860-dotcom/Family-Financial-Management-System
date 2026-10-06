@@ -43,7 +43,7 @@
       padding-top: 16px;
     }
 
-    /* ===== 合併卡片（統計 + 明細） ===== */
+    /* ===== 合併卡片 ===== */
     .merged-card {
       padding: 0 !important;
       overflow: hidden;
@@ -91,25 +91,10 @@
     .bank-table { width: 100%; border-collapse: collapse; }
     .bank-table th, .bank-table td { white-space: nowrap; }
     .bank-table .bank-name-cell { font-size: 13px; }
-    .bank-table .bank-balance-input {
-      width: 140px;
-      padding: 6px 10px;
-      font-size: 13px;
-      text-align: right;
-      background: rgba(8, 11, 17, 0.6);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-sm);
-      color: var(--text-primary);
-      font-family: var(--font-mono);
-    }
-    .bank-table .bank-balance-input:focus {
-      outline: none;
-      border-color: var(--neon-cyan);
-    }
     .bank-table .prev-balance { color: var(--text-muted); }
     .bank-table .updated-at { font-size: 11px; color: var(--text-muted); }
 
-    /* ===== 全年模式折疊卡 ===== */
+    /* ===== 全年模式 ===== */
     .annual-month-card {
       margin-bottom: 10px;
       padding: 14px;
@@ -160,11 +145,6 @@
         font-size: 11px;
       }
       .bank-table .hide-mobile { display: none; }
-      .bank-table .bank-balance-input {
-        width: 100px;
-        padding: 4px 6px;
-        font-size: 11px;
-      }
       .bank-table .bank-name-cell { font-size: 12px; }
       .bank-table .btn-sm {
         padding: 3px 6px;
@@ -185,32 +165,47 @@
           <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
         </div>
 
-        <!-- 可摺疊新增銀行 -->
+        <!-- 可摺疊輸入表單 -->
         <div class="glass-card collapsible-card" id="bank-input-card">
           <div class="collapsible-header" id="bank-input-header">
             <div class="collapsible-header-title">
               <i data-lucide="plus-circle" style="width:16px;height:16px;"></i>
-              <span>新增銀行</span>
+              <span>新增 / 更新結餘</span>
             </div>
             <i data-lucide="chevron-down" class="collapsible-arrow"></i>
           </div>
           <div class="collapsible-body" id="bank-input-body" style="display:none;">
             <form id="bank-form">
               <div class="field">
-                <label class="field-label" for="bank-name">銀行名稱</label>
-                <input class="input" id="bank-name" required maxlength="20" placeholder="例如：滙豐銀行">
+                <label class="field-label" for="bank-select">銀行</label>
+                <div style="display:flex; gap:8px;">
+                  <select class="select" id="bank-select" required style="flex:1;">
+                    <option value="">— 請選擇銀行 —</option>
+                  </select>
+                  <button type="button" class="btn btn-sm btn-ghost" id="add-bank-btn" style="padding:0 12px;" title="新增銀行">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                  </button>
+                </div>
               </div>
-              <div style="display:flex; justify-content:flex-end; gap:10px;">
+
+              <div class="field">
+                <label class="field-label" for="bank-amount">結餘金額（HK$）</label>
+                <input class="input mono" id="bank-amount" type="number" min="0" step="1" required placeholder="0">
+              </div>
+
+              <div id="bank-form-hint" class="banner" style="display:none;"></div>
+
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
                 <button type="button" class="btn btn-ghost" id="bank-reset-btn">重置</button>
                 <button type="submit" class="btn btn-primary">
-                  <i data-lucide="plus"></i> 新增銀行
+                  <i data-lucide="check"></i> 儲存結餘
                 </button>
               </div>
             </form>
           </div>
         </div>
 
-        <!-- 單月模式：統計 + 明細（合併卡片） -->
+        <!-- 單月模式：統計 + 明細 -->
         <div class="glass-card merged-card" id="monthly-view" style="display:none;">
           <div class="merged-stats-area">
             <div class="stats-grid">
@@ -227,7 +222,7 @@
           </div>
 
           <div class="merged-table-area">
-            <div class="table-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
               <div class="glass-card-title" style="margin:0;">
                 銀行明細 <span class="text-muted" id="bank-count" style="font-size:12px;"></span>
               </div>
