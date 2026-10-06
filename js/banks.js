@@ -7,7 +7,7 @@ import {
   listenBankBalances, saveBankBalance,
   getBankBalancesOnce,
 } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
@@ -19,6 +19,9 @@ let currentMode = 'annual';   // 'monthly' | 'annual'
 let filters = { year: '', month: '', bank: '' };
 
 export function initBanksPage() {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
   const tbody = document.getElementById('bank-tbody');
   const form = document.getElementById('bank-form');
   const bankSelect = document.getElementById('bank-select');
