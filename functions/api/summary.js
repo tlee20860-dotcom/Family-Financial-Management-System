@@ -74,14 +74,19 @@ export async function onRequestGet({ request }) {
       totalExpense += sum;
     });
 
-    /* ---------- 固定支出匯總 ---------- */
+    /* ---------- 固定支出匯總（🆕 加上 categoryId / categoryName） ---------- */
     const fixedList = Object.entries(fixedObj)
-      .map(([id, x]) => ({
-        id, name: x.name || '', amount: Math.round(Number(x.amount) || 0),
-        cycle: x.cycle || '每月', note: x.note || '',
-        status: x.status || '未付款', paidDate: x.paidDate || '',
-        isSkipped: !!x.isSkipped,
-      }))
+      .map(([id, x]) => {
+        const catId = x.categoryId || '';
+        return {
+          id, name: x.name || '', amount: Math.round(Number(x.amount) || 0),
+          cycle: x.cycle || '每月', note: x.note || '',
+          status: x.status || '未付款', paidDate: x.paidDate || '',
+          isSkipped: !!x.isSkipped,
+          categoryId: catId,
+          categoryName: categoriesObj[catId]?.name || '其他',
+        };
+      })
       .filter((x) => !x.isSkipped);
 
     const fixedTotal = fixedList.reduce((s, x) => s + x.amount, 0);
