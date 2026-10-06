@@ -846,3 +846,44 @@
     transform: scale(0.9);
   }
 }
+/* ============================================
+   🆕 v94 頁面篩選欄（全站共用）
+   ============================================ */
+.page-filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.page-filter-bar .filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.page-filter-bar .filter-group .field-label {
+  font-size: 11px;
+  margin-bottom: 0;
+}
+
+.page-filter-bar .select {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .page-filter-bar {
+    gap: 8px;
+    flex-direction: row;
+  }
+  .page-filter-bar .filter-group {
+    min-width: auto;
+    flex: 1;
+  }
+  .page-filter-bar .select {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+}
