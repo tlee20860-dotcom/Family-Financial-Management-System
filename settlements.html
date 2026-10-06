@@ -28,7 +28,6 @@
 
         <div id="page-filter-root" style="margin-bottom:16px;"></div>
 
-        <!-- 🆕 v99：摺疊輸入表單容器 -->
         <div id="repayment-input-root" style="margin-bottom:16px;"></div>
 
         <div id="annual-view" style="display:none;">
@@ -36,50 +35,64 @@
         </div>
 
         <div id="monthly-view" style="display:none;">
-          <div class="glass-card" style="margin-bottom:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap;">
-              <div class="glass-card-title" style="margin:0;">每月固定還款項目</div>
+          <!-- 固定還款（表格折疊） -->
+          <div class="glass-card collapsible-card collapsible-card-flat" id="fixed-repayment-table-card" style="margin-bottom:20px;">
+            <div class="collapsible-header" id="fixed-repayment-table-header">
+              <div class="collapsible-header-title">
+                <i data-lucide="repeat" style="width:16px;height:16px;"></i>
+                <span>每月固定還款項目</span>
+              </div>
+              <i data-lucide="chevron-down" class="collapsible-arrow"></i>
             </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>成員</th>
-                    <th>項目名稱</th>
-                    <th style="text-align:right;">金額</th>
-                    <th>狀態</th>
-                    <th>已轉回</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="fixed-repayment-tbody">
-                  <tr><td colspan="6" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
+            <div class="collapsible-body" id="fixed-repayment-table-body" style="display:none;">
+              <div style="overflow-x:auto;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>成員</th>
+                      <th>項目名稱</th>
+                      <th style="text-align:right;">金額</th>
+                      <th>狀態</th>
+                      <th>已轉回</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fixed-repayment-tbody">
+                    <tr><td colspan="6" class="empty-state">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
-          <div class="glass-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-              <div class="glass-card-title" style="margin:0;">本月成員代墊支出</div>
+          <!-- 成員代墊（表格折疊） -->
+          <div class="glass-card collapsible-card collapsible-card-flat" id="member-repayment-table-card">
+            <div class="collapsible-header" id="member-repayment-table-header">
+              <div class="collapsible-header-title">
+                <i data-lucide="users" style="width:16px;height:16px;"></i>
+                <span>本月成員代墊支出</span>
+              </div>
+              <i data-lucide="chevron-down" class="collapsible-arrow"></i>
             </div>
-            <div style="overflow-x:auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>成員</th>
-                    <th>項目名稱</th>
-                    <th style="text-align:right;">金額</th>
-                    <th>日期</th>
-                    <th>狀態</th>
-                    <th>已轉回</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="member-repayment-tbody">
-                  <tr><td colspan="7" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
+            <div class="collapsible-body" id="member-repayment-table-body" style="display:none;">
+              <div style="overflow-x:auto;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>成員</th>
+                      <th>項目名稱</th>
+                      <th style="text-align:right;">金額</th>
+                      <th>日期</th>
+                      <th>狀態</th>
+                      <th>已轉回</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="member-repayment-tbody">
+                    <tr><td colspan="7" class="empty-state">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -87,7 +100,7 @@
     </div>
   </div>
 
-  <!-- 編輯代墊支出 Modal（保留） -->
+  <!-- 編輯代墊支出 Modal -->
   <div class="modal-overlay" id="edit-expense-modal">
     <div class="modal">
       <h2 class="modal-title">修改支出內容</h2>
