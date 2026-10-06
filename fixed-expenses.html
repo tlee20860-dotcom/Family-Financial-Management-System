@@ -25,13 +25,13 @@
               <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
               <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
             </div>
-            <button class="btn btn-primary" id="add-fixed-btn">
-              <i data-lucide="plus"></i> 新增固定支出
-            </button>
           </div>
         </div>
 
         <div id="page-filter-root" style="margin-bottom:16px;"></div>
+
+        <!-- 🆕 v99：摺疊輸入表單容器 -->
+        <div id="fixed-input-root" style="margin-bottom:16px;"></div>
 
         <div class="banner">
           ℹ️ 新增時只需輸入基本資料與週期，系統會自動分配到所屬月份。點擊「展開明細」可直接編輯每月金額與付款狀態。
@@ -39,62 +39,6 @@
 
         <div id="fixed-templates-container"></div>
       </main>
-    </div>
-  </div>
-
-  <!-- 新增固定支出 Modal -->
-  <div class="modal-overlay" id="fixed-modal">
-    <div class="modal" style="max-width:520px;">
-      <h2 class="modal-title">新增固定支出</h2>
-      <form id="fixed-form">
-        <div class="form-stack">
-          <div class="field">
-            <label class="field-label" for="fixed-member">所屬成員</label>
-            <select class="select" id="fixed-member">
-              <option value="shared">家庭共用支出</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-category">支出類別</label>
-            <select class="select" id="fixed-category" required><option value="">— 請選擇類別 —</option></select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-item">項目</label>
-            <div style="display:flex; gap:8px;">
-              <select class="select" id="fixed-item" required style="flex:1;"><option value="">— 請先選擇類別 —</option></select>
-              <button type="button" class="btn btn-sm btn-ghost" id="add-fixed-item-btn" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
-            </div>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-cycle">付款週期</label>
-            <select class="select" id="fixed-cycle">
-              <option value="每月">每月</option>
-              <option value="每2個月">每2個月</option>
-              <option value="每季">每季</option>
-              <option value="每年">每年</option>
-              <option value="一次性">一次性</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-payment">支付方式</label>
-            <select class="select" id="fixed-payment">
-              <option value="">— 請選擇 —</option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-amount">每月金額（HK$）</label>
-            <input class="input mono" id="fixed-amount" type="number" min="0" step="1" required>
-          </div>
-          <div class="field">
-            <label class="field-label" for="fixed-note">備註（可選）</label>
-            <input class="input" id="fixed-note" maxlength="60">
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="fixed-cancel-btn">取消</button>
-          <button type="submit" class="btn btn-primary">新增並分配到各月</button>
-        </div>
-      </form>
     </div>
   </div>
 
