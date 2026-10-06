@@ -924,3 +924,44 @@
     grid-template-columns: 1fr;
   }
 }
+/* ============================================
+   🆕 v99 共用輸入表單（input-form.js 專用）
+   ============================================ */
+.collapsible-card .form-stack {
+  gap: 14px;
+}
+
+/* 支援 field 的 layout="half"（2 欄排列） */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-stack > .field {
+  margin-bottom: 0;
+}
+
+.form-stack-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-stack-row > .field {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .form-stack-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* textarea 微調 */
+.form-stack textarea.input {
+  resize: vertical;
+  min-height: 60px;
+  font-family: inherit;
+  line-height: 1.4;
+}
