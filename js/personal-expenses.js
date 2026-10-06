@@ -29,6 +29,9 @@ export function initPersonalExpensesPage() {
   const fixedCheck = document.getElementById('pe-fixed');
   const resetBtn = document.getElementById('pe-reset-btn');
 
+  // 🆕 摺疊輸入卡片
+  bindCollapsibleInputCard();
+
   const now = new Date();
   const currentYear = now.getFullYear();
   let yearOpts = '';
@@ -66,18 +69,15 @@ export function initPersonalExpensesPage() {
 
   categorySel.addEventListener('change', () => renderItemOptions(itemSel, categorySel.value));
 
-  // 監聽所有支出
   listenAllExpenses((list) => {
     allExpenses = list;
     renderExpenses();
   });
 
-  // 表單預設年月
   const { year, month } = AppState.getYearMonth();
   yearSel.value = year;
   monthSel.value = month === 'all' ? String(now.getMonth() + 1).padStart(2, '0') : month;
 
-  // 篩選欄事件
   document.getElementById('filter-year').addEventListener('change', (e) => { filters.year = e.target.value; renderExpenses(); });
   document.getElementById('filter-month').addEventListener('change', (e) => { filters.month = e.target.value; renderExpenses(); });
   document.getElementById('filter-member').addEventListener('change', (e) => { filters.member = e.target.value; renderExpenses(); });
@@ -134,7 +134,6 @@ export function initPersonalExpensesPage() {
     fixedCheck.checked = false;
   });
 
-  // 全選
   document.getElementById('pe-select-all').addEventListener('change', (e) => {
     document.querySelectorAll('.pe-row-checkbox:not(:disabled)').forEach((cb) => { cb.checked = e.target.checked; });
     updateSelectedCount();
@@ -163,10 +162,8 @@ export function initPersonalExpensesPage() {
     }
   });
 
-  // 批次編輯
   document.getElementById('pe-batch-edit-btn').addEventListener('click', () => openBatchEditModal());
 
-  // 批次刪除
   document.getElementById('pe-batch-delete-btn').addEventListener('click', async () => {
     const checked = [...document.querySelectorAll('.pe-row-checkbox:checked')];
     if (checked.length === 0) return alert('請先選取要刪除的支出。');
@@ -178,7 +175,6 @@ export function initPersonalExpensesPage() {
     updateSelectedCount();
   });
 
-  // 單筆編輯
   document.getElementById('pe-edit-cancel-btn').addEventListener('click', () => document.getElementById('pe-edit-modal').classList.remove('active'));
   document.getElementById('pe-edit-category').addEventListener('change', (e) => renderItemOptions(document.getElementById('pe-edit-item'), e.target.value));
 
@@ -219,7 +215,6 @@ export function initPersonalExpensesPage() {
     showToast('✅ 已更新支出');
   });
 
-  // 批次編輯
   document.getElementById('pe-batch-edit-cancel-btn').addEventListener('click', () => document.getElementById('pe-batch-edit-modal').classList.remove('active'));
   document.getElementById('pe-batch-category').addEventListener('change', (e) => renderItemOptions(document.getElementById('pe-batch-item'), e.target.value));
 
@@ -271,6 +266,30 @@ export function initPersonalExpensesPage() {
       alert('批次更新失敗：' + err.message);
     }
   });
+
+  /* ============================================
+     🆕 摺疊輸入卡片
+     ============================================ */
+  function bindCollapsibleInputCard() {
+    const card = document.getElementById('input-card');
+    const header = document.getElementById('input-card-header');
+    const body = document.getElementById('input-card-body');
+    if (!card || !header || !body) return;
+
+    // 從 localStorage 讀取上次狀態（預設收起）
+    const savedOpen = localStorage.getItem('pe-input-open') === 'true';
+    if (savedOpen) {
+      card.classList.add('open');
+      body.style.display = 'block';
+    }
+
+    header.addEventListener('click', () => {
+      const isOpen = card.classList.toggle('open');
+      body.style.display = isOpen ? 'block' : 'none';
+      localStorage.setItem('pe-input-open', String(isOpen));
+      if (window.lucide) window.lucide.createIcons();
+    });
+  }
 
   function initFilterOptions(year) {
     const fy = document.getElementById('filter-year');
@@ -332,7 +351,6 @@ export function initPersonalExpensesPage() {
     const tbody = document.getElementById('pe-tbody');
     const totalCountEl = document.getElementById('pe-total-count');
 
-    // 篩選
     const filtered = allExpenses.filter((x) => {
       if (filters.year && x.year !== filters.year) return false;
       if (filters.month && x.month !== filters.month) return false;
@@ -341,7 +359,6 @@ export function initPersonalExpensesPage() {
       return true;
     });
 
-    // 排序：年份、月份降序
     filtered.sort((a, b) => {
       if (a.year !== b.year) return b.year.localeCompare(a.year);
       if (a.month !== b.month) return b.month.localeCompare(a.month);
