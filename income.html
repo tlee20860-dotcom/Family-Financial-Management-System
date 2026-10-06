@@ -71,18 +71,18 @@
           </div>
           <div class="collapsible-body" id="income-input-body" style="display:none;">
             <form id="income-form">
-              <div class="grid grid-2" style="gap:12px; margin-bottom:16px;">
-                <div class="field" style="margin-bottom:0;">
+              <div class="form-stack">
+                <div class="field">
                   <label class="field-label" for="income-form-year">所屬年份</label>
                   <select class="select" id="income-form-year"></select>
                 </div>
-                <div class="field" style="margin-bottom:0;">
+                <div class="field">
                   <label class="field-label" for="income-form-month">所屬月份</label>
                   <select class="select" id="income-form-month"></select>
                 </div>
               </div>
 
-              <div class="field-label" style="margin-bottom:8px;">家庭成員收入</div>
+              <div class="field-label" style="margin:16px 0 8px;">家庭成員收入</div>
               <div id="member-inputs"></div>
 
               <div class="field" style="margin-top:14px; padding-top:14px; border-top:1px dashed rgba(255,255,255,0.1);">
@@ -152,11 +152,11 @@
         <input type="hidden" id="income-edit-old-year">
         <input type="hidden" id="income-edit-old-month">
         <input type="hidden" id="income-edit-old-member">
-        <div class="field">
-          <label class="field-label">成員</label>
-          <input class="input" id="income-edit-member-name" disabled>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label">成員</label>
+            <input class="input" id="income-edit-member-name" disabled>
+          </div>
           <div class="field">
             <label class="field-label" for="income-edit-year">年份</label>
             <select class="select" id="income-edit-year"></select>
@@ -165,10 +165,10 @@
             <label class="field-label" for="income-edit-month">月份</label>
             <select class="select" id="income-edit-month"></select>
           </div>
-        </div>
-        <div class="field">
-          <label class="field-label" for="income-edit-amount">金額（HK$）</label>
-          <input class="input mono" id="income-edit-amount" type="number" min="0" step="1" required>
+          <div class="field">
+            <label class="field-label" for="income-edit-amount">金額（HK$）</label>
+            <input class="input mono" id="income-edit-amount" type="number" min="0" step="1" required>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="income-edit-cancel-btn">取消</button>
