@@ -7,6 +7,9 @@ import {
   deleteMemberAndData,
 } from './db.js';
 import { escapeHtml, sortMembers } from './utils.js';
+import { createInputForm } from './input-form.js';
+import { openModal, closeModal } from './modal.js';
+import { showToast } from './toast.js';
 
 const ROLE_LABEL = {
   husband: '老公 / 丈夫',
@@ -15,8 +18,16 @@ const ROLE_LABEL = {
   other: '其他',
 };
 
+const ROLE_OPTIONS = [
+  { value: 'husband', label: '老公 / 丈夫' },
+  { value: 'wife', label: '老婆 / 妻子' },
+  { value: 'child', label: '子女' },
+  { value: 'other', label: '其他' },
+];
+
 let currentMembers = [];
 let editingId = null;
+let inputForm = null;
 
 export function initMembersPage() {
   const grid = document.getElementById('members-grid');
@@ -26,22 +37,42 @@ export function initMembersPage() {
   const nameInput = document.getElementById('member-name-input');
   const roleSelect = document.getElementById('member-role-input');
 
+  // 🆕 v99：摺疊輸入表單（新增用）
+  inputForm = createInputForm({
+    containerId: 'member-input-root',
+    storageKey: 'member-input-open',
+    title: '新增成員',
+    icon: 'plus-circle',
+    fields: [
+      { type: 'text', id: 'inp-member-name', label: '名稱', required: true, placeholder: '例如：老公、梓舜', maxlength: 20 },
+      { type: 'select', id: 'inp-member-role', label: '角色', options: ROLE_OPTIONS, includeEmpty: false },
+    ],
+    submitText: '新增成員',
+    onSubmit: async (data) => {
+      const name = (data['inp-member-name'] || '').trim();
+      const role = data['inp-member-role'];
+      if (!name) return;
+
+      const maxOrder = currentMembers.reduce(
+        (max, m) => Math.max(max, m.order != null ? m.order : -1), -1
+      );
+      await addMember({ name, role, order: maxOrder + 1 });
+      showToast(`✅ 已新增成員「${name}」`, 'success');
+      inputForm.reset();
+      inputForm.close();
+    },
+  });
+
   listenMembers((members) => {
     currentMembers = sortMembers(members);
     renderGrid();
   });
 
-  document.getElementById('add-member-btn').addEventListener('click', () => {
-    editingId = null;
-    modalTitle.textContent = '新增成員';
-    form.reset();
-    modal.classList.add('active');
-    setTimeout(() => nameInput.focus(), 50);
-  });
+  /* ============================================
+     編輯 Modal（保留）
+     ============================================ */
 
-  document.getElementById('member-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
+  document.getElementById('member-cancel-btn').addEventListener('click', () => closeModal('member-modal'));
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -51,14 +82,14 @@ export function initMembersPage() {
 
     if (editingId) {
       await updateMember(editingId, { name, role });
-    } else {
-      const maxOrder = currentMembers.reduce(
-        (max, m) => Math.max(max, m.order != null ? m.order : -1), -1
-      );
-      await addMember({ name, role, order: maxOrder + 1 });
+      showToast('✅ 已更新成員', 'success');
     }
-    modal.classList.remove('active');
+    closeModal('member-modal');
   });
+
+  /* ============================================
+     卡片事件（編輯 / 刪除 / 上移 / 下移）
+     ============================================ */
 
   grid.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
@@ -74,15 +105,15 @@ export function initMembersPage() {
       modalTitle.textContent = '編輯成員';
       nameInput.value = member.name;
       roleSelect.value = member.role || 'other';
-      modal.classList.add('active');
+      openModal('member-modal');
       setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
       if (confirm(`⚠️ 確定要刪除成員「${member.name}」嗎？\n\n這將會一併刪除該成員在所有月份的所有支出紀錄（含保險平攤），此操作無法復原。`)) {
         try {
           await deleteMemberAndData(id);
-          alert('✅ 成員與相關紀錄已徹底刪除');
+          showToast('✅ 成員與相關紀錄已徹底刪除', 'success');
         } catch (err) {
-          alert('刪除失敗：' + err.message);
+          showToast('刪除失敗：' + err.message, 'error');
         }
       }
     } else if (action === 'move-up') {
@@ -109,7 +140,7 @@ export function initMembersPage() {
       await updateMemberOrders(orderMap);
     } catch (err) {
       console.error('更新成員順序失敗：', err);
-      alert('調整順序失敗，請稍後再試。');
+      showToast('調整順序失敗，請稍後再試。', 'error');
     }
   }
 
