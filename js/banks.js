@@ -1,5 +1,5 @@
 // ============================================
-// banks.js — 銀行管理（表單式輸入 + 篩選 + 月報/年報）
+// banks.js — 銀行管理（v94 重構）
 // ============================================
 
 import {
@@ -9,6 +9,10 @@ import {
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { renderPageFilter } from './page-filter.js';
+import { showToast } from './toast.js';
+import { initCollapsibleCard } from './collapsible-card.js';
+import { fillBankSelect } from './select-helpers.js';
+import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
@@ -16,41 +20,10 @@ let banks = [];
 let balances = {};
 let prevBalances = {};
 let unsubBalances = null;
-let currentMode = 'annual';   // 'monthly' | 'annual'
-let filters = { year: '', month: '', bank: '' };
+let currentMode = 'annual';  // 'monthly' | 'annual'
+let filters = { year: '', month: 'all', bank: '' };
 
 export function initBanksPage() {
-  renderPageFilter({
-    containerId: 'page-filter-root',
-    fields: ['year', 'month'],
-    renderExtra: () => `
-      <div class="filter-group">
-        <label class="field-label">銀行</label>
-        <select class="select" data-filter="bank">
-          <option value="">全部</option>
-          ${banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('')}
-        </select>
-      </div>
-    `,
-    onChange: (f) => {
-      filters = {
-        year: f.year || '',
-        month: f.month || 'all',
-        bank: f.bank || '',
-      };
-      // 依月份決定模式
-      if (filters.month === 'all') {
-        currentMode = 'annual';
-      } else {
-        currentMode = 'monthly';
-      }
-      updateToggleUI();
-      loadBalances();
-    },
-  });
-  // ... 其餘不變
-}
-
   const tbody = document.getElementById('bank-tbody');
   const form = document.getElementById('bank-form');
   const bankSelect = document.getElementById('bank-select');
@@ -61,30 +34,42 @@ export function initBanksPage() {
   const formYearSel = document.getElementById('bank-form-year');
   const formMonthSel = document.getElementById('bank-form-month');
 
-  bindCollapsibleInputCard();
-  initFormYearMonthOptions();
-  initFilterOptions();
+  /* ============================================
+     初始化
+     ============================================ */
+
+  // 可摺疊輸入卡片
+  const inputCard = initCollapsibleCard('bank-input-card', 'bank-input-open', false);
+
+  // 表單年月下拉
+  fillYearSelect(formYearSel, { defaultValue: AppState.year });
+  fillMonthSelect(formMonthSel, {
+    defaultValue: AppState.month === 'all' ? '01' : AppState.month,
+  });
+
+  // 頁面篩選欄
+  renderFilterBar();
+
+  // 檢視切換
   bindViewToggle();
 
   /* ============================================
-     監聽銀行清單
+     資料監聽
      ============================================ */
+
   listenBanks((list) => {
     banks = list;
-    renderBankSelect();
-    renderFilterBankOptions();
+    fillBankSelect(bankSelect, banks, { includeEmpty: true });
+    updateFilterOptions();
     renderTable();
   });
 
   /* ============================================
-     表單：年份 / 月份變更 → 重新查詢該月結餘
+     表單：年月 / 銀行變更 → 查詢該月現有值
      ============================================ */
+
   formYearSel.addEventListener('change', refreshFormBalance);
   formMonthSel.addEventListener('change', refreshFormBalance);
-
-  /* ============================================
-     表單：選銀行 → 帶入現有值
-     ============================================ */
   bankSelect.addEventListener('change', refreshFormBalance);
 
   async function refreshFormBalance() {
@@ -94,7 +79,6 @@ export function initBanksPage() {
 
     if (!year || !month) return;
 
-    // 讀取該年月結餘
     let targetBalances = {};
     try {
       targetBalances = await getBankBalancesOnce(year, month);
@@ -123,16 +107,16 @@ export function initBanksPage() {
   }
 
   /* ============================================
-     新增銀行
+     新增銀行（select 旁 + 按鈕）
      ============================================ */
+
   addBankBtn.addEventListener('click', async () => {
     const name = prompt('請輸入新銀行名稱：');
     if (!name || !name.trim()) return;
 
     const trimmed = name.trim();
     if (banks.some((b) => b.name === trimmed)) {
-      alert('此銀行名稱已存在。');
-      return;
+      return showToast('此銀行名稱已存在', 'warning');
     }
 
     try {
@@ -144,14 +128,16 @@ export function initBanksPage() {
           amountInput.focus();
         }
       }, 300);
+      if (window.lucide) window.lucide.createIcons();
     } catch (err) {
-      alert('新增銀行失敗：' + err.message);
+      showToast('新增銀行失敗：' + err.message, 'error');
     }
   });
 
   /* ============================================
      表單提交：儲存結餘（同步 AppState）
      ============================================ */
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const year = formYearSel.value;
@@ -159,140 +145,162 @@ export function initBanksPage() {
     const bankId = bankSelect.value;
     const amount = amountInput.value;
 
-    if (!year || !month) return alert('請選擇所屬年份與月份。');
-    if (!bankId) return alert('請選擇銀行。');
-    if (amount === '') return alert('請輸入結餘金額。');
+    if (!year || !month) return showToast('請選擇所屬年份與月份', 'warning');
+    if (!bankId) return showToast('請選擇銀行', 'warning');
+    if (amount === '') return showToast('請輸入結餘金額', 'warning');
 
     try {
       await saveBankBalance(year, month, bankId, amount);
 
-      // 🆕 同步 AppState
+      // 同步 AppState（Date Filter 已移除，但內部狀態仍會記錄）
       AppState.setYearMonth(year, month);
 
       // 收起表單
-      const card = document.getElementById('bank-input-card');
-      const body = document.getElementById('bank-input-body');
-      if (card && body) {
-        card.classList.remove('open');
-        body.style.display = 'none';
-        localStorage.setItem('bank-input-open', 'false');
-      }
+      inputCard?.close();
 
-      bankSelect.value = '';
+      // 重置表單
+      fillBankSelect(bankSelect, banks, { includeEmpty: true });
       amountInput.value = '';
       if (hintEl) hintEl.style.display = 'none';
 
-      showToast(`✅ 已儲存 ${year} 年 ${month} 月結餘`);
-      if (window.lucide) window.lucide.createIcons();
+      showToast(`✅ 已儲存 ${year} 年 ${month} 月結餘`, 'success');
     } catch (err) {
-      alert('儲存失敗：' + err.message);
+      showToast('儲存失敗：' + err.message, 'error');
     }
   });
 
   resetBtn.addEventListener('click', () => {
     form.reset();
-    const { year, month } = AppState.getYearMonth();
-    formYearSel.value = year;
-    formMonthSel.value = month === 'all' ? '01' : month;
-    bankSelect.value = '';
+    fillYearSelect(formYearSel, { defaultValue: AppState.year });
+    fillMonthSelect(formMonthSel, {
+      defaultValue: AppState.month === 'all' ? '01' : AppState.month,
+    });
+    fillBankSelect(bankSelect, banks, { includeEmpty: true });
     amountInput.value = '';
     if (hintEl) hintEl.style.display = 'none';
   });
 
   /* ============================================
-     檢視切換
+     表格操作：刪除銀行
      ============================================ */
+
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    if (btn.dataset.action === 'delete') {
+      const bankName = banks.find((b) => b.id === btn.dataset.id)?.name || '此銀行';
+      if (confirm(`⚠️ 確定要刪除「${bankName}」嗎？\n\n這將會一併刪除該銀行在所有月份的結餘紀錄，此操作無法復原。`)) {
+        try {
+          await deleteBankAndBalances(btn.dataset.id);
+          showToast('✅ 銀行與相關紀錄已徹底刪除', 'success');
+        } catch (err) {
+          showToast('刪除失敗：' + err.message, 'error');
+        }
+      }
+    }
+  });
+
+  /* ============================================
+     檢視切換（單月 / 全年）
+     ============================================ */
+
   function bindViewToggle() {
     const monthBtn = document.getElementById('view-month-btn');
     const annualBtn = document.getElementById('view-annual-btn');
 
-    const updateUI = () => {
-      if (currentMode === 'monthly') {
-        monthBtn.classList.add('btn-primary'); monthBtn.classList.remove('btn-ghost');
-        annualBtn.classList.add('btn-ghost'); annualBtn.classList.remove('btn-primary');
-        document.getElementById('monthly-view').style.display = 'block';
-        document.getElementById('annual-view').style.display = 'none';
-      } else {
-        monthBtn.classList.add('btn-ghost'); monthBtn.classList.remove('btn-primary');
-        annualBtn.classList.add('btn-primary'); annualBtn.classList.remove('btn-ghost');
-        document.getElementById('monthly-view').style.display = 'none';
-        document.getElementById('annual-view').style.display = 'block';
-      }
-    };
-
     monthBtn.addEventListener('click', () => {
       currentMode = 'monthly';
-      updateUI();
+      updateToggleUI();
       loadBalances();
     });
 
     annualBtn.addEventListener('click', () => {
       currentMode = 'annual';
-      updateUI();
+      updateToggleUI();
       loadBalances();
     });
 
-    updateUI();
+    updateToggleUI();
+  }
+
+  function updateToggleUI() {
+    const monthBtn = document.getElementById('view-month-btn');
+    const annualBtn = document.getElementById('view-annual-btn');
+
+    if (currentMode === 'monthly') {
+      monthBtn.classList.add('btn-primary'); monthBtn.classList.remove('btn-ghost');
+      annualBtn.classList.add('btn-ghost'); annualBtn.classList.remove('btn-primary');
+      document.getElementById('monthly-view').style.display = 'block';
+      document.getElementById('annual-view').style.display = 'none';
+    } else {
+      monthBtn.classList.add('btn-ghost'); monthBtn.classList.remove('btn-primary');
+      annualBtn.classList.add('btn-primary'); annualBtn.classList.remove('btn-ghost');
+      document.getElementById('monthly-view').style.display = 'none';
+      document.getElementById('annual-view').style.display = 'block';
+    }
   }
 
   /* ============================================
-     篩選
+     頁面篩選欄
      ============================================ */
-  document.getElementById('filter-year').addEventListener('change', (e) => {
-    filters.year = e.target.value;
-    loadBalances();
-  });
-  document.getElementById('filter-month').addEventListener('change', (e) => {
-    filters.month = e.target.value;
-    if (e.target.value === 'all') {
-      currentMode = 'annual';
-      document.getElementById('view-month-btn').classList.remove('btn-primary');
-      document.getElementById('view-month-btn').classList.add('btn-ghost');
-      document.getElementById('view-annual-btn').classList.add('btn-primary');
-      document.getElementById('view-annual-btn').classList.remove('btn-ghost');
-      document.getElementById('monthly-view').style.display = 'none';
-      document.getElementById('annual-view').style.display = 'block';
-    } else {
-      currentMode = 'monthly';
-      document.getElementById('view-month-btn').classList.add('btn-primary');
-      document.getElementById('view-month-btn').classList.remove('btn-ghost');
-      document.getElementById('view-annual-btn').classList.remove('btn-primary');
-      document.getElementById('view-annual-btn').classList.add('btn-ghost');
-      document.getElementById('monthly-view').style.display = 'block';
-      document.getElementById('annual-view').style.display = 'none';
+
+  function renderFilterBar() {
+    renderPageFilter({
+      containerId: 'page-filter-root',
+      fields: ['year', 'month'],
+      renderExtra: () => `
+        <div class="filter-group">
+          <label class="field-label">銀行</label>
+          <select class="select" data-filter="bank">
+            <option value="">全部</option>
+            ${banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('')}
+          </select>
+        </div>
+      `,
+      onChange: (f) => {
+        filters = {
+          year: f.year || '',
+          month: f.month || 'all',
+          bank: f.bank || '',
+        };
+        // 依月份決定模式
+        if (filters.month === 'all') {
+          currentMode = 'annual';
+        } else {
+          currentMode = 'monthly';
+        }
+        updateToggleUI();
+        loadBalances();
+      },
+    });
+  }
+
+  // 當銀行清單變更時，更新篩選欄的銀行下拉
+  function updateFilterOptions() {
+    const root = document.getElementById('page-filter-root');
+    if (!root) return;
+    const bankSel = root.querySelector('select[data-filter="bank"]');
+    if (bankSel) {
+      const cur = bankSel.value;
+      bankSel.innerHTML = `<option value="">全部</option>` +
+        banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+      if (cur && banks.some((b) => b.id === cur)) bankSel.value = cur;
     }
-    loadBalances();
-  });
-  document.getElementById('filter-bank').addEventListener('change', (e) => {
-    filters.bank = e.target.value;
-    if (currentMode === 'monthly') renderTable();
-    else loadBalances();
-  });
-  document.getElementById('filter-clear-btn').addEventListener('click', () => {
-    filters = { year: '', month: '', bank: '' };
-    document.getElementById('filter-year').value = AppState.year;
-    document.getElementById('filter-month').value = 'all';
-    document.getElementById('filter-bank').value = '';
-    currentMode = 'annual';
-    document.getElementById('view-month-btn').classList.remove('btn-primary');
-    document.getElementById('view-month-btn').classList.add('btn-ghost');
-    document.getElementById('view-annual-btn').classList.add('btn-primary');
-    document.getElementById('view-annual-btn').classList.remove('btn-ghost');
-    document.getElementById('monthly-view').style.display = 'none';
-    document.getElementById('annual-view').style.display = 'block';
-    loadBalances();
-  });
+  }
 
   /* ============================================
      載入結餘
      ============================================ */
+
   async function loadBalances() {
     const targetYear = filters.year || AppState.year;
     let targetMonth;
     if (currentMode === 'annual') {
       targetMonth = 'all';
     } else {
-      targetMonth = filters.month && filters.month !== 'all' ? filters.month : (AppState.month === 'all' ? '01' : AppState.month);
+      targetMonth = (filters.month && filters.month !== 'all')
+        ? filters.month
+        : (AppState.month === 'all' ? '01' : AppState.month);
     }
 
     document.getElementById('banks-month').textContent = currentMode === 'annual'
@@ -331,55 +339,10 @@ export function initBanksPage() {
   filters.year = AppState.year;
   loadBalances();
 
-  // 監聽 AppState 年月變更
-  AppState.on('ym-change', () => {
-    if (!filters.year) filters.year = AppState.year;
-    if (!filters.month) {
-      if (AppState.month === 'all') currentMode = 'annual';
-      else currentMode = 'monthly';
-    }
-    updateToggleUI();
-    loadBalances();
-  });
-
-  function updateToggleUI() {
-    const monthBtn = document.getElementById('view-month-btn');
-    const annualBtn = document.getElementById('view-annual-btn');
-    if (currentMode === 'monthly') {
-      monthBtn.classList.add('btn-primary'); monthBtn.classList.remove('btn-ghost');
-      annualBtn.classList.add('btn-ghost'); annualBtn.classList.remove('btn-primary');
-      document.getElementById('monthly-view').style.display = 'block';
-      document.getElementById('annual-view').style.display = 'none';
-    } else {
-      monthBtn.classList.add('btn-ghost'); monthBtn.classList.remove('btn-primary');
-      annualBtn.classList.add('btn-primary'); annualBtn.classList.remove('btn-ghost');
-      document.getElementById('monthly-view').style.display = 'none';
-      document.getElementById('annual-view').style.display = 'block';
-    }
-  }
-
-  /* ============================================
-     表格操作
-     ============================================ */
-  tbody.addEventListener('click', async (e) => {
-    const btn = e.target.closest('button[data-action]');
-    if (!btn) return;
-    if (btn.dataset.action === 'delete') {
-      const bankName = banks.find((b) => b.id === btn.dataset.id)?.name || '此銀行';
-      if (confirm(`⚠️ 確定要刪除「${bankName}」嗎？\n\n這將會一併刪除該銀行在所有月份的結餘紀錄，此操作無法復原。`)) {
-        try {
-          await deleteBankAndBalances(btn.dataset.id);
-          alert('✅ 銀行與相關紀錄已徹底刪除');
-        } catch (err) {
-          alert('刪除失敗：' + err.message);
-        }
-      }
-    }
-  });
-
   /* ============================================
      全年模式
      ============================================ */
+
   async function loadAnnual(year) {
     try {
       const promises = [];
@@ -447,6 +410,7 @@ export function initBanksPage() {
   /* ============================================
      當月可用金額
      ============================================ */
+
   async function updateAvailableFunds(year, month) {
     try {
       const summary = await api.summary(year, month);
@@ -459,24 +423,8 @@ export function initBanksPage() {
   }
 
   /* ============================================
-     Render helpers
+     表格渲染
      ============================================ */
-  function renderBankSelect() {
-    if (!bankSelect) return;
-    const cur = bankSelect.value;
-    bankSelect.innerHTML = `<option value="">— 請選擇銀行 —</option>`
-      + banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
-    if (cur && banks.some((b) => b.id === cur)) bankSelect.value = cur;
-  }
-
-  function renderFilterBankOptions() {
-    const sel = document.getElementById('filter-bank');
-    if (!sel) return;
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">全部</option>`
-      + banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
-    if (cur && banks.some((b) => b.id === cur)) sel.value = cur;
-  }
 
   function renderTable() {
     if (!tbody) return;
@@ -523,80 +471,4 @@ export function initBanksPage() {
 
     if (window.lucide) window.lucide.createIcons();
   }
-
-  /* ============================================
-     初始化
-     ============================================ */
-  function initFormYearMonthOptions() {
-    const ySel = document.getElementById('bank-form-year');
-    const mSel = document.getElementById('bank-form-month');
-    const now = new Date();
-    const curY = now.getFullYear();
-    const { year: stateYear, month: stateMonth } = AppState.getYearMonth();
-
-    let yOpts = '';
-    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
-    ySel.innerHTML = yOpts;
-
-    let mOpts = '';
-    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
-    mSel.innerHTML = mOpts;
-
-    ySel.value = stateYear || curY;
-    mSel.value = stateMonth === 'all' ? '01' : (stateMonth || '01');
-  }
-
-  function initFilterOptions() {
-    const ySel = document.getElementById('filter-year');
-    const mSel = document.getElementById('filter-month');
-    const now = new Date();
-    const curY = now.getFullYear();
-    const { year: stateYear } = AppState.getYearMonth();
-
-    let yOpts = '';
-    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
-    ySel.innerHTML = yOpts;
-
-    let mOpts = `<option value="all">全部</option>`;
-    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
-    mSel.innerHTML = mOpts;
-
-    ySel.value = stateYear || curY;
-    mSel.value = 'all';
-    filters.year = ySel.value;
-    filters.month = 'all';
-  }
-
-  function bindCollapsibleInputCard() {
-    const card = document.getElementById('bank-input-card');
-    const header = document.getElementById('bank-input-header');
-    const body = document.getElementById('bank-input-body');
-    if (!card || !header || !body) return;
-
-    const savedOpen = localStorage.getItem('bank-input-open') === 'true';
-    if (savedOpen) {
-      card.classList.add('open');
-      body.style.display = 'block';
-    }
-
-    header.addEventListener('click', () => {
-      const isOpen = card.classList.toggle('open');
-      body.style.display = isOpen ? 'block' : 'none';
-      localStorage.setItem('bank-input-open', String(isOpen));
-      if (window.lucide) window.lucide.createIcons();
-    });
-  }
-}
-
-function showToast(msg) {
-  let toast = document.getElementById('app-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'app-toast';
-    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.opacity = '1';
-  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
