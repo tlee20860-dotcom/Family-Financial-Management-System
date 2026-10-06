@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v95'; // ⚠️ 已升級
+const CACHE_NAME = 'family-fin-v96'; // ⚠️ 已升級
 
 const STATIC_ASSETS = [
   './css/theme.css', './css/layout.css', './css/components.css',
@@ -20,6 +20,9 @@ const STATIC_ASSETS = [
   './js/toast.js',
   './js/collapsible-card.js',
   './js/annual-month-cards.js',
+  './js/select-helpers.js',
+  './js/date-helpers.js',
+  './js/modal.js',
   './manifest.json', './icons/icon.svg',
 ];
 
