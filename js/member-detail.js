@@ -19,9 +19,8 @@ export async function initMemberDetailPage(id) {
     fields: ['year', 'month'],
     onChange: () => loadData(),
   });
+
   memberId = id;
-  // ... 其餘不變
-}
 
   if (!AppState.getFamilyId()) {
     document.getElementById('member-name').textContent = '錯誤：未選擇家庭';
