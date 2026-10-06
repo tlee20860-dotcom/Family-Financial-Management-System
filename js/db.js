@@ -692,3 +692,38 @@ export function listenAssets(callback, onError) {
 export async function saveAssets(data) {
   await update(familyRef('assets'), { bankBalance: Math.round(Number(data.bankBalance) || 0) });
 }
+/* ============================================
+   🆕 支付方式（v92）
+   ============================================ */
+
+export function listenPaymentMethods(callback, onError) {
+  return listen('payment_methods', (snap) => {
+    const val = snap.val() || {};
+    const list = Object.entries(val).map(([id, p]) => ({ id, ...p }));
+    list.sort((a, b) => (a.order || 0) - (b.order || 0));
+    callback(list);
+  }, onError);
+}
+
+export async function addPaymentMethod(pm) {
+  const r = familyRef('payment_methods');
+  const newRef = push(r);
+  await set(newRef, { name: pm.name || '', order: Number(pm.order) || 0, createdAt: Date.now() });
+  return newRef.key;
+}
+
+export async function updatePaymentMethod(id, patch) {
+  await update(familyRef(`payment_methods/${id}`), { name: patch.name || '', order: Number(patch.order) || 0 });
+}
+
+export async function removePaymentMethod(id) {
+  await remove(familyRef(`payment_methods/${id}`));
+}
+
+export async function getPaymentMethodsOnce() {
+  const snap = await get(familyRef('payment_methods'));
+  const val = snap.val() || {};
+  const list = Object.entries(val).map(([id, p]) => ({ id, ...p }));
+  list.sort((a, b) => (a.order || 0) - (b.order || 0));
+  return list;
+}
