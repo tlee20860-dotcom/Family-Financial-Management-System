@@ -118,48 +118,66 @@
     <div class="modal" style="max-width:560px; max-height:90vh; overflow-y:auto;">
       <h2 class="modal-title" id="policy-modal-title">新增保單</h2>
       <form id="policy-form">
-        <div class="field">
-          <label class="field-label" for="policy-type">保單類型</label>
-          <select class="select" id="policy-type">
-            <option value="normal">普通保險（住院 / 人壽 / 意外）</option>
-            <option value="fund_insurance">基金保險（投資型，月供）</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="field-label" for="policy-member">受保人</label>
-          <select class="select" id="policy-member" required><option value="">— 請選擇 —</option></select>
-        </div>
-        <div class="field">
-          <label class="field-label" for="policy-name">保險名稱</label>
-          <input class="input" id="policy-name" required maxlength="60" placeholder="例如：危疾+住院">
-        </div>
-        <div class="field">
-          <label class="field-label" for="policy-company">保險公司</label>
-          <div style="display:flex; gap:8px;">
-            <select class="select" id="policy-company" style="flex:1;"></select>
-            <button type="button" class="btn btn-sm btn-ghost" id="edit-company-btn" style="padding:0 12px;"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>
-            <button type="button" class="btn btn-sm btn-ghost" id="add-company-btn" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
-          </div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-start-year">保單開始年份</label><input class="input mono" id="policy-start-year" type="number" min="2000" max="2100" required></div>
-          <div class="field"><label class="field-label" for="policy-start-month">保單開始月份</label><select class="select" id="policy-start-month" required></select></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-current-period">目前是第幾年度</label><input class="input mono" id="policy-current-period" type="number" min="1" max="50" required></div>
-          <div class="field"><label class="field-label" for="policy-total-years">總供款年期</label><input class="input mono" id="policy-total-years" type="number" min="1" max="50" required></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-payment-type">付款類型</label>
-            <select class="select" id="policy-payment-type">
-              <option value="年繳">年繳</option><option value="月繳">月繳</option><option value="一次付款">一次付款</option>
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label" for="policy-type">保單類型</label>
+            <select class="select" id="policy-type">
+              <option value="normal">普通保險（住院 / 人壽 / 意外）</option>
+              <option value="fund_insurance">基金保險（投資型，月供）</option>
             </select>
           </div>
-          <div class="field"><label class="field-label" for="policy-account">扣款帳戶</label><input class="input" id="policy-account" maxlength="60"></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
-          <div class="field"><label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label><input class="input mono" id="policy-annual" type="number" min="0" step="1" required></div>
-          <div class="field"><label class="field-label" for="policy-monthly">每月分攤（自動）</label><input class="input mono" id="policy-monthly" disabled></div>
+          <div class="field">
+            <label class="field-label" for="policy-member">受保人</label>
+            <select class="select" id="policy-member" required><option value="">— 請選擇 —</option></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-name">保險名稱</label>
+            <input class="input" id="policy-name" required maxlength="60" placeholder="例如：危疾+住院">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-company">保險公司</label>
+            <div style="display:flex; gap:8px;">
+              <select class="select" id="policy-company" style="flex:1;"></select>
+              <button type="button" class="btn btn-sm btn-ghost" id="edit-company-btn" style="padding:0 12px;"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>
+              <button type="button" class="btn btn-sm btn-ghost" id="add-company-btn" style="padding:0 12px;"><i data-lucide="plus" style="width:16px;height:16px;"></i></button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-start-year">保單開始年份</label>
+            <input class="input mono" id="policy-start-year" type="number" min="2000" max="2100" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-start-month">保單開始月份</label>
+            <select class="select" id="policy-start-month" required></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-current-period">目前是第幾年度</label>
+            <input class="input mono" id="policy-current-period" type="number" min="1" max="50" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-total-years">總供款年期</label>
+            <input class="input mono" id="policy-total-years" type="number" min="1" max="50" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-payment-type">付款類型</label>
+            <select class="select" id="policy-payment-type">
+              <option value="年繳">年繳</option>
+              <option value="月繳">月繳</option>
+              <option value="一次付款">一次付款</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-account">扣款帳戶</label>
+            <input class="input" id="policy-account" maxlength="60">
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-annual">當前年度年繳保費（HK$）</label>
+            <input class="input mono" id="policy-annual" type="number" min="0" step="1" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="policy-monthly">每月分攤（自動）</label>
+            <input class="input mono" id="policy-monthly" disabled>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="policy-cancel-btn">取消</button>
@@ -176,9 +194,20 @@
       <form id="add-period-form">
         <input type="hidden" id="add-period-policy-id">
         <input type="hidden" id="add-period-index">
-        <div class="field"><label class="field-label">年度區間</label><input class="input" id="add-period-range" disabled></div>
-        <div class="field"><label class="field-label" for="add-period-annual">年繳保費（HK$）</label><input class="input mono" id="add-period-annual" type="number" min="0" step="1" required></div>
-        <div class="field"><label class="field-label" for="add-period-monthly">每月分攤（自動）</label><input class="input mono" id="add-period-monthly" disabled></div>
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label">年度區間</label>
+            <input class="input" id="add-period-range" disabled>
+          </div>
+          <div class="field">
+            <label class="field-label" for="add-period-annual">年繳保費（HK$）</label>
+            <input class="input mono" id="add-period-annual" type="number" min="0" step="1" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="add-period-monthly">每月分攤（自動）</label>
+            <input class="input mono" id="add-period-monthly" disabled>
+          </div>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="add-period-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
