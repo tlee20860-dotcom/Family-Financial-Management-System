@@ -1,9 +1,9 @@
 // ============================================
-// personal-expenses.js — 個人支出獨立頁面（含篩選與批次）
+// personal-expenses.js — 個人支出（含支付方式）
 // ============================================
 
 import {
-  listenMembers, listenCategories, listenItems,
+  listenMembers, listenCategories, listenItems, listenPaymentMethods,
   listenAllExpenses, addExpense, updateExpense, removeExpense,
   addFixedTemplate, batchUpdateExpenses,
 } from './db.js';
@@ -13,10 +13,11 @@ import { AppState } from './state.js';
 let members = [];
 let categories = [];
 let items = [];
+let payments = [];
 let allExpenses = [];
 let filters = { year: '', month: '', member: '', category: '' };
 
-const NAME_MAX_LEN = 6;   // 🆕 項目名稱顯示上限
+const NAME_MAX_LEN = 6;
 
 export function initPersonalExpensesPage() {
   const form = document.getElementById('personal-expense-form');
@@ -27,6 +28,7 @@ export function initPersonalExpensesPage() {
   const categorySel = document.getElementById('pe-category');
   const itemSel = document.getElementById('pe-item');
   const amountInput = document.getElementById('pe-amount');
+  const paymentSel = document.getElementById('pe-payment');
   const statusSel = document.getElementById('pe-status');
   const fixedCheck = document.getElementById('pe-fixed');
   const resetBtn = document.getElementById('pe-reset-btn');
@@ -73,6 +75,14 @@ export function initPersonalExpensesPage() {
     renderItemOptions(document.getElementById('pe-batch-item'), document.getElementById('pe-batch-category').value);
   });
 
+  // 🆕 支付方式
+  listenPaymentMethods((list) => {
+    payments = list;
+    renderPaymentOptions(paymentSel, true);
+    renderPaymentOptions(document.getElementById('pe-edit-payment'), true);
+    renderPaymentOptions(document.getElementById('pe-batch-payment'), true);
+  });
+
   categorySel.addEventListener('change', () => renderItemOptions(itemSel, categorySel.value));
 
   listenAllExpenses((list) => {
@@ -111,6 +121,7 @@ export function initPersonalExpensesPage() {
     const catId = categorySel.value;
     const itemId = itemSel.value;
     const itemName = items.find((i) => i.id === itemId)?.name || '';
+    const paymentId = paymentSel.value;
     if (!targetMemberId || !itemName || !amountInput.value) return;
 
     const payload = {
@@ -120,6 +131,7 @@ export function initPersonalExpensesPage() {
       date: dateInput.value.trim() || todayISO(),
       categoryId: catId,
       itemId: itemId,
+      paymentMethodId: paymentId,
     };
 
     await addExpense(targetYear, targetMonth, targetMemberId, payload);
@@ -128,6 +140,7 @@ export function initPersonalExpensesPage() {
       await addFixedTemplate({
         name: itemName, categoryId: catId, itemId: itemId,
         memberId: targetMemberId, amount: payload.amount,
+        paymentMethodId: paymentId,
       });
     }
 
@@ -137,6 +150,7 @@ export function initPersonalExpensesPage() {
     itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
     memberSel.value = '';
     categorySel.value = '';
+    paymentSel.value = '';
     fixedCheck.checked = false;
   });
 
@@ -149,11 +163,7 @@ export function initPersonalExpensesPage() {
     if (e.target.classList.contains('pe-row-checkbox')) updateSelectedCount();
   });
 
-  /* ============================================
-     🆕 tbody click：先處理名稱展開，再處理按鈕
-     ============================================ */
   document.getElementById('pe-tbody').addEventListener('click', async (e) => {
-    // 🔧 名稱展開/收合
     const nameSpan = e.target.closest('.pe-name-text');
     if (nameSpan) {
       const isShort = nameSpan.classList.contains('pe-name-short');
@@ -214,6 +224,7 @@ export function initPersonalExpensesPage() {
     const catId = document.getElementById('pe-edit-category').value;
     const itemId = document.getElementById('pe-edit-item').value;
     const itemName = items.find((i) => i.id === itemId)?.name || '';
+    const paymentId = document.getElementById('pe-edit-payment').value;
     if (!newMember || !itemName) return;
 
     const payload = {
@@ -223,6 +234,7 @@ export function initPersonalExpensesPage() {
       date: document.getElementById('pe-edit-date').value.trim(),
       categoryId: catId,
       itemId: itemId,
+      paymentMethodId: paymentId,
     };
 
     if (newYear === oldYear && newMonth === oldMonth && newMember === oldMember) {
@@ -253,6 +265,7 @@ export function initPersonalExpensesPage() {
     const batchCat = document.getElementById('pe-batch-category').value;
     const batchItem = document.getElementById('pe-batch-item').value;
     const batchAmount = document.getElementById('pe-batch-amount').value;
+    const batchPayment = document.getElementById('pe-batch-payment').value;
     const batchStatus = document.getElementById('pe-batch-status').value;
 
     const updates = checked.map((cb) => {
@@ -272,6 +285,7 @@ export function initPersonalExpensesPage() {
           date: batchDate || exp.date,
           categoryId: batchCat || exp.categoryId,
           itemId: batchItem || exp.itemId,
+          paymentMethodId: batchPayment || exp.paymentMethodId || '',
           year: batchYear || cb.dataset.year,
           month: batchMonth || cb.dataset.month,
           memberId: batchMember || cb.dataset.member,
@@ -366,9 +380,15 @@ export function initPersonalExpensesPage() {
     sel.innerHTML = `<option value="">— 請選擇項目 —</option>` + filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
   }
 
-  /* ============================================
-     🆕 renderExpenses：項目名稱可摺疊
-     ============================================ */
+  // 🆕 支付方式選項
+  function renderPaymentOptions(sel, includeEmpty) {
+    if (!sel) return;
+    const cur = sel.value;
+    const empty = includeEmpty ? `<option value="">— 請選擇 —</option>` : '';
+    sel.innerHTML = empty + payments.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+    if (cur && payments.some((p) => p.id === cur)) sel.value = cur;
+  }
+
   function renderExpenses() {
     const tbody = document.getElementById('pe-tbody');
     const totalCountEl = document.getElementById('pe-total-count');
@@ -390,7 +410,7 @@ export function initPersonalExpensesPage() {
     if (totalCountEl) totalCountEl.textContent = `（共 ${filtered.length} 筆）`;
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">沒有符合條件的支出紀錄</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">沒有符合條件的支出紀錄</td></tr>';
       updateSelectedCount();
       return;
     }
@@ -399,6 +419,8 @@ export function initPersonalExpensesPage() {
       const member = members.find((m) => m.id === x.memberId);
       const memberName = member ? member.name : '（未知）';
       const cat = categories.find((c) => c.id === x.categoryId);
+      const pm = payments.find((p) => p.id === x.paymentMethodId);
+      const pmName = pm ? pm.name : (x.paymentMethodId ? '（已刪除）' : '—');
 
       let statusBadge = '';
       if (x.status === '已還款' || x.status === '已處理') {
@@ -412,15 +434,12 @@ export function initPersonalExpensesPage() {
         : `<button class="btn btn-sm btn-ghost" data-action="edit" data-id="${x.id}" data-member="${x.memberId}" data-year="${x.year}" data-month="${x.month}">編輯</button>
            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${x.id}" data-member="${x.memberId}" data-year="${x.year}" data-month="${x.month}">刪除</button>`;
 
-      // 🆕 名稱可摺疊
       const fullName = x.name || '';
       const isTruncatable = fullName.length > NAME_MAX_LEN;
       const shortName = isTruncatable ? fullName.slice(0, NAME_MAX_LEN) + '…' : fullName;
 
       const nameHtml = isTruncatable
-        ? `<span class="pe-name-text pe-name-short"
-                data-full="${escapeHtml(fullName)}"
-                data-short="${escapeHtml(shortName)}">${escapeHtml(shortName)}</span>`
+        ? `<span class="pe-name-text pe-name-short" data-full="${escapeHtml(fullName)}" data-short="${escapeHtml(shortName)}">${escapeHtml(shortName)}</span>`
         : escapeHtml(fullName);
 
       return `
@@ -430,6 +449,7 @@ export function initPersonalExpensesPage() {
           <td class="pe-member-cell">${escapeHtml(memberName)}</td>
           <td class="pe-name-cell">${nameHtml}${x.isAutoLinked ? '<span class="badge badge-info" style="margin-left:4px;">保險</span>' : ''}</td>
           <td class="hide-mobile" style="font-size:11px; color:var(--text-muted);">${escapeHtml(cat?.name || '—')}</td>
+          <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(pmName)}</td>
           <td class="hide-mobile mono" style="font-size:11px; color:var(--text-muted);">${escapeHtml(x.date || '—')}</td>
           <td class="num">${formatHKD(x.amount)}</td>
           <td>${statusBadge}</td>
@@ -455,6 +475,7 @@ export function initPersonalExpensesPage() {
     renderItemOptions(document.getElementById('pe-edit-item'), exp.categoryId || '');
     setTimeout(() => { document.getElementById('pe-edit-item').value = exp.itemId || ''; }, 50);
     document.getElementById('pe-edit-amount').value = exp.amount || 0;
+    document.getElementById('pe-edit-payment').value = exp.paymentMethodId || '';
     document.getElementById('pe-edit-status').value = exp.status || '未處理';
     document.getElementById('pe-edit-modal').classList.add('active');
   }
@@ -474,6 +495,7 @@ export function initPersonalExpensesPage() {
     document.getElementById('pe-batch-status').value = '';
     document.getElementById('pe-batch-category').value = '';
     document.getElementById('pe-batch-item').innerHTML = `<option value="">— 不修改 —</option>`;
+    document.getElementById('pe-batch-payment').value = '';
     document.getElementById('pe-batch-member').value = '';
     document.getElementById('pe-batch-year').value = '';
     document.getElementById('pe-batch-month').value = '';
