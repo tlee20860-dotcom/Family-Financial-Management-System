@@ -8,103 +8,43 @@
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
   <style>
-    .collapsible-card {
-      margin-bottom: 16px;
-      padding: 0 !important;
-      overflow: hidden;
-    }
-    .collapsible-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 20px;
-      cursor: pointer;
-      user-select: none;
-      transition: background 0.2s ease;
-    }
-    .collapsible-header:hover { background: rgba(0, 240, 255, 0.04); }
-    .collapsible-header-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--neon-cyan);
-    }
-    .collapsible-arrow {
-      color: var(--text-muted);
-      transition: transform 0.25s ease;
-    }
-    .collapsible-card.open .collapsible-arrow { transform: rotate(180deg); }
-    .collapsible-body {
-      padding: 0 20px 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.05);
-      padding-top: 16px;
-    }
-    .merged-detail-card {
-      padding: 0 !important;
-      overflow: hidden;
-    }
-    .merged-filter-area {
-      padding: 16px 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      background: rgba(0, 240, 255, 0.02);
-    }
-    .merged-table-area { padding: 16px 20px 20px; }
-    .table-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
+    .collapsible-card { margin-bottom:16px; padding:0 !important; overflow:hidden; }
+    .collapsible-header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; cursor:pointer; user-select:none; transition:background 0.2s ease; }
+    .collapsible-header:hover { background:rgba(0,240,255,0.04); }
+    .collapsible-header-title { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; color:var(--neon-cyan); }
+    .collapsible-arrow { color:var(--text-muted); transition:transform 0.25s ease; }
+    .collapsible-card.open .collapsible-arrow { transform:rotate(180deg); }
+    .collapsible-body { padding:0 20px 20px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px; }
 
-    /* 個人支出表格 */
-    .pe-table { width: 100%; border-collapse: collapse; }
-    .pe-table th, .pe-table td { white-space: nowrap; }
-    .pe-table .pe-name-cell {
-      white-space: normal;
-      word-break: break-word;
-      min-width: 120px;
-    }
-    .pe-table .pe-ym-cell { font-family: var(--font-mono); font-size: 12px; }
-    .pe-table .pe-member-cell { font-size: 13px; }
-    .pe-table .badge { white-space: nowrap; }
+    .merged-detail-card { padding:0 !important; overflow:hidden; }
+    .merged-filter-area { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(0,240,255,0.02); }
+    .merged-table-area { padding:16px 20px 20px; }
+    .table-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
 
-    /* 🆕 可摺疊的項目名稱 */
-    .pe-name-text {
-      cursor: pointer;
-      border-bottom: 1px dashed rgba(0, 240, 255, 0.35);
-      transition: color 0.2s ease, border-color 0.2s ease;
-    }
-    .pe-name-text:hover {
-      color: var(--neon-cyan);
-      border-bottom-color: var(--neon-cyan);
-    }
+    .pe-table { width:100%; border-collapse:collapse; }
+    .pe-table th, .pe-table td { white-space:nowrap; }
+    .pe-table .pe-name-cell { white-space:normal; word-break:break-word; min-width:120px; }
+    .pe-table .pe-ym-cell { font-family:var(--font-mono); font-size:12px; }
+    .pe-table .pe-member-cell { font-size:13px; }
+    .pe-table .badge { white-space:nowrap; }
+
+    .pe-name-text { cursor:pointer; border-bottom:1px dashed rgba(0,240,255,0.35); transition:color 0.2s ease, border-color 0.2s ease; }
+    .pe-name-text:hover { color:var(--neon-cyan); border-bottom-color:var(--neon-cyan); }
 
     @media (max-width: 640px) {
-      .collapsible-header { padding: 12px 16px; }
-      .collapsible-body { padding: 0 16px 16px; padding-top: 14px; }
-      .merged-filter-area { padding: 14px 16px; }
-      .merged-table-area { padding: 14px 16px 16px; }
-
-      .pe-table th, .pe-table td {
-        padding: 8px 5px;
-        font-size: 11px;
-      }
-      .pe-table .hide-mobile { display: none; }
-      .pe-table .pe-ym-cell { font-size: 11px; }
-      .pe-table .pe-member-cell { font-size: 11px; }
-      .pe-table .pe-name-cell { min-width: 90px; font-size: 11px; }
-      .pe-table .badge { padding: 2px 5px; font-size: 9px; }
-      .pe-table .num { font-size: 11px; }
-      .pe-table .btn-sm {
-        padding: 3px 5px;
-        font-size: 10px;
-        margin-right: 2px;
-      }
-      .pe-table .btn-danger { padding: 3px 5px; font-size: 10px; }
+      .collapsible-header { padding:12px 16px; }
+      .collapsible-body { padding:0 16px 16px; padding-top:14px; }
+      .merged-filter-area { padding:14px 16px; }
+      .merged-table-area { padding:14px 16px 16px; }
+      .pe-table th, .pe-table td { padding:8px 5px; font-size:11px; }
+      .pe-table .hide-mobile { display:none; }
+      .pe-table .pe-ym-cell { font-size:11px; }
+      .pe-table .pe-member-cell { font-size:11px; }
+      .pe-table .pe-name-cell { min-width:90px; font-size:11px; }
+      .pe-table .badge { padding:2px 5px; font-size:9px; }
+      .pe-table .num { font-size:11px; }
+      .pe-table .btn-sm { padding:3px 5px; font-size:10px; margin-right:2px; }
+      .pe-table .btn-danger { padding:3px 5px; font-size:10px; }
     }
   </style>
 </head>
@@ -126,7 +66,7 @@
               <i data-lucide="plus-circle" style="width:16px;height:16px;"></i>
               <span>新增支出</span>
             </div>
-            <i data-lucide="chevron-down" class="collapsible-arrow" id="input-card-arrow"></i>
+            <i data-lucide="chevron-down" class="collapsible-arrow"></i>
           </div>
           <div class="collapsible-body" id="input-card-body" style="display:none;">
             <form id="personal-expense-form">
@@ -141,9 +81,7 @@
                 </div>
                 <div class="field">
                   <label class="field-label" for="pe-member">支出成員</label>
-                  <select class="select" id="pe-member" required>
-                    <option value="">— 請選擇 —</option>
-                  </select>
+                  <select class="select" id="pe-member" required><option value="">— 請選擇 —</option></select>
                 </div>
               </div>
 
@@ -154,18 +92,14 @@
                 </div>
                 <div class="field">
                   <label class="field-label" for="pe-category">支出類別</label>
-                  <select class="select" id="pe-category" required>
-                    <option value="">— 請選擇類別 —</option>
-                  </select>
+                  <select class="select" id="pe-category" required><option value="">— 請選擇類別 —</option></select>
                 </div>
               </div>
 
               <div class="grid grid-2" style="gap:12px;">
                 <div class="field">
                   <label class="field-label" for="pe-item">項目</label>
-                  <select class="select" id="pe-item" required>
-                    <option value="">— 請先選擇類別 —</option>
-                  </select>
+                  <select class="select" id="pe-item" required><option value="">— 請先選擇類別 —</option></select>
                 </div>
                 <div class="field">
                   <label class="field-label" for="pe-amount">費用（HK$）</label>
@@ -173,7 +107,12 @@
                 </div>
               </div>
 
+              <!-- 🆕 支付方式 -->
               <div class="grid grid-2" style="gap:12px;">
+                <div class="field">
+                  <label class="field-label" for="pe-payment">支付方式</label>
+                  <select class="select" id="pe-payment"><option value="">— 請選擇 —</option></select>
+                </div>
                 <div class="field">
                   <label class="field-label" for="pe-status">狀態</label>
                   <select class="select" id="pe-status">
@@ -183,10 +122,11 @@
                     <option value="已還款">已還款</option>
                   </select>
                 </div>
-                <div class="field" style="display:flex; align-items:center; gap:8px; padding-top:20px;">
-                  <input type="checkbox" id="pe-fixed" style="width:auto; cursor:pointer;">
-                  <label for="pe-fixed" style="font-size:13px; color:var(--text-secondary); cursor:pointer;">設為每月固定支出</label>
-                </div>
+              </div>
+
+              <div class="field" style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" id="pe-fixed" style="width:auto; cursor:pointer;">
+                <label for="pe-fixed" style="font-size:13px; color:var(--text-secondary); cursor:pointer;">設為每月固定支出</label>
               </div>
 
               <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
@@ -202,22 +142,10 @@
         <div class="glass-card merged-detail-card">
           <div class="merged-filter-area">
             <div class="filter-bar">
-              <div class="filter-group">
-                <label class="field-label" for="filter-year">年份</label>
-                <select class="select" id="filter-year"><option value="">全部</option></select>
-              </div>
-              <div class="filter-group">
-                <label class="field-label" for="filter-month">月份</label>
-                <select class="select" id="filter-month"><option value="">全部</option></select>
-              </div>
-              <div class="filter-group">
-                <label class="field-label" for="filter-member">成員</label>
-                <select class="select" id="filter-member"><option value="">全部</option></select>
-              </div>
-              <div class="filter-group">
-                <label class="field-label" for="filter-category">類別</label>
-                <select class="select" id="filter-category"><option value="">全部</option></select>
-              </div>
+              <div class="filter-group"><label class="field-label" for="filter-year">年份</label><select class="select" id="filter-year"><option value="">全部</option></select></div>
+              <div class="filter-group"><label class="field-label" for="filter-month">月份</label><select class="select" id="filter-month"><option value="">全部</option></select></div>
+              <div class="filter-group"><label class="field-label" for="filter-member">成員</label><select class="select" id="filter-member"><option value="">全部</option></select></div>
+              <div class="filter-group"><label class="field-label" for="filter-category">類別</label><select class="select" id="filter-category"><option value="">全部</option></select></div>
               <button class="btn btn-ghost btn-sm" id="filter-clear-btn">清除篩選</button>
             </div>
           </div>
@@ -243,6 +171,7 @@
                     <th style="width:60px;">成員</th>
                     <th>項目名稱</th>
                     <th class="hide-mobile" style="width:70px;">類別</th>
+                    <th style="width:90px;">支付方式</th>
                     <th class="hide-mobile" style="width:90px;">日期</th>
                     <th style="text-align:right; width:90px;">金額</th>
                     <th style="width:70px;">狀態</th>
@@ -250,7 +179,7 @@
                   </tr>
                 </thead>
                 <tbody id="pe-tbody">
-                  <tr><td colspan="9" class="empty-state">載入中…</td></tr>
+                  <tr><td colspan="10" class="empty-state">載入中…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -282,13 +211,14 @@
           <div class="field"><label class="field-label" for="pe-edit-item">項目</label><select class="select" id="pe-edit-item" required></select></div>
           <div class="field"><label class="field-label" for="pe-edit-amount">金額（HK$）</label><input class="input mono" id="pe-edit-amount" type="number" min="0" step="1" required></div>
         </div>
-        <div class="field"><label class="field-label" for="pe-edit-status">狀態</label>
-          <select class="select" id="pe-edit-status">
-            <option value="未處理">未處理</option>
-            <option value="已處理">已處理</option>
-            <option value="未還款">未還款</option>
-            <option value="已還款">已還款</option>
-          </select>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field"><label class="field-label" for="pe-edit-payment">支付方式</label><select class="select" id="pe-edit-payment"><option value="">— 請選擇 —</option></select></div>
+          <div class="field"><label class="field-label" for="pe-edit-status">狀態</label>
+            <select class="select" id="pe-edit-status">
+              <option value="未處理">未處理</option><option value="已處理">已處理</option>
+              <option value="未還款">未還款</option><option value="已還款">已還款</option>
+            </select>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="pe-edit-cancel-btn">取消</button>
@@ -316,14 +246,15 @@
           <div class="field"><label class="field-label" for="pe-batch-item">項目</label><select class="select" id="pe-batch-item"><option value="">— 不修改 —</option></select></div>
           <div class="field"><label class="field-label" for="pe-batch-amount">金額（HK$）</label><input class="input mono" id="pe-batch-amount" type="number" min="0" step="1" placeholder="留空表示不修改"></div>
         </div>
-        <div class="field"><label class="field-label" for="pe-batch-status">狀態</label>
-          <select class="select" id="pe-batch-status">
-            <option value="">— 不修改 —</option>
-            <option value="未處理">未處理</option>
-            <option value="已處理">已處理</option>
-            <option value="未還款">未還款</option>
-            <option value="已還款">已還款</option>
-          </select>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field"><label class="field-label" for="pe-batch-payment">支付方式</label><select class="select" id="pe-batch-payment"><option value="">— 不修改 —</option></select></div>
+          <div class="field"><label class="field-label" for="pe-batch-status">狀態</label>
+            <select class="select" id="pe-batch-status">
+              <option value="">— 不修改 —</option>
+              <option value="未處理">未處理</option><option value="已處理">已處理</option>
+              <option value="未還款">未還款</option><option value="已還款">已還款</option>
+            </select>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="pe-batch-edit-cancel-btn">取消</button>
