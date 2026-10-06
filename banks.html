@@ -74,9 +74,15 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header">
-          <h1 class="page-title">銀行管理</h1>
-          <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">銀行管理</h1>
+            <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
+          </div>
+          <div class="page-ym-selector">
+            <select class="select" id="page-year"></select>
+            <select class="select" id="page-month"></select>
+          </div>
         </div>
 
         <!-- 可摺疊輸入表單 -->
@@ -130,7 +136,7 @@
           </div>
         </div>
 
-        <!-- 合併卡片：工具列 + 統計 + 明細 -->
+        <!-- 合併卡片 -->
         <div class="glass-card merged-card">
           <div class="merged-toolbar">
             <div class="toolbar-row">
@@ -159,7 +165,6 @@
             </div>
           </div>
 
-          <!-- 單月模式 -->
           <div id="monthly-view">
             <div class="merged-stats-area">
               <div class="stats-grid">
@@ -194,7 +199,6 @@
             </div>
           </div>
 
-          <!-- 全年模式 -->
           <div id="annual-view" style="display:none;">
             <div class="merged-stats-area">
               <div class="stats-grid" style="grid-template-columns:1fr;">
