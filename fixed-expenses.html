@@ -21,10 +21,6 @@
             <p class="page-subtitle" id="fixed-month"></p>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <div class="page-ym-selector">
-              <select class="select" id="page-year"></select>
-              <select class="select" id="page-month"></select>
-            </div>
             <div class="view-toggle-group">
               <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
               <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
@@ -34,6 +30,8 @@
             </button>
           </div>
         </div>
+
+        <div id="page-filter-root" style="margin-bottom:16px;"></div>
 
         <div class="banner">
           ℹ️ 新增時只需輸入基本資料與週期，系統會自動分配到所屬月份。點擊「展開明細」可直接編輯每月金額與付款狀態。
