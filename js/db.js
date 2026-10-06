@@ -770,3 +770,33 @@ export async function updateIncomeEntry(year, month, memberId, amount) {
 export async function removeIncomeEntry(year, month, memberId) {
   await remove(familyRef(`income/${year}/${month}/${memberId}`));
 }
+/* ============================================
+   🆕 v99 側邊欄排序（跨裝置同步）
+   ============================================ */
+
+/**
+ * 監聽側邊欄排序
+ * 回傳陣列：['income.html', 'personal-expenses.html', ...]
+ * 若從未設定過，回傳 null（由呼叫端決定預設順序）
+ */
+export function listenSidebarOrder(callback, onError) {
+  return listen('settings/sidebar_order', (snap) => {
+    const val = snap.val();
+    if (!val) {
+      callback(null);
+      return;
+    }
+    // Firebase 會把陣列存成物件 {0: 'a', 1: 'b', ...}
+    const arr = Array.isArray(val) ? val : Object.values(val);
+    callback(arr.filter((x) => typeof x === 'string'));
+  }, onError);
+}
+
+/**
+ * 儲存側邊欄排序
+ * @param {string[]} order - 例如 ['income.html', 'personal-expenses.html', ...]
+ */
+export async function saveSidebarOrder(order) {
+  if (!Array.isArray(order)) throw new Error('order 必須是陣列');
+  await set(familyRef('settings/sidebar_order'), order);
+}
