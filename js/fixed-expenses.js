@@ -1,5 +1,5 @@
 // ============================================
-// fixed-expenses.js — 家庭固定支出（雙模式 + 卡片內折疊）
+// fixed-expenses.js — 家庭固定支出（含支付方式）
 // ============================================
 
 import {
@@ -7,7 +7,7 @@ import {
   listenFixedExpensesV2, addFixedExpenseV2, updateFixedExpenseV2,
   getFixedExpensesOnce,
   listenCategories, listenItems, addItem,
-  listenMembers,
+  listenMembers, listenPaymentMethods,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
@@ -17,6 +17,7 @@ let monthlyData = {};
 let categories = [];
 let items = [];
 let members = [];
+let payments = [];
 let currentView = localStorage.getItem('fixed_view') || 'card';
 let expandedKeys = new Set();
 
@@ -30,6 +31,7 @@ export function initFixedExpensesPage() {
   const cycleSelect = document.getElementById('fixed-cycle');
   const amountInput = document.getElementById('fixed-amount');
   const noteInput = document.getElementById('fixed-note');
+  const paymentSel = document.getElementById('fixed-payment');
   const addItemBtn = document.getElementById('add-fixed-item-btn');
 
   bindViewToggle();
@@ -43,6 +45,16 @@ export function initFixedExpensesPage() {
 
   listenCategories((cats) => { categories = cats; renderCategoryOptions(); });
   listenItems((list) => { items = list; renderItemOptions(); });
+
+  // 🆕 支付方式
+  listenPaymentMethods((list) => {
+    payments = list;
+    if (paymentSel) {
+      const cur = paymentSel.value;
+      paymentSel.innerHTML = `<option value="">— 請選擇 —</option>` + payments.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+      if (cur) paymentSel.value = cur;
+    }
+  });
 
   categorySel.addEventListener('change', renderItemOptions);
 
@@ -84,9 +96,14 @@ export function initFixedExpensesPage() {
     const amount = Math.round(Number(amountInput.value) || 0);
     const cycle = cycleSelect.value;
     const note = noteInput.value.trim();
+    const paymentMethodId = paymentSel ? paymentSel.value : '';
     if (!itemName || !amount) return;
 
-    await addFixedTemplate({ name: itemName, categoryId: catId, itemId: itemId, amount: amount, cycle: cycle, note: note, memberId: memberId });
+    await addFixedTemplate({
+      name: itemName, categoryId: catId, itemId: itemId,
+      amount: amount, cycle: cycle, note: note, memberId: memberId,
+      paymentMethodId: paymentMethodId,
+    });
 
     const targetMonths = getMonthsByCycle(cycle);
     const year = AppState.year;
@@ -97,6 +114,7 @@ export function initFixedExpensesPage() {
       promises.push(addFixedExpenseV2(year, monthStr, {
         name: itemName, amount: isTarget ? amount : 0, cycle: cycle, note: note,
         categoryId: catId, itemId: itemId, memberId: memberId, isSkipped: !isTarget,
+        paymentMethodId: paymentMethodId,
       }));
     }
     await Promise.all(promises);
@@ -189,9 +207,6 @@ export function initFixedExpensesPage() {
     }
   }
 
-  /* ============================================
-     🔧 明細渲染：移除 inline style，改用 class
-     ============================================ */
   function renderTemplateDetail(t) {
     const year = AppState.year;
     const rows = [];
@@ -245,6 +260,8 @@ export function initFixedExpensesPage() {
   function renderCard(t) {
     const member = members.find((m) => m.id === t.memberId);
     const memberName = t.memberId === 'shared' ? '家庭共用支出' : (member ? member.name : '（未指定）');
+    const pm = payments.find((p) => p.id === t.paymentMethodId);
+    const pmName = pm ? pm.name : '';
     const key = `card-${t.id}`;
     const isExpanded = expandedKeys.has(key);
 
@@ -253,7 +270,11 @@ export function initFixedExpensesPage() {
         <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
           <div>
             <div style="font-size:15px; font-weight:700; color:var(--neon-cyan);">${escapeHtml(t.name)}</div>
-            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">所屬成員：${escapeHtml(memberName)} · 週期：${escapeHtml(t.cycle || '每月')} ${t.note ? `· ${escapeHtml(t.note)}` : ''}</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+              所屬成員：${escapeHtml(memberName)} · 週期：${escapeHtml(t.cycle || '每月')}
+              ${pmName ? ` · 支付：${escapeHtml(pmName)}` : ''}
+              ${t.note ? ` · ${escapeHtml(t.note)}` : ''}
+            </div>
           </div>
           <button class="btn btn-sm btn-danger" data-action="delete-template" data-id="${t.id}" data-name="${escapeHtml(t.name)}">刪除支出</button>
         </div>
@@ -276,17 +297,16 @@ export function initFixedExpensesPage() {
     const isExpanded = expandedKeys.has(key);
     const member = members.find((m) => m.id === templates.memberId);
     const memberName = templates.memberId === 'shared' ? '家庭共用支出' : (member ? member.name : '（未指定）');
+    const pm = payments.find((p) => p.id === templates.paymentMethodId);
+    const pmName = pm ? pm.name : '—';
 
     return `
       <tr>
-        <td>
-          <button class="btn btn-sm btn-ghost fixed-expand-btn" data-toggle-key="${key}" style="padding:2px 6px;">
-            <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px;height:14px;"></i>
-          </button>
-        </td>
+        <td><button class="btn btn-sm btn-ghost fixed-expand-btn" data-toggle-key="${key}" style="padding:2px 6px;"><i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" style="width:14px;height:14px;"></i></button></td>
         <td>${escapeHtml(templates.name)}</td>
         <td>${escapeHtml(memberName)}</td>
         <td>${escapeHtml(templates.cycle || '每月')}</td>
+        <td style="font-size:11px; color:var(--text-muted);">${escapeHtml(pmName)}</td>
         <td style="font-size:12px; color:var(--text-muted);">${escapeHtml(templates.note || '—')}</td>
         <td>
           <button class="btn btn-sm btn-ghost" data-action="save-template" data-name="${escapeHtml(templates.name)}">儲存</button>
@@ -294,9 +314,7 @@ export function initFixedExpensesPage() {
         </td>
       </tr>
       <tr style="display:${isExpanded ? 'table-row' : 'none'};">
-        <td colspan="6" style="padding:12px;">
-          ${renderTemplateDetail(templates)}
-        </td>
+        <td colspan="7" style="padding:12px;">${renderTemplateDetail(templates)}</td>
       </tr>
     `;
   }
@@ -330,13 +348,12 @@ export function initFixedExpensesPage() {
                   <th>項目名稱</th>
                   <th>所屬成員</th>
                   <th>週期</th>
+                  <th>支付方式</th>
                   <th>備註</th>
                   <th>操作</th>
                 </tr>
               </thead>
-              <tbody>
-                ${templates.map((t) => renderTable(t)).join('')}
-              </tbody>
+              <tbody>${templates.map((t) => renderTable(t)).join('')}</tbody>
             </table>
           </div>
         </div>
