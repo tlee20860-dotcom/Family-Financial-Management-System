@@ -2,7 +2,7 @@
 // sw.js — Service Worker（HTML 不攔截版）
 // ============================================
 
-const CACHE_NAME = 'family-fin-v98'; // ⚠️ 已升級
+const CACHE_NAME = 'family-fin-v99'; // ⚠️ 版本號
 
 const STATIC_ASSETS = [
   './css/theme.css', './css/layout.css', './css/components.css',
@@ -15,7 +15,7 @@ const STATIC_ASSETS = [
   './js/banks.js', './js/annual-report.js', './js/pwa.js',
   './js/admin.js',
   './js/personal-expenses.js',
-  // 🆕 v94 共用模組
+  // v94 共用模組
   './js/page-filter.js',
   './js/toast.js',
   './js/collapsible-card.js',
@@ -23,6 +23,9 @@ const STATIC_ASSETS = [
   './js/select-helpers.js',
   './js/date-helpers.js',
   './js/modal.js',
+  // 🆕 v99 新增
+  './js/input-form.js',
+  './js/sidebar-order.js',
   './manifest.json', './icons/icon.svg',
 ];
 
