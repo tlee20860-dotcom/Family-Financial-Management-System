@@ -30,8 +30,6 @@ export function initInsurancePage() {
     fields: ['year', 'month'],
     onChange: () => renderAll(),
   });
-  // ... 其餘不變
-}
 
   const monthSel = document.getElementById('policy-start-month');
   let monthOpts = '';
@@ -237,9 +235,6 @@ function isPolicyCompleted(policy) {
   return done >= total;
 }
 
-/* ============================================
-   renderAll
-   ============================================ */
 async function renderAll() {
   const { year, month } = AppState.getYearMonth();
   const isAnnual = month === 'all';
@@ -336,12 +331,6 @@ async function renderAll() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-/* ============================================
-   🔧 renderPolicyDetail：移除所有 inline style
-   -------------------------------------------------
-   - 月 row 的 HTML 改為純 class，不再有 flex:1 inline
-   - 讓 components.css 完全掌控佈局
-   ============================================ */
 function renderPolicyDetail(policy, payments) {
   const totalYears = policy.totalPolicyYears || 1;
   const detailRows = [];
@@ -396,9 +385,6 @@ function renderPolicyDetail(policy, payments) {
   return `<div class="insurance-detail-container">${detailRows.join('')}</div>`;
 }
 
-/* ============================================
-   卡片渲染
-   ============================================ */
 function renderCard(p, isCompleted) {
   const member = members.find((m) => m.id === p.memberId);
   const memberName = member ? member.name : '（未指定）';
@@ -480,9 +466,6 @@ function renderCard(p, isCompleted) {
     </div>`;
 }
 
-/* ============================================
-   表格渲染
-   ============================================ */
 function renderTable(list) {
   const tbody = document.getElementById('policy-table-body');
   const sorted = [...list].sort((a, b) => {
