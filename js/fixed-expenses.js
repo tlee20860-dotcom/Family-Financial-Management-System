@@ -27,7 +27,6 @@ export function initFixedExpensesPage() {
 
   const container = document.getElementById('fixed-templates-container');
   // ... 其餘不變
-  const container = document.getElementById('fixed-templates-container');
   const modal = document.getElementById('fixed-modal');
   const form = document.getElementById('fixed-form');
   const memberSel = document.getElementById('fixed-member');
