@@ -15,18 +15,13 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div>
-            <h1 class="page-title" id="member-name">載入中…</h1>
-            <p class="page-subtitle" id="member-id-label"></p>
-          </div>
-          <div class="page-ym-selector">
-            <select class="select" id="page-year"></select>
-            <select class="select" id="page-month"></select>
-          </div>
+        <div class="page-header">
+          <h1 class="page-title" id="member-name">載入中…</h1>
+          <p class="page-subtitle" id="member-id-label"></p>
         </div>
 
-        <!-- 全年模式 -->
+        <div id="page-filter-root" style="margin-bottom:16px;"></div>
+
         <div id="annual-view" style="display:none;">
           <div class="glass-card" style="margin-bottom:20px;">
             <div class="glass-card-title">全年總支出</div>
@@ -36,7 +31,6 @@
           <div id="annual-monthly-cards"></div>
         </div>
 
-        <!-- 單月模式 -->
         <div id="monthly-view" style="display:none;">
           <div class="glass-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:12px; flex-wrap:wrap;">
