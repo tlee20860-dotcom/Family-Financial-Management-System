@@ -9,7 +9,7 @@ import {
   deleteInsurancePolicyAndData,
   listenInsuranceCompanies, addInsuranceCompany, updateInsuranceCompany, updatePolicyCompanyName,
 } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
@@ -24,6 +24,9 @@ let expandedKeys = new Set();
 let globalListenersBound = false;
 
 export function initInsurancePage() {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
   const monthSel = document.getElementById('policy-start-month');
   let monthOpts = '';
   for (let m = 1; m <= 12; m++) monthOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
