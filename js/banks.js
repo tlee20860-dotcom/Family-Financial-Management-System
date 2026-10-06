@@ -7,7 +7,8 @@ import {
   listenBankBalances, saveBankBalance,
   getBankBalancesOnce,
 } from './db.js';
-import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
+import { renderPageFilter } from './page-filter.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
@@ -19,8 +20,36 @@ let currentMode = 'annual';   // 'monthly' | 'annual'
 let filters = { year: '', month: '', bank: '' };
 
 export function initBanksPage() {
-  // 🆕 v93：頁面年月選擇器
-  initPageYearMonthSelector('page-year', 'page-month');
+  renderPageFilter({
+    containerId: 'page-filter-root',
+    fields: ['year', 'month'],
+    renderExtra: () => `
+      <div class="filter-group">
+        <label class="field-label">銀行</label>
+        <select class="select" data-filter="bank">
+          <option value="">全部</option>
+          ${banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('')}
+        </select>
+      </div>
+    `,
+    onChange: (f) => {
+      filters = {
+        year: f.year || '',
+        month: f.month || 'all',
+        bank: f.bank || '',
+      };
+      // 依月份決定模式
+      if (filters.month === 'all') {
+        currentMode = 'annual';
+      } else {
+        currentMode = 'monthly';
+      }
+      updateToggleUI();
+      loadBalances();
+    },
+  });
+  // ... 其餘不變
+}
 
   const tbody = document.getElementById('bank-tbody');
   const form = document.getElementById('bank-form');
