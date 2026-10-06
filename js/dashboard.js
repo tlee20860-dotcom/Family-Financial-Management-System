@@ -3,11 +3,16 @@
 // ============================================
 
 import { api } from './api.js';
-import { formatHKD, initPageYearMonthSelector } from './utils.js';
+import { formatHKD } from './utils.js';
+import { renderPageFilter } from './page-filter.js';
 import { AppState } from './state.js';
 
 export async function initDashboardPage() {
-  initPageYearMonthSelector('page-year', 'page-month');
+  renderPageFilter({
+    containerId: 'page-filter-root',
+    fields: ['year', 'month'],
+    onChange: () => loadDashboard(),
+  });
   await loadDashboard();
   AppState.on('ym-change', () => loadDashboard());
 }
