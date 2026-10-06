@@ -17,6 +17,7 @@ import {
 import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
 import { openModal, closeModal } from './modal.js';
 import { AppState } from './state.js';
+import { initCollapsibleCard } from './collapsible-card.js';
 
 let members = [];
 let categories = [];
@@ -28,6 +29,9 @@ let filters = { year: '', month: '', member: '', category: '' };
 const NAME_MAX_LEN = 6;
 
 export function initPersonalExpensesPage() {
+  // 🆕 v99.5：明細表格折疊（預設展開）
+  initCollapsibleCard('pe-table-card', 'pe-table-open', true);
+
   const form = document.getElementById('personal-expense-form');
   const yearSel = document.getElementById('pe-year');
   const monthSel = document.getElementById('pe-month');
