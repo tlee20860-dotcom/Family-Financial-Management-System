@@ -9,7 +9,8 @@ import {
   deleteInsurancePolicyAndData,
   listenInsuranceCompanies, addInsuranceCompany, updateInsuranceCompany, updatePolicyCompanyName,
 } from './db.js';
-import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
+import { renderPageFilter } from './page-filter.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
@@ -24,8 +25,13 @@ let expandedKeys = new Set();
 let globalListenersBound = false;
 
 export function initInsurancePage() {
-  // 🆕 v93：頁面年月選擇器
-  initPageYearMonthSelector('page-year', 'page-month');
+  renderPageFilter({
+    containerId: 'page-filter-root',
+    fields: ['year', 'month'],
+    onChange: () => renderAll(),
+  });
+  // ... 其餘不變
+}
 
   const monthSel = document.getElementById('policy-start-month');
   let monthOpts = '';
