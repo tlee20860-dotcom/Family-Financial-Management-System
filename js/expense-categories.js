@@ -9,6 +9,7 @@ import {
 } from './db.js';
 import { escapeHtml } from './utils.js';
 import { createInputForm } from './input-form.js';
+import { initCollapsibleCard } from './collapsible-card.js';
 import { openModal, closeModal } from './modal.js';
 import { showToast } from './toast.js';
 
@@ -23,9 +24,13 @@ let itemForm = null;
 let payForm = null;
 
 export function initExpenseCategoriesPage() {
-  /* ========== 類別摺疊表單 ========== */
+  /* ========== 🆕 v99.5：表格區塊折疊（預設展開） ========== */
+  initCollapsibleCard('cat-table-card', 'cat-table-open', true);
+  initCollapsibleCard('item-table-card', 'item-table-open', true);
+  initCollapsibleCard('payment-table-card', 'payment-table-open', true);
+
+  /* ========== 類別 ========== */
   const catTbody = document.getElementById('category-tbody');
-  const catModal = document.getElementById('category-modal');
   const catModalTitle = document.getElementById('category-modal-title');
   const catEditForm = document.getElementById('category-form');
   const catName = document.getElementById('category-name');
@@ -98,13 +103,18 @@ export function initExpenseCategoriesPage() {
     }
   });
 
-  /* ========== 項目摺疊表單 ========== */
+  /* ========== 項目 ========== */
   const itemTbody = document.getElementById('item-tbody');
   const itemModalTitle = document.getElementById('item-modal-title');
   const itemEditForm = document.getElementById('item-form');
   const itemCategory = document.getElementById('item-category');
   const itemName = document.getElementById('item-name');
   const filterCategory = document.getElementById('filter-category');
+
+  // 防止點擊 filter-category 時觸發折疊
+  filterCategory.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
 
   itemForm = createInputForm({
     containerId: 'item-input-root',
@@ -170,7 +180,7 @@ export function initExpenseCategoriesPage() {
     }
   });
 
-  /* ========== 支付方式摺疊表單 ========== */
+  /* ========== 支付方式 ========== */
   const payTbody = document.getElementById('payment-tbody');
   const payModalTitle = document.getElementById('payment-modal-title');
   const payEditForm = document.getElementById('payment-form');
@@ -302,19 +312,16 @@ export function initExpenseCategoriesPage() {
   }
 
   function renderCategorySelects() {
-    // 篩選下拉
     const currentFilter = filterCategory.value;
     filterCategory.innerHTML = `<option value="">全部分類</option>` +
       categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     if (currentFilter) filterCategory.value = currentFilter;
 
-    // 編輯 Modal 下拉
     const currentItemCat = itemCategory.value;
     itemCategory.innerHTML = `<option value="">— 請選擇 —</option>` +
       categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     if (currentItemCat) itemCategory.value = currentItemCat;
 
-    // 新增摺疊表單下拉
     if (itemForm) {
       itemForm.updateOptions('inp-item-cat', categories.map((c) => ({ value: c.id, label: c.name })), {
         includeEmpty: true, emptyText: '— 請選擇 —',
