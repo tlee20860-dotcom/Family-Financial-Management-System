@@ -5,6 +5,7 @@
 import { api } from './api.js';
 import { formatHKD, formatNumber, escapeHtml } from './utils.js';
 import { AppState } from './state.js';
+import { initCollapsibleCard } from './collapsible-card.js';
 
 let currentYear = '';
 let currentView = 'summary';
@@ -14,6 +15,11 @@ let annualData = null;
 const CATEGORY_ORDER = ['醫療類', '學校類', '保險類', '固定費用類', '其他'];
 
 export function initAnnualReportPage() {
+  // 🆕 v99.5：表格區塊折疊（預設展開）
+  initCollapsibleCard('summary-table-card', 'ar-summary-open', true);
+  initCollapsibleCard('payment-stats-card', 'ar-payment-stats-open', true);
+  initCollapsibleCard('monthly-table-card', 'ar-monthly-open', true);
+
   const { year } = AppState.getYearMonth();
   currentYear = year;
   currentDisplayMonth = AppState.month === 'all' ? '01' : AppState.month;
