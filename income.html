@@ -7,6 +7,69 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+  <style>
+    .collapsible-card { margin-bottom:16px; padding:0 !important; overflow:hidden; }
+    .collapsible-header { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; cursor:pointer; user-select:none; transition:background 0.2s ease; }
+    .collapsible-header:hover { background:rgba(0,240,255,0.04); }
+    .collapsible-header-title { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:600; color:var(--neon-cyan); }
+    .collapsible-arrow { color:var(--text-muted); transition:transform 0.25s ease; }
+    .collapsible-card.open .collapsible-arrow { transform:rotate(180deg); }
+    .collapsible-body { padding:0 20px 20px; border-top:1px solid rgba(255,255,255,0.05); padding-top:16px; }
+
+    .merged-detail-card { padding:0 !important; overflow:hidden; }
+    .merged-filter-area { padding:16px 20px; border-bottom:1px solid rgba(255,255,255,0.06); background:rgba(0,240,255,0.02); }
+    .merged-table-area { padding:16px 20px 20px; }
+    .table-toolbar { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+
+    .income-table { width:100%; border-collapse:collapse; }
+    .income-table th, .income-table td { white-space:nowrap; }
+    .income-table .income-ym-cell { font-family:var(--font-mono); font-size:12px; }
+
+    /* 成員輸入列 */
+    .member-input-row {
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin-bottom:8px;
+      padding:10px 12px;
+      background:rgba(8,11,17,0.4);
+      border:1px solid var(--glass-border);
+      border-radius:var(--radius-md);
+    }
+    .member-input-row .member-label {
+      flex:0 0 120px;
+      font-size:13px;
+      color:var(--text-secondary);
+    }
+    .member-input-row .member-input {
+      flex:1;
+      padding:8px 12px;
+      font-size:14px;
+      text-align:right;
+      background:rgba(8,11,17,0.6);
+      border:1px solid var(--glass-border);
+      border-radius:var(--radius-sm);
+      color:var(--text-primary);
+      font-family:var(--font-mono);
+    }
+    .member-input-row .member-input:focus {
+      outline:none;
+      border-color:var(--neon-cyan);
+    }
+
+    @media (max-width: 640px) {
+      .collapsible-header { padding:12px 16px; }
+      .collapsible-body { padding:0 16px 16px; padding-top:14px; }
+      .merged-filter-area { padding:14px 16px; }
+      .merged-table-area { padding:14px 16px 16px; }
+      .income-table th, .income-table td { padding:8px 5px; font-size:11px; }
+      .income-table .hide-mobile { display:none; }
+      .income-table .income-ym-cell { font-size:11px; }
+      .income-table .btn-sm { padding:3px 5px; font-size:10px; }
+      .member-input-row { flex-wrap:wrap; gap:8px; padding:8px 10px; }
+      .member-input-row .member-label { flex:1 0 100%; font-size:12px; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -20,39 +83,94 @@
             <h1 class="page-title">每月收入</h1>
             <p class="page-subtitle" id="income-month">載入中…</p>
           </div>
-          <button class="btn btn-primary" id="view-annual-income-btn">
-            <i data-lucide="table"></i> 查看年度明細
+          <button class="btn btn-ghost" id="view-annual-income-btn">
+            <i data-lucide="table"></i> 年度明細
           </button>
         </div>
 
-        <div id="annual-view" style="display:none;">
-          <div class="glass-card" style="margin-bottom:20px;">
-            <div class="glass-card-title">年度總收入</div>
-            <div class="glass-card-value emerald mono" id="annual-income">HK$ 0</div>
+        <!-- 可摺疊輸入表單 -->
+        <div class="glass-card collapsible-card" id="income-input-card">
+          <div class="collapsible-header" id="income-input-header">
+            <div class="collapsible-header-title">
+              <i data-lucide="plus-circle" style="width:16px;height:16px;"></i>
+              <span>新增 / 更新收入</span>
+            </div>
+            <i data-lucide="chevron-down" class="collapsible-arrow"></i>
           </div>
-          <div id="annual-monthly-cards"></div>
-        </div>
-
-        <div id="monthly-view" style="display:none;">
-          <div class="glass-card" style="max-width:560px;">
-            <div class="glass-card-title">家庭成員收入</div>
-            <p class="glass-card-hint" style="margin-bottom:18px;">輸入每位成員本月帶入家庭帳號的金額，以及額外收入。</p>
+          <div class="collapsible-body" id="income-input-body" style="display:none;">
             <form id="income-form">
+              <div class="grid grid-2" style="gap:12px; margin-bottom:16px;">
+                <div class="field" style="margin-bottom:0;">
+                  <label class="field-label" for="income-form-year">所屬年份</label>
+                  <select class="select" id="income-form-year"></select>
+                </div>
+                <div class="field" style="margin-bottom:0;">
+                  <label class="field-label" for="income-form-month">所屬月份</label>
+                  <select class="select" id="income-form-month"></select>
+                </div>
+              </div>
+
+              <div class="field-label" style="margin-bottom:8px;">家庭成員收入</div>
               <div id="member-inputs"></div>
+
               <div class="field" style="margin-top:14px; padding-top:14px; border-top:1px dashed rgba(255,255,255,0.1);">
                 <label class="field-label" for="income-extra">額外收入（HK$）</label>
                 <input class="input mono" id="income-extra" type="number" min="0" step="0.01" placeholder="0">
               </div>
+
               <div class="banner" id="income-status" style="display:none; margin-top:14px;"></div>
-              <button type="submit" class="btn btn-primary" style="margin-top:16px; width:100%; justify-content:center;">儲存本月收入</button>
+
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+                <button type="button" class="btn btn-ghost" id="income-reset-btn">重置</button>
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="check"></i> 儲存本月收入
+                </button>
+              </div>
             </form>
+          </div>
+        </div>
+
+        <!-- 收入明細（篩選 + 表格 合併卡片） -->
+        <div class="glass-card merged-detail-card">
+          <div class="merged-filter-area">
+            <div class="filter-bar">
+              <div class="filter-group"><label class="field-label" for="filter-year">年份</label><select class="select" id="filter-year"><option value="">全部</option></select></div>
+              <div class="filter-group"><label class="field-label" for="filter-month">月份</label><select class="select" id="filter-month"><option value="">全部</option></select></div>
+              <div class="filter-group"><label class="field-label" for="filter-member">成員</label><select class="select" id="filter-member"><option value="">全部</option></select></div>
+              <button class="btn btn-ghost btn-sm" id="filter-clear-btn">清除篩選</button>
+            </div>
+          </div>
+
+          <div class="merged-table-area">
+            <div class="table-toolbar">
+              <div class="glass-card-title" style="margin:0;">
+                收入明細 <span class="text-muted" id="income-total-count" style="font-size:12px;"></span>
+              </div>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table income-table">
+                <thead>
+                  <tr>
+                    <th style="width:80px;">年份</th>
+                    <th style="width:80px;">月份</th>
+                    <th>成員</th>
+                    <th class="num" style="width:140px;">金額（HK$）</th>
+                    <th style="width:130px;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="income-tbody">
+                  <tr><td colspan="5" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </main>
     </div>
   </div>
 
-  <!-- 年度收入明細 Modal -->
+  <!-- 年度收入明細 Modal（保留） -->
   <div class="modal-overlay" id="income-detail-modal">
     <div class="modal" style="max-width:800px; max-height:90vh; overflow-y:auto;">
       <h2 class="modal-title" id="income-detail-title">年度收入明細</h2>
@@ -61,6 +179,40 @@
         <button type="button" class="btn btn-ghost" id="income-detail-cancel-btn">取消</button>
         <button type="button" class="btn btn-primary" id="income-detail-save-btn">批次儲存</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 單筆編輯 Modal -->
+  <div class="modal-overlay" id="income-edit-modal">
+    <div class="modal" style="max-width:440px;">
+      <h2 class="modal-title">編輯收入</h2>
+      <form id="income-edit-form">
+        <input type="hidden" id="income-edit-old-year">
+        <input type="hidden" id="income-edit-old-month">
+        <input type="hidden" id="income-edit-old-member">
+        <div class="field">
+          <label class="field-label">成員</label>
+          <input class="input" id="income-edit-member-name" disabled>
+        </div>
+        <div class="grid grid-2" style="gap:12px;">
+          <div class="field">
+            <label class="field-label" for="income-edit-year">年份</label>
+            <select class="select" id="income-edit-year"></select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="income-edit-month">月份</label>
+            <select class="select" id="income-edit-month"></select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="income-edit-amount">金額（HK$）</label>
+          <input class="input mono" id="income-edit-amount" type="number" min="0" step="1" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="income-edit-cancel-btn">取消</button>
+          <button type="submit" class="btn btn-primary">儲存</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -74,4 +226,3 @@
   </script>
 </body>
 </html>
-
