@@ -23,16 +23,12 @@ export function initSettlementsPage() {
     fields: ['year', 'month'],
     onChange: () => loadAll(),
   });
-  // ... 其餘不變
-}
 
   listenMembers((list) => {
-    // ... 其餘不變
     members = list;
     renderMemberOptions();
   });
 
-  // 初始化年份 / 月份下拉
   const yearSel = document.getElementById('fixed-repayment-year');
   const monthSel = document.getElementById('fixed-repayment-month');
   const now = new Date();
@@ -100,7 +96,6 @@ async function loadAnnual(year) {
       const monthNum = i + 1;
       let monthTotal = 0;
 
-      // 未還款加總
       const fixedPending = fixedList.filter((r) => r.status !== '已還款');
       const expPending = expList.filter((e) => e.status !== '已還款' && !e.isAutoLinked);
       fixedPending.forEach((r) => monthTotal += Number(r.amount) || 0);
