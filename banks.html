@@ -7,6 +7,171 @@
   <link rel="stylesheet" href="./css/theme.css">
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
+  <style>
+    /* ===== 可摺疊卡片 ===== */
+    .collapsible-card {
+      margin-bottom: 16px;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    .collapsible-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 20px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s ease;
+    }
+    .collapsible-header:hover { background: rgba(0, 240, 255, 0.04); }
+    .collapsible-header-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--neon-cyan);
+    }
+    .collapsible-arrow {
+      color: var(--text-muted);
+      transition: transform 0.25s ease;
+    }
+    .collapsible-card.open .collapsible-arrow { transform: rotate(180deg); }
+    .collapsible-body {
+      padding: 0 20px 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 16px;
+    }
+
+    /* ===== 合併卡片（統計 + 明細） ===== */
+    .merged-card {
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    .merged-stats-area {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0, 240, 255, 0.02);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    .stat-item {
+      padding: 12px 16px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      background: rgba(8, 11, 17, 0.4);
+    }
+    .stat-item .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .stat-item .stat-value {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--neon-emerald);
+      line-height: 1.2;
+    }
+    .stat-item .stat-value.cyan { color: var(--neon-cyan); }
+    .stat-item .stat-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .merged-table-area { padding: 16px 20px 20px; }
+
+    /* ===== 銀行表格 ===== */
+    .bank-table { width: 100%; border-collapse: collapse; }
+    .bank-table th, .bank-table td { white-space: nowrap; }
+    .bank-table .bank-name-cell { font-size: 13px; }
+    .bank-table .bank-balance-input {
+      width: 140px;
+      padding: 6px 10px;
+      font-size: 13px;
+      text-align: right;
+      background: rgba(8, 11, 17, 0.6);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+    }
+    .bank-table .bank-balance-input:focus {
+      outline: none;
+      border-color: var(--neon-cyan);
+    }
+    .bank-table .prev-balance { color: var(--text-muted); }
+    .bank-table .updated-at { font-size: 11px; color: var(--text-muted); }
+
+    /* ===== 全年模式折疊卡 ===== */
+    .annual-month-card {
+      margin-bottom: 10px;
+      padding: 14px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      background: rgba(8, 11, 17, 0.4);
+    }
+    .annual-month-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .annual-month-header .month-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--neon-cyan);
+    }
+    .annual-month-header .month-total {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--neon-emerald);
+    }
+    .annual-month-detail {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+    .annual-month-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    @media (max-width: 640px) {
+      .collapsible-header { padding: 12px 16px; }
+      .collapsible-body { padding: 0 16px 16px; padding-top: 14px; }
+      .merged-stats-area { padding: 14px 16px; }
+      .merged-table-area { padding: 14px 16px 16px; }
+      .stats-grid { grid-template-columns: 1fr; gap: 10px; }
+      .stat-item { padding: 10px 12px; }
+      .stat-item .stat-value { font-size: 16px; }
+
+      .bank-table th, .bank-table td {
+        padding: 8px 5px;
+        font-size: 11px;
+      }
+      .bank-table .hide-mobile { display: none; }
+      .bank-table .bank-balance-input {
+        width: 100px;
+        padding: 4px 6px;
+        font-size: 11px;
+      }
+      .bank-table .bank-name-cell { font-size: 12px; }
+      .bank-table .btn-sm {
+        padding: 3px 6px;
+        font-size: 10px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -15,75 +180,87 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div>
-            <h1 class="page-title">銀行管理</h1>
-            <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
-          </div>
-          <button class="btn btn-primary" id="add-bank-btn">
-            <i data-lucide="plus"></i> 新增銀行
-          </button>
+        <div class="page-header">
+          <h1 class="page-title">銀行管理</h1>
+          <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
         </div>
 
-        <!-- ===== 全年模式 ===== -->
+        <!-- 可摺疊新增銀行 -->
+        <div class="glass-card collapsible-card" id="bank-input-card">
+          <div class="collapsible-header" id="bank-input-header">
+            <div class="collapsible-header-title">
+              <i data-lucide="plus-circle" style="width:16px;height:16px;"></i>
+              <span>新增銀行</span>
+            </div>
+            <i data-lucide="chevron-down" class="collapsible-arrow"></i>
+          </div>
+          <div class="collapsible-body" id="bank-input-body" style="display:none;">
+            <form id="bank-form">
+              <div class="field">
+                <label class="field-label" for="bank-name">銀行名稱</label>
+                <input class="input" id="bank-name" required maxlength="20" placeholder="例如：滙豐銀行">
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn btn-ghost" id="bank-reset-btn">重置</button>
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="plus"></i> 新增銀行
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- 單月模式：統計 + 明細（合併卡片） -->
+        <div class="glass-card merged-card" id="monthly-view" style="display:none;">
+          <div class="merged-stats-area">
+            <div class="stats-grid">
+              <div class="stat-item">
+                <div class="stat-label">本月銀行總結餘</div>
+                <div class="stat-value" id="bank-total">HK$ 0</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-label">當月可用金額</div>
+                <div class="stat-value cyan" id="bank-available">HK$ 0</div>
+                <div class="stat-hint">上月結餘 + 本月收入</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="merged-table-area">
+            <div class="table-toolbar" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+              <div class="glass-card-title" style="margin:0;">
+                銀行明細 <span class="text-muted" id="bank-count" style="font-size:12px;"></span>
+              </div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="data-table bank-table">
+                <thead>
+                  <tr>
+                    <th>銀行名稱</th>
+                    <th class="num hide-mobile" style="width:130px;">上月結餘</th>
+                    <th class="num" style="width:150px;">本月結餘（HK$）</th>
+                    <th class="hide-mobile" style="width:150px;">最後更新</th>
+                    <th style="width:90px;">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="bank-tbody">
+                  <tr><td colspan="5" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 全年模式 -->
         <div id="annual-view" style="display:none;">
-          <div class="glass-card" style="margin-bottom:20px;">
+          <div class="glass-card" style="margin-bottom:16px;">
             <div class="glass-card-title">年末銀行總結餘</div>
             <div class="glass-card-value emerald mono" id="annual-bank-total">HK$ 0</div>
             <div class="glass-card-hint">以該年度最後一個有紀錄的月份為準</div>
           </div>
           <div id="annual-monthly-cards"></div>
         </div>
-
-        <!-- ===== 單月模式 ===== -->
-        <div id="monthly-view" style="display:none;">
-          <div class="grid grid-2" style="margin-bottom:20px;">
-            <div class="glass-card">
-              <div class="glass-card-title">本月銀行總結餘</div>
-              <div class="glass-card-value emerald mono" id="bank-total">HK$ 0</div>
-            </div>
-            <div class="glass-card">
-              <div class="glass-card-title">當月可用金額（上月結餘 + 本月收入）</div>
-              <div class="glass-card-value cyan mono" id="bank-available">HK$ 0</div>
-            </div>
-          </div>
-
-          <div class="glass-card">
-            <div style="overflow-x:auto;">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>銀行</th>
-                    <th style="text-align:right;">本月結餘（HK$）</th>
-                    <th>最後更新</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="bank-tbody">
-                  <tr><td colspan="4" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
       </main>
-    </div>
-  </div>
-
-  <!-- 新增銀行 Modal -->
-  <div class="modal-overlay" id="bank-modal">
-    <div class="modal">
-      <h2 class="modal-title">新增銀行</h2>
-      <form id="bank-form">
-        <div class="field">
-          <label class="field-label" for="bank-name">銀行名稱</label>
-          <input class="input" id="bank-name" required maxlength="20" placeholder="例如：滙豐銀行">
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="bank-cancel-btn">取消</button>
-          <button type="submit" class="btn btn-primary">儲存</button>
-        </div>
-      </form>
     </div>
   </div>
 
