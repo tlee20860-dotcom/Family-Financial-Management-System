@@ -20,17 +20,13 @@
             <h1 class="page-title">結算清單</h1>
             <p class="page-subtitle" id="settlement-month"></p>
           </div>
-          <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
-            <div class="page-ym-selector">
-              <select class="select" id="page-year"></select>
-              <select class="select" id="page-month"></select>
-            </div>
-            <div style="text-align:right;">
-              <div class="glass-card-title" style="margin:0;">本期待還款總額</div>
-              <div class="mono text-magenta" id="settlement-pending-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
-            </div>
+          <div style="text-align:right;">
+            <div class="glass-card-title" style="margin:0;">本期待還款總額</div>
+            <div class="mono text-magenta" id="settlement-pending-total" style="font-size:24px; font-weight:700;">HK$ 0</div>
           </div>
         </div>
+
+        <div id="page-filter-root" style="margin-bottom:16px;"></div>
 
         <div id="annual-view" style="display:none;">
           <div id="annual-monthly-cards"></div>
