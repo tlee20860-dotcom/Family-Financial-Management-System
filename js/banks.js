@@ -15,6 +15,7 @@ import { fillBankSelect } from './select-helpers.js';
 import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
+import { initCollapsibleCard } from './collapsible-card.js';
 
 let banks = [];
 let balances = {};
@@ -24,6 +25,9 @@ let currentMode = 'annual';  // 'monthly' | 'annual'
 let filters = { year: '', month: 'all', bank: '' };
 
 export function initBanksPage() {
+  // 🆕 v99.5：明細表格折疊（預設展開）
+  initCollapsibleCard('bank-table-card', 'bank-table-open', true);
+
   const tbody = document.getElementById('bank-tbody');
   const form = document.getElementById('bank-form');
   const bankSelect = document.getElementById('bank-select');
