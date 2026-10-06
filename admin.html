@@ -20,15 +20,13 @@
             <h1 class="page-title">平台管理</h1>
             <p class="page-subtitle">管理所有家庭帳號</p>
           </div>
-          <div style="display:flex; gap:10px;">
-            <button class="btn btn-primary" id="add-family-btn">
-              <i data-lucide="plus"></i> 新增家庭
-            </button>
-            <button class="btn btn-danger" id="logout-btn">登出</button>
-          </div>
+          <button class="btn btn-danger" id="logout-btn">登出</button>
         </div>
 
         <div id="admin-error" class="banner banner-magenta" style="display:none;"></div>
+
+        <!-- 🆕 v99：摺疊輸入表單容器 -->
+        <div id="family-input-root" style="margin-bottom:16px;"></div>
 
         <div class="glass-card">
           <div style="overflow-x:auto;">
@@ -49,32 +47,6 @@
           </div>
         </div>
       </main>
-    </div>
-  </div>
-
-  <!-- 新增家庭 Modal -->
-  <div class="modal-overlay" id="family-modal">
-    <div class="modal">
-      <h2 class="modal-title">新增家庭</h2>
-      <form id="family-form">
-        <div class="field">
-          <label class="field-label" for="family-uid">Firebase UID</label>
-          <input class="input mono" id="family-uid" required maxlength="60" placeholder="在 Firebase Auth 建立後複製 UID">
-          <div class="glass-card-hint">請先在 Firebase 控制台建立家庭帳號，再將 UID 貼上。</div>
-        </div>
-        <div class="field">
-          <label class="field-label" for="family-name">家庭名稱</label>
-          <input class="input" id="family-name" required maxlength="30" placeholder="例如：陳家">
-        </div>
-        <div class="field">
-          <label class="field-label" for="family-email">擁有者 Email（可選）</label>
-          <input class="input" id="family-email" maxlength="60" placeholder="例如：chen@familyfin.local">
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-ghost" id="family-cancel-btn">取消</button>
-          <button type="submit" class="btn btn-primary">儲存</button>
-        </div>
-      </form>
     </div>
   </div>
 
