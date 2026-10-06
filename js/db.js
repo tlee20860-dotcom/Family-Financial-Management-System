@@ -113,10 +113,6 @@ export function listenExpenses(year, month, memberId, callback, onError) {
   }, onError);
 }
 
-/**
- * 🆕 監聽所有支出（用於個人支出頁面的全資料表格）
- * 回傳扁平陣列，每筆包含 year, month, memberId, id 等
- */
 export function listenAllExpenses(callback, onError) {
   return listen('expenses', (snap) => {
     const val = snap.val() || {};
@@ -138,7 +134,17 @@ export async function addExpense(year, month, memberId, expense) {
   if (!year || !month) { const ym = AppState.getYearMonth(); year = ym.year; month = ym.month; }
   const r = familyRef(expensePath(year, month, memberId));
   const newRef = push(r);
-  await set(newRef, { name: expense.name, amount: Math.round(Number(expense.amount) || 0), status: expense.status || '未處理', date: expense.date || '', categoryId: expense.categoryId || '', itemId: expense.itemId || '', isAutoLinked: expense.isAutoLinked || false, createdAt: Date.now() });
+  await set(newRef, {
+    name: expense.name,
+    amount: Math.round(Number(expense.amount) || 0),
+    status: expense.status || '未處理',
+    date: expense.date || '',
+    categoryId: expense.categoryId || '',
+    itemId: expense.itemId || '',
+    paymentMethodId: expense.paymentMethodId || '',   // 🆕
+    isAutoLinked: expense.isAutoLinked || false,
+    createdAt: Date.now(),
+  });
   return newRef.key;
 }
 
@@ -180,6 +186,7 @@ export async function batchUpdateExpenses(updates) {
         date: data.date || '',
         categoryId: data.categoryId || '',
         itemId: data.itemId || '',
+        paymentMethodId: data.paymentMethodId || '',   // 🆕
         isAutoLinked: false,
         createdAt: Date.now(),
       };
@@ -191,6 +198,7 @@ export async function batchUpdateExpenses(updates) {
         date: data.date || '',
         categoryId: data.categoryId || '',
         itemId: data.itemId || '',
+        paymentMethodId: data.paymentMethodId || '',   // 🆕
       };
     }
   }
@@ -224,7 +232,7 @@ export async function addInsurancePolicyV2(policy) {
     firstStartMonth: String(policy.firstStartMonth || '01').padStart(2, '0'),
     totalPolicyYears: Number(policy.totalPolicyYears) || 0,
     totalPolicyPeriods: Number(policy.totalPolicyPeriods) || 0,
-    totalPremium: Number(policy.totalPremium) || 0, // 🆕 修正：補上 totalPremium
+    totalPremium: Number(policy.totalPremium) || 0,
     currentPeriodIndex: Number(policy.currentPeriodIndex) || 1,
     account: policy.account || '',
     periods: policy.periods || {},
@@ -244,7 +252,7 @@ export async function updateInsurancePolicyV2(id, patch) {
     firstStartMonth: String(patch.firstStartMonth || '01').padStart(2, '0'),
     totalPolicyYears: Number(patch.totalPolicyYears) || 0,
     totalPolicyPeriods: Number(patch.totalPolicyPeriods) || 0,
-    totalPremium: Number(patch.totalPremium) || 0, // 🆕 修正：補上 totalPremium
+    totalPremium: Number(patch.totalPremium) || 0,
     currentPeriodIndex: Number(patch.currentPeriodIndex) || 1,
     account: patch.account || '',
     periods: patch.periods || {},
@@ -467,6 +475,7 @@ export async function addFixedTemplate(tmpl) {
     amount: Math.round(Number(tmpl.amount) || 0),
     cycle: tmpl.cycle || '每月',
     note: tmpl.note || '',
+    paymentMethodId: tmpl.paymentMethodId || '',   // 🆕
     createdAt: Date.now(),
   });
   return newRef.key;
@@ -525,6 +534,7 @@ export async function addFixedExpenseV2(year, month, data) {
     categoryId: data.categoryId || '',
     itemId: data.itemId || '',
     memberId: data.memberId || 'shared',
+    paymentMethodId: data.paymentMethodId || '',   // 🆕
     status: data.status || '未付款',
     paidDate: data.paidDate || '',
     isSkipped: data.isSkipped || false,
@@ -692,8 +702,9 @@ export function listenAssets(callback, onError) {
 export async function saveAssets(data) {
   await update(familyRef('assets'), { bankBalance: Math.round(Number(data.bankBalance) || 0) });
 }
+
 /* ============================================
-   🆕 支付方式（v92）
+   支付方式（v92）
    ============================================ */
 
 export function listenPaymentMethods(callback, onError) {
@@ -727,14 +738,11 @@ export async function getPaymentMethodsOnce() {
   list.sort((a, b) => (a.order || 0) - (b.order || 0));
   return list;
 }
+
 /* ============================================
-   🆕 v93 收入：跨年跨月監聽 + 單筆編輯
+   v93 收入：跨年跨月監聽 + 單筆編輯
    ============================================ */
 
-/**
- * 監聽所有收入（跨年跨月）
- * 回傳扁平陣列：[{year, month, memberId, amount}, ...]
- */
 export function listenAllIncome(callback, onError) {
   return listen('income', (snap) => {
     const val = snap.val() || {};
@@ -750,9 +758,6 @@ export function listenAllIncome(callback, onError) {
   }, onError);
 }
 
-/**
- * 更新單筆收入（金額 > 0 用 update，= 0 用 remove）
- */
 export async function updateIncomeEntry(year, month, memberId, amount) {
   const num = Math.round(Number(amount) || 0);
   if (num > 0) {
@@ -762,9 +767,6 @@ export async function updateIncomeEntry(year, month, memberId, amount) {
   }
 }
 
-/**
- * 刪除單筆收入
- */
 export async function removeIncomeEntry(year, month, memberId) {
   await remove(familyRef(`income/${year}/${month}/${memberId}`));
 }
