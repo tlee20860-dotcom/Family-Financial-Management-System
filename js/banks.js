@@ -1,5 +1,5 @@
 // ============================================
-// banks.js — 銀行管理（可摺疊輸入 + 合併明細）
+// banks.js — 銀行管理（表單式輸入）
 // ============================================
 
 import {
@@ -19,17 +19,124 @@ let unsubBalances = null;
 export function initBanksPage() {
   const tbody = document.getElementById('bank-tbody');
   const form = document.getElementById('bank-form');
-  const nameInput = document.getElementById('bank-name');
+  const bankSelect = document.getElementById('bank-select');
+  const amountInput = document.getElementById('bank-amount');
   const resetBtn = document.getElementById('bank-reset-btn');
+  const addBankBtn = document.getElementById('add-bank-btn');
+  const hintEl = document.getElementById('bank-form-hint');
 
-  // 可摺疊輸入卡片
   bindCollapsibleInputCard();
 
+  /* ============================================
+     監聽銀行清單
+     ============================================ */
   listenBanks((list) => {
     banks = list;
-    render();
+    renderBankSelect();
+    renderTable();
   });
 
+  /* ============================================
+     選銀行 → 自動帶入本月現有結餘
+     ============================================ */
+  bankSelect.addEventListener('change', () => {
+    const bankId = bankSelect.value;
+    if (!bankId) {
+      amountInput.value = '';
+      if (hintEl) hintEl.style.display = 'none';
+      return;
+    }
+
+    const bal = balances[bankId] || {};
+    if (bal.amount != null) {
+      amountInput.value = bal.amount;
+      if (hintEl) {
+        hintEl.textContent = `ℹ️ 此銀行本月已有結餘 ${formatHKD(bal.amount)}，儲存將覆蓋原值。`;
+        hintEl.className = 'banner';
+        hintEl.style.display = 'block';
+      }
+    } else {
+      amountInput.value = '';
+      if (hintEl) hintEl.style.display = 'none';
+    }
+  });
+
+  /* ============================================
+     🆕 新增銀行：select 旁的 + 按鈕
+     ============================================ */
+  addBankBtn.addEventListener('click', async () => {
+    const name = prompt('請輸入新銀行名稱：');
+    if (!name || !name.trim()) return;
+
+    const trimmed = name.trim();
+    if (banks.some((b) => b.name === trimmed)) {
+      alert('此銀行名稱已存在。');
+      return;
+    }
+
+    try {
+      const newId = await addBank(trimmed);
+      // 等 banks 監聽回呼更新後，選中新銀行
+      setTimeout(() => {
+        if (newId) {
+          bankSelect.value = newId;
+          amountInput.value = '';
+          amountInput.focus();
+        }
+      }, 300);
+      if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+      alert('新增銀行失敗：' + err.message);
+    }
+  });
+
+  /* ============================================
+     表單提交：儲存結餘
+     ============================================ */
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const bankId = bankSelect.value;
+    const amount = amountInput.value;
+    if (!bankId) return alert('請選擇銀行。');
+    if (amount === '') return alert('請輸入結餘金額。');
+
+    const { year, month } = AppState.getYearMonth();
+    if (month === 'all') {
+      return alert('請先切換到特定月份，再輸入結餘。');
+    }
+
+    try {
+      await saveBankBalance(year, month, bankId, amount);
+
+      // 儲存後收起表單
+      const card = document.getElementById('bank-input-card');
+      const body = document.getElementById('bank-input-body');
+      if (card && body) {
+        card.classList.remove('open');
+        body.style.display = 'none';
+        localStorage.setItem('bank-input-open', 'false');
+      }
+
+      // 重置表單
+      bankSelect.value = '';
+      amountInput.value = '';
+      if (hintEl) hintEl.style.display = 'none';
+
+      showToast(`✅ 已儲存 ${year} 年 ${month} 月結餘`);
+      if (window.lucide) window.lucide.createIcons();
+    } catch (err) {
+      alert('儲存失敗：' + err.message);
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    form.reset();
+    if (hintEl) hintEl.style.display = 'none';
+  });
+
+  /* ============================================
+     載入結餘
+     ============================================ */
   const loadBalances = async () => {
     const { year, month } = AppState.getYearMonth();
     const isAnnual = month === 'all';
@@ -54,7 +161,6 @@ export function initBanksPage() {
       if (prevM < 1) { prevY = y - 1; prevM = 12; }
       const prevMonthStr = String(prevM).padStart(2, '0');
 
-      // 讀取上月結餘（每間銀行）
       try {
         prevBalances = await getBankBalancesOnce(prevY, prevMonthStr);
       } catch (err) {
@@ -62,10 +168,9 @@ export function initBanksPage() {
         prevBalances = {};
       }
 
-      // 監聽本月結餘
       unsubBalances = listenBankBalances(year, month, (val) => {
         balances = val || {};
-        render();
+        renderTable();
       });
 
       updateAvailableFunds();
@@ -75,28 +180,9 @@ export function initBanksPage() {
   loadBalances();
   AppState.on('ym-change', loadBalances);
 
-  resetBtn.addEventListener('click', () => {
-    form.reset();
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = nameInput.value.trim();
-    if (!name) return;
-    await addBank(name);
-    form.reset();
-
-    // 新增後自動收起輸入卡片
-    const card = document.getElementById('bank-input-card');
-    const body = document.getElementById('bank-input-body');
-    if (card && card.classList.contains('open')) {
-      card.classList.remove('open');
-      if (body) body.style.display = 'none';
-      localStorage.setItem('bank-input-open', 'false');
-      if (window.lucide) window.lucide.createIcons();
-    }
-  });
-
+  /* ============================================
+     表格操作（刪除銀行）
+     ============================================ */
   tbody.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -113,14 +199,9 @@ export function initBanksPage() {
     }
   });
 
-  tbody.addEventListener('change', async (e) => {
-    const input = e.target;
-    if (input.dataset.action !== 'edit-balance') return;
-    const { year, month } = AppState.getYearMonth();
-    if (month === 'all') return;
-    await saveBankBalance(year, month, input.dataset.id, input.value);
-  });
-
+  /* ============================================
+     全年模式
+     ============================================ */
   async function loadAnnual(year) {
     try {
       const promises = [];
@@ -181,6 +262,9 @@ export function initBanksPage() {
     if (window.lucide) window.lucide.createIcons();
   }
 
+  /* ============================================
+     當月可用金額
+     ============================================ */
   async function updateAvailableFunds() {
     const { year, month } = AppState.getYearMonth();
     if (month === 'all') return;
@@ -195,20 +279,29 @@ export function initBanksPage() {
     }
   }
 
-  function render() {
+  /* ============================================
+     Render
+     ============================================ */
+  function renderBankSelect() {
+    if (!bankSelect) return;
+    const cur = bankSelect.value;
+    bankSelect.innerHTML = `<option value="">— 請選擇銀行 —</option>`
+      + banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+    if (cur && banks.some((b) => b.id === cur)) bankSelect.value = cur;
+  }
+
+  function renderTable() {
     if (AppState.isAnnualMode()) return;
     if (!tbody) return;
 
-    // 更新銀行數量
     const countEl = document.getElementById('bank-count');
     if (countEl) countEl.textContent = `（共 ${banks.length} 間）`;
 
-    // 本月總額
     const total = banks.reduce((s, b) => s + (Number(balances[b.id]?.amount) || 0), 0);
     document.getElementById('bank-total').textContent = formatHKD(total);
 
     if (!banks.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">尚未新增銀行，請點擊上方「新增銀行」。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">尚未新增銀行，請點擊上方「+」新增。</td></tr>`;
       return;
     }
 
@@ -228,10 +321,7 @@ export function initBanksPage() {
         <tr>
           <td class="bank-name-cell">${escapeHtml(b.name)}</td>
           <td class="num prev-balance hide-mobile">${formatHKD(prevAmount)}</td>
-          <td class="num">
-            <input type="number" class="bank-balance-input" data-action="edit-balance" data-id="${b.id}"
-              value="${amount}" min="0" step="1">
-          </td>
+          <td class="num text-emerald">${formatHKD(amount)}</td>
           <td class="updated-at hide-mobile">${updated}</td>
           <td>
             <button class="btn btn-sm btn-danger" data-action="delete" data-id="${b.id}">刪除</button>
@@ -262,4 +352,20 @@ export function initBanksPage() {
       if (window.lucide) window.lucide.createIcons();
     });
   }
+}
+
+/* ============================================
+   Toast
+   ============================================ */
+function showToast(msg) {
+  let toast = document.getElementById('app-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'app-toast';
+    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
