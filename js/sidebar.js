@@ -1,30 +1,20 @@
 // ============================================
-// sidebar.js — 左側導覽選單（成員版面可折疊）
+// sidebar.js — 左側導覽選單（成員版面可折疊 + 支援自訂排序）
 // ============================================
 
 import { listenMembers } from './db.js';
 import { escapeHtml, sortMembers } from './utils.js';
+import { ALL_MENU_ITEMS, DEFAULT_ORDER, sortByOrder, watchSidebarOrder } from './sidebar-order.js';
 
 const STATIC_TOP = [
   { icon: 'home', label: '總覽儀表板', href: 'index.html' },
 ];
 
-const STATIC_BOTTOM = [
-  { icon: 'dollar-sign',  label: '每月收入',   href: 'income.html' },
-  { icon: 'user',         label: '個人支出',   href: 'personal-expenses.html' },
-  { icon: 'landmark',     label: '銀行管理',   href: 'banks.html' },
-  { icon: 'shield',       label: '保險付款',   href: 'insurance.html' },
-  { icon: 'clipboard-check', label: '結算清單', href: 'settlements.html' },
-  { icon: 'file-text',    label: '固定支出',   href: 'fixed-expenses.html' },
-  { icon: 'tags',         label: '基礎資料管理庫', href: 'expense-categories.html' },  // 🆕 改名
-  { icon: 'line-chart',   label: '基金投資',   href: 'portfolio.html' },
-  { icon: 'bar-chart-3',  label: '年度報表',   href: 'annual-report.html' },
-  { icon: 'settings',     label: '系統設定',   href: 'settings.html' },
-];
-
 const ROLE_ICON = { husband: 'user', wife: 'user', child: 'user', other: 'user' };
 
 let isMembersGroupOpen = null;
+let currentOrder = [...DEFAULT_ORDER];
+let currentMembers = [];
 
 export async function renderSidebar(containerId = 'sidebar-root', activeHref = '') {
   const root = document.getElementById(containerId);
@@ -40,6 +30,7 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
 
   const nav = root.querySelector('#sidebar-nav-inner');
 
+  // 讀取成員版面展開狀態
   if (isMembersGroupOpen === null) {
     const saved = localStorage.getItem('members-group-open');
     isMembersGroupOpen = saved === 'true';
@@ -48,6 +39,7 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
   const isMemberPage = activeHref.includes('member-detail') || activeHref.includes('members.html');
   if (isMemberPage) isMembersGroupOpen = true;
 
+  // 綁定成員版面折疊事件（僅一次）
   if (!window._sidebarEventBound) {
     window._sidebarEventBound = true;
     document.addEventListener('click', (e) => {
@@ -59,21 +51,30 @@ export async function renderSidebar(containerId = 'sidebar-root', activeHref = '
     });
   }
 
-  listenMembers((members) => {
-    const sorted = sortMembers(members);
-    nav.innerHTML = renderNavContent(sorted, activeHref);
-    updateMembersGroupUI();
-    if (window.lucide && typeof window.lucide.createIcons === 'function') {
-      window.lucide.createIcons();
-    }
+  // 🆕 監聽側邊欄排序（Firebase 同步）
+  watchSidebarOrder((order) => {
+    currentOrder = order;
+    renderNav(nav, activeHref);
   });
 
+  // 監聽成員
+  listenMembers((members) => {
+    currentMembers = sortMembers(members);
+    renderNav(nav, activeHref);
+  });
+
+  // 桌面版摺疊狀態
   const collapsed = localStorage.getItem('sidebar-collapsed') === 'true';
   if (collapsed && window.innerWidth >= 640) root.classList.add('collapsed');
 }
 
-function renderNavContent(members, activeHref) {
-  return `
+/* ============================================
+   渲染導覽列
+   ============================================ */
+function renderNav(nav, activeHref) {
+  const sortedBottom = sortByOrder(ALL_MENU_ITEMS, currentOrder);
+
+  nav.innerHTML = `
     ${STATIC_TOP.map((item) => renderNavItem(item, activeHref)).join('')}
 
     <div class="nav-group-title collapsible" id="members-group-title">
@@ -81,7 +82,7 @@ function renderNavContent(members, activeHref) {
       <i data-lucide="chevron-down" class="nav-group-arrow"></i>
     </div>
     <div class="nav-sub" id="members-group-sub">
-      ${members.map((m) => renderNavItem({
+      ${currentMembers.map((m) => renderNavItem({
         icon: ROLE_ICON[m.role] || 'user',
         label: m.name,
         href: `member-detail.html?id=${m.id}`,
@@ -89,8 +90,13 @@ function renderNavContent(members, activeHref) {
       ${renderNavItem({ icon: 'plus', label: '管理成員', href: 'members.html' }, activeHref)}
     </div>
 
-    ${STATIC_BOTTOM.map((item) => renderNavItem(item, activeHref)).join('')}
+    ${sortedBottom.map((item) => renderNavItem(item, activeHref)).join('')}
   `;
+
+  updateMembersGroupUI();
+  if (window.lucide && typeof window.lucide.createIcons === 'function') {
+    window.lucide.createIcons();
+  }
 }
 
 function renderNavItem(item, activeHref) {
