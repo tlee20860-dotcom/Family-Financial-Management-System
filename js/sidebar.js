@@ -11,12 +11,12 @@ const STATIC_TOP = [
 
 const STATIC_BOTTOM = [
   { icon: 'dollar-sign',  label: '每月收入',   href: 'income.html' },
-  { icon: 'user',         label: '個人支出',   href: 'personal-expenses.html' }, // 🆕 新增
+  { icon: 'user',         label: '個人支出',   href: 'personal-expenses.html' },
   { icon: 'landmark',     label: '銀行管理',   href: 'banks.html' },
   { icon: 'shield',       label: '保險付款',   href: 'insurance.html' },
   { icon: 'clipboard-check', label: '結算清單', href: 'settlements.html' },
   { icon: 'file-text',    label: '固定支出',   href: 'fixed-expenses.html' },
-  { icon: 'tags',         label: '支出項目庫', href: 'expense-categories.html' },
+  { icon: 'tags',         label: '基礎資料管理庫', href: 'expense-categories.html' },  // 🆕 改名
   { icon: 'line-chart',   label: '基金投資',   href: 'portfolio.html' },
   { icon: 'bar-chart-3',  label: '年度報表',   href: 'annual-report.html' },
   { icon: 'settings',     label: '系統設定',   href: 'settings.html' },
