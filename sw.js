@@ -15,9 +15,8 @@ const STATIC_ASSETS = [
   './js/banks.js', './js/annual-report.js', './js/pwa.js',
   './js/admin.js',
   './js/personal-expenses.js',
-  './js/date-filter.js',           // 🆕 補上
+  // 🆕 v93：移除 './js/date-filter.js'
   './manifest.json', './icons/icon.svg',
-  // 註：HTML 檔一律不走快取（fetch handler 會跳過）
 ];
 
 self.addEventListener('install', (e) => {
