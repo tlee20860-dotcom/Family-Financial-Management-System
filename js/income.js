@@ -14,6 +14,7 @@ import { fillMemberSelect } from './select-helpers.js';
 import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
 import { openModal, closeModal } from './modal.js';
 import { AppState } from './state.js';
+import { initCollapsibleCard } from './collapsible-card.js';
 
 let members = [];
 let allIncome = [];
@@ -21,6 +22,9 @@ let currentIncome = {};
 let filters = { year: '', month: '', member: '' };
 
 export function initIncomePage() {
+  // 🆕 v99.5：明細表格折疊（預設展開）
+  initCollapsibleCard('income-table-card', 'income-table-open', true);
+
   const container = document.getElementById('member-inputs');
   const extraInput = document.getElementById('income-extra');
   const form = document.getElementById('income-form');
