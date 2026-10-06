@@ -8,6 +8,7 @@ import {
   addFixedTemplate, batchUpdateExpenses,
 } from './db.js';
 import { formatHKD, todayISO, escapeHtml } from './utils.js';
+import { renderPageFilter } from './page-filter.js';
 import { AppState } from './state.js';
 
 let members = [];
@@ -20,8 +21,32 @@ let filters = { year: '', month: '', member: '', category: '' };
 const NAME_MAX_LEN = 6;
 
 export function initPersonalExpensesPage() {
-  // 🆕 v93：頁面年月選擇器
-  initPageYearMonthSelector('page-year', 'page-month');
+  renderPageFilter({
+    containerId: 'page-filter-root',
+    fields: ['year', 'month'],
+    renderExtra: () => `
+      <div class="filter-group">
+        <label class="field-label">成員</label>
+        <select class="select" data-filter="member">
+          <option value="">全部</option>
+          ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="filter-group">
+        <label class="field-label">類別</label>
+        <select class="select" data-filter="category">
+          <option value="">全部</option>
+          ${categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}
+        </select>
+      </div>
+    `,
+    onChange: (f) => {
+      filters = { year: f.year || '', month: f.month === 'all' ? '' : (f.month || ''), member: f.member || '', category: f.category || '' };
+      renderExpenses();
+    },
+  });
+  // ... 其餘不變（但移除原本 filter-year 等的 addEventListener）
+}
 
   const form = document.getElementById('personal-expense-form');
   const yearSel = document.getElementById('pe-year');
