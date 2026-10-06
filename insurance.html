@@ -21,6 +21,10 @@
             <p class="page-subtitle" id="insurance-month"></p>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div class="page-ym-selector">
+              <select class="select" id="page-year"></select>
+              <select class="select" id="page-month"></select>
+            </div>
             <div class="view-toggle-group">
               <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
               <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
@@ -38,7 +42,6 @@
           ℹ️ 每張保單依「保單年度」自動產生每月分攤。點擊「展開明細」可直接編輯每月金額與扣款狀態。
         </div>
 
-        <!-- 統計卡（三卡） -->
         <div class="grid grid-3" style="margin-bottom:20px;">
           <div class="glass-card">
             <div class="glass-card-title">本年度保單總供款</div>
@@ -57,7 +60,6 @@
           </div>
         </div>
 
-        <!-- 已供滿保單清單 -->
         <div class="glass-card completed-section" id="completed-section" style="margin-bottom:20px; display:none;">
           <div class="completed-header" id="completed-header">
             <div style="display:flex; align-items:center; gap:10px;">
@@ -72,7 +74,6 @@
           </div>
         </div>
 
-        <!-- 供款中保單 -->
         <div id="active-section">
           <div class="grid grid-3" id="policy-grid">
             <div class="glass-card" style="grid-column:1/-1;">
