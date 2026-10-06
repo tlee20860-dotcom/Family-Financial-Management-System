@@ -33,11 +33,6 @@
     .view-toggle-group { display:inline-flex; gap:4px; padding:3px; background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:var(--radius-sm); }
     .view-toggle-group .btn { padding:5px 12px; font-size:12px; border:none; }
 
-    .filter-bar { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
-    .filter-group { display:flex; flex-direction:column; gap:4px; min-width:100px; }
-    .filter-group .field-label { font-size:11px; margin-bottom:0; }
-    .filter-group .select { padding:6px 10px; font-size:13px; }
-
     .bank-table { width:100%; border-collapse:collapse; }
     .bank-table th, .bank-table td { white-space:nowrap; }
     .bank-table .bank-name-cell { font-size:13px; }
@@ -62,8 +57,6 @@
       .bank-table .hide-mobile { display:none; }
       .bank-table .bank-name-cell { font-size:12px; }
       .bank-table .btn-sm { padding:3px 6px; font-size:10px; }
-      .filter-bar { flex-direction:column; align-items:stretch; }
-      .filter-group { min-width:auto; }
     }
   </style>
 </head>
@@ -74,16 +67,12 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-       <div class="page-header">
-  <h1 class="page-title">銀行管理</h1>
-  <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
-</div>
-
-<div id="page-filter-root" style="margin-bottom:16px;"></div>
-            <select class="select" id="page-year"></select>
-            <select class="select" id="page-month"></select>
-          </div>
+        <div class="page-header">
+          <h1 class="page-title">銀行管理</h1>
+          <p class="page-subtitle" id="banks-month">每月結餘錄入</p>
         </div>
+
+        <div id="page-filter-root" style="margin-bottom:16px;"></div>
 
         <!-- 可摺疊輸入表單 -->
         <div class="glass-card collapsible-card" id="bank-input-card">
@@ -147,21 +136,6 @@
                 <button class="btn btn-sm btn-ghost" id="view-month-btn">單月</button>
                 <button class="btn btn-sm btn-primary" id="view-annual-btn">全年</button>
               </div>
-            </div>
-            <div class="filter-bar">
-              <div class="filter-group">
-                <label class="field-label" for="filter-year">年份</label>
-                <select class="select" id="filter-year"></select>
-              </div>
-              <div class="filter-group">
-                <label class="field-label" for="filter-month">月份</label>
-                <select class="select" id="filter-month"></select>
-              </div>
-              <div class="filter-group">
-                <label class="field-label" for="filter-bank">銀行</label>
-                <select class="select" id="filter-bank"><option value="">全部</option></select>
-              </div>
-              <button class="btn btn-ghost btn-sm" id="filter-clear-btn">清除篩選</button>
             </div>
           </div>
 
