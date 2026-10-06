@@ -20,6 +20,9 @@ let filters = { year: '', month: '', member: '', category: '' };
 const NAME_MAX_LEN = 6;
 
 export function initPersonalExpensesPage() {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
   const form = document.getElementById('personal-expense-form');
   const yearSel = document.getElementById('pe-year');
   const monthSel = document.getElementById('pe-month');
