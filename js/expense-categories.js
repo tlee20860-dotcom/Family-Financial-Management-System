@@ -1,20 +1,23 @@
 // ============================================
-// expense-categories.js — 支出類別與項目管理邏輯
+// expense-categories.js — 基礎資料管理庫邏輯（類別 + 項目 + 支付方式）
 // ============================================
 
 import {
   listenCategories, addCategory, updateCategory, removeCategory,
   listenItems, addItem, updateItem, removeItem,
+  listenPaymentMethods, addPaymentMethod, updatePaymentMethod, removePaymentMethod,
 } from './db.js';
 import { escapeHtml } from './utils.js';
 
 let categories = [];
 let items = [];
+let payments = [];
 let editingCategoryId = null;
 let editingItemId = null;
+let editingPaymentId = null;
 
 export function initExpenseCategoriesPage() {
-  /* ---------- 類別 ---------- */
+  /* ========== 類別 ========== */
   const catTbody = document.getElementById('category-tbody');
   const catModal = document.getElementById('category-modal');
   const catModalTitle = document.getElementById('category-modal-title');
@@ -42,10 +45,7 @@ export function initExpenseCategoriesPage() {
 
   catForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = {
-      name: catName.value.trim(),
-      order: Number(catOrder.value) || 0,
-    };
+    const payload = { name: catName.value.trim(), order: Number(catOrder.value) || 0 };
     if (!payload.name) return;
 
     if (editingCategoryId) {
@@ -73,7 +73,6 @@ export function initExpenseCategoriesPage() {
       catModal.classList.add('active');
       setTimeout(() => catName.focus(), 50);
     } else if (action === 'delete') {
-      // 檢查是否還有項目使用此類別
       const used = items.filter((i) => i.categoryId === id);
       if (used.length > 0) {
         alert(`無法刪除：此類別下還有 ${used.length} 個項目，請先刪除或搬移。`);
@@ -85,7 +84,7 @@ export function initExpenseCategoriesPage() {
     }
   });
 
-  /* ---------- 項目 ---------- */
+  /* ========== 項目 ========== */
   const itemTbody = document.getElementById('item-tbody');
   const itemModal = document.getElementById('item-modal');
   const itemModalTitle = document.getElementById('item-modal-title');
@@ -105,7 +104,6 @@ export function initExpenseCategoriesPage() {
     editingItemId = null;
     itemModalTitle.textContent = '新增項目';
     itemForm.reset();
-    // 若目前有篩選類別，預設選中
     if (filterCategory.value) itemCategory.value = filterCategory.value;
     itemModal.classList.add('active');
     setTimeout(() => itemName.focus(), 50);
@@ -117,10 +115,7 @@ export function initExpenseCategoriesPage() {
 
   itemForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = {
-      name: itemName.value.trim(),
-      categoryId: itemCategory.value,
-    };
+    const payload = { name: itemName.value.trim(), categoryId: itemCategory.value };
     if (!payload.name || !payload.categoryId) return;
 
     if (editingItemId) {
@@ -154,7 +149,68 @@ export function initExpenseCategoriesPage() {
     }
   });
 
-  /* ---------- 渲染函式 ---------- */
+  /* ========== 🆕 支付方式 ========== */
+  const payTbody = document.getElementById('payment-tbody');
+  const payModal = document.getElementById('payment-modal');
+  const payModalTitle = document.getElementById('payment-modal-title');
+  const payForm = document.getElementById('payment-form');
+  const payName = document.getElementById('payment-name');
+  const payOrder = document.getElementById('payment-order');
+
+  listenPaymentMethods((list) => {
+    payments = list;
+    renderPaymentTable();
+  });
+
+  document.getElementById('add-payment-btn').addEventListener('click', () => {
+    editingPaymentId = null;
+    payModalTitle.textContent = '新增支付方式';
+    payForm.reset();
+    payModal.classList.add('active');
+    setTimeout(() => payName.focus(), 50);
+  });
+
+  document.getElementById('payment-cancel-btn').addEventListener('click', () => {
+    payModal.classList.remove('active');
+  });
+
+  payForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = { name: payName.value.trim(), order: Number(payOrder.value) || 0 };
+    if (!payload.name) return;
+
+    if (editingPaymentId) {
+      await updatePaymentMethod(editingPaymentId, payload);
+    } else {
+      await addPaymentMethod(payload);
+    }
+    payModal.classList.remove('active');
+  });
+
+  payTbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const p = payments.find((x) => x.id === id);
+    if (!p) return;
+
+    if (action === 'edit') {
+      editingPaymentId = id;
+      payModalTitle.textContent = '編輯支付方式';
+      payName.value = p.name;
+      payOrder.value = p.order || 0;
+      payModal.classList.add('active');
+      setTimeout(() => payName.focus(), 50);
+    } else if (action === 'delete') {
+      if (confirm(`確定要刪除支付方式「${p.name}」嗎？\n\n已使用此支付方式的支出紀錄將不會被刪除，但會顯示為「（已刪除）」。`)) {
+        await removePaymentMethod(id);
+      }
+    }
+  });
+
+  /* ========== 渲染 ========== */
   function renderCategoryTable() {
     if (!categories.length) {
       catTbody.innerHTML = `<tr><td colspan="3" class="empty-state">尚無類別</td></tr>`;
@@ -198,14 +254,31 @@ export function initExpenseCategoriesPage() {
     refreshIcons();
   }
 
+  /* 🆕 支付方式渲染 */
+  function renderPaymentTable() {
+    if (!payments.length) {
+      payTbody.innerHTML = `<tr><td colspan="3" class="empty-state">尚無支付方式</td></tr>`;
+      return;
+    }
+    payTbody.innerHTML = payments.map((p) => `
+      <tr>
+        <td>${escapeHtml(p.name)}</td>
+        <td class="num">${p.order || 0}</td>
+        <td>
+          <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${p.id}">編輯</button>
+          <button class="btn btn-sm btn-danger" data-action="delete" data-id="${p.id}">刪除</button>
+        </td>
+      </tr>
+    `).join('');
+    refreshIcons();
+  }
+
   function renderCategorySelects() {
-    // 篩選下拉
     const currentFilter = filterCategory.value;
     filterCategory.innerHTML = `<option value="">全部分類</option>` +
       categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
     if (currentFilter) filterCategory.value = currentFilter;
 
-    // 項目 Modal 下拉
     const currentItemCat = itemCategory.value;
     itemCategory.innerHTML = `<option value="">— 請選擇 —</option>` +
       categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
