@@ -965,3 +965,27 @@
   font-family: inherit;
   line-height: 1.4;
 }
+/* ============================================
+   🆕 v99.5 表格折疊卡片變體
+   -------------------------------------------------
+   用法：
+     <div class="glass-card collapsible-card collapsible-card-flat" id="xxx-card">
+       <div class="collapsible-header">...</div>
+       <div class="collapsible-body" style="display:none;">
+         <table class="data-table">...</table>
+       </div>
+     </div>
+   ============================================ */
+.collapsible-card-flat .collapsible-body {
+  padding: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.collapsible-card-flat .collapsible-body > table {
+  margin: 0;
+}
+.collapsible-card-flat .collapsible-body .data-table thead th {
+  border-top: none;
+}
+.collapsible-card-flat .collapsible-header {
+  padding: 14px 20px;
+}
