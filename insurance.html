@@ -28,13 +28,13 @@
             <button class="btn btn-magenta" id="sync-all-btn">
               <i data-lucide="refresh-cw"></i> 同步所有支出
             </button>
-            <button class="btn btn-primary" id="add-policy-btn">
-              <i data-lucide="plus"></i> 新增保單
-            </button>
           </div>
         </div>
 
         <div id="page-filter-root" style="margin-bottom:16px;"></div>
+
+        <!-- 🆕 v99：摺疊輸入表單容器 -->
+        <div id="policy-input-root" style="margin-bottom:16px;"></div>
 
         <div class="banner">
           ℹ️ 每張保單依「保單年度」自動產生每月分攤。點擊「展開明細」可直接編輯每月金額與扣款狀態。
@@ -106,17 +106,17 @@
         <div class="glass-card" id="empty-state" style="display:none;">
           <div class="empty-state">
             <i data-lucide="shield" style="width:48px;height:48px;opacity:0.4;"></i>
-            <p style="margin-top:12px;">尚無保單資料，點擊「新增保單」開始。</p>
+            <p style="margin-top:12px;">尚無保單資料，點擊上方「新增保單」開始。</p>
           </div>
         </div>
       </main>
     </div>
   </div>
 
-  <!-- 新增保單 Modal -->
+  <!-- 編輯保單 Modal（保留） -->
   <div class="modal-overlay" id="policy-modal">
     <div class="modal" style="max-width:560px; max-height:90vh; overflow-y:auto;">
-      <h2 class="modal-title" id="policy-modal-title">新增保單</h2>
+      <h2 class="modal-title" id="policy-modal-title">編輯保單</h2>
       <form id="policy-form">
         <div class="form-stack">
           <div class="field">
@@ -187,7 +187,7 @@
     </div>
   </div>
 
-  <!-- 新增年度保費 Modal -->
+  <!-- 新增年度保費 Modal（保留） -->
   <div class="modal-overlay" id="add-period-modal">
     <div class="modal">
       <h2 class="modal-title">新增年度保費</h2>
