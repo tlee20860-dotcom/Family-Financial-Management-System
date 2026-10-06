@@ -9,7 +9,8 @@ import {
   listenCategories, listenItems, addItem,
   listenMembers, listenPaymentMethods,
 } from './db.js';
-import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
+import { renderPageFilter } from './page-filter.js';
 import { AppState } from './state.js';
 
 let templates = [];
@@ -22,8 +23,16 @@ let currentView = localStorage.getItem('fixed_view') || 'card';
 let expandedKeys = new Set();
 
 export function initFixedExpensesPage() {
-  // 🆕 v93：頁面年月選擇器
-  initPageYearMonthSelector('page-year', 'page-month');
+  renderPageFilter({
+    containerId: 'page-filter-root',
+    fields: ['year'],  // 固定支出只需年份
+    onChange: async () => {
+      await loadYearData();
+      render();
+    },
+  });
+  // ... 其餘不變
+}
 
   const container = document.getElementById('fixed-templates-container');
   // ... 其餘不變
