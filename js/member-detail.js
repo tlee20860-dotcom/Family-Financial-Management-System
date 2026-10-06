@@ -3,7 +3,7 @@
 // ============================================
 
 import { getMembersOnce, listenExpenses } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 import { api } from './api.js';
 
@@ -13,6 +13,9 @@ let expenses = [];
 let unsubscribeExpenses = null;
 
 export async function initMemberDetailPage(id) {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
   memberId = id;
 
   if (!AppState.getFamilyId()) {
