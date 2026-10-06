@@ -6,9 +6,13 @@ import {
   listenFunds, addFund, updateFund, removeFund,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
+import { createInputForm } from './input-form.js';
+import { openModal, closeModal } from './modal.js';
+import { showToast } from './toast.js';
 
 let funds = [];
 let editingId = null;
+let inputForm = null;
 
 export function initPortfolioPage() {
   const grid = document.getElementById('fund-grid');
@@ -22,10 +26,39 @@ export function initPortfolioPage() {
   const unitsInput = document.getElementById('fund-units');
   const noteInput = document.getElementById('fund-note');
 
-  // 統計卡
   const statCost = document.getElementById('stat-fund-cost');
   const statValue = document.getElementById('stat-fund-value');
   const statPnL = document.getElementById('stat-fund-pnl');
+
+  // 🆕 v99：摺疊輸入表單（新增用）
+  inputForm = createInputForm({
+    containerId: 'fund-input-root',
+    storageKey: 'fund-input-open',
+    title: '新增基金',
+    icon: 'plus-circle',
+    fields: [
+      { type: 'text', id: 'inp-fund-name', label: '基金名稱', required: true, placeholder: '例如：富達環球股票基金', maxlength: 60 },
+      { type: 'number', id: 'inp-fund-cost', label: '投入成本（HK$）', required: true, min: 0, step: 1, placeholder: '0' },
+      { type: 'number', id: 'inp-fund-value', label: '現時價值（HK$）', required: true, min: 0, step: 1, placeholder: '0' },
+      { type: 'number', id: 'inp-fund-units', label: '持有單位數（可選）', min: 0, step: 0.0001, placeholder: '例如：123.4567' },
+      { type: 'text', id: 'inp-fund-note', label: '備註（可選）', placeholder: '例如：月供計劃', maxlength: 60 },
+    ],
+    submitText: '新增基金',
+    onSubmit: async (data) => {
+      const name = (data['inp-fund-name'] || '').trim();
+      if (!name) return;
+      await addFund({
+        name,
+        cost: Number(data['inp-fund-cost']) || 0,
+        currentValue: Number(data['inp-fund-value']) || 0,
+        units: Number(data['inp-fund-units']) || 0,
+        note: (data['inp-fund-note'] || '').trim(),
+      });
+      showToast(`✅ 已新增「${name}」`, 'success');
+      inputForm.reset();
+      inputForm.close();
+    },
+  });
 
   listenFunds((list) => {
     funds = list;
@@ -33,17 +66,11 @@ export function initPortfolioPage() {
     renderStats();
   });
 
-  document.getElementById('add-fund-btn').addEventListener('click', () => {
-    editingId = null;
-    modalTitle.textContent = '新增基金';
-    form.reset();
-    modal.classList.add('active');
-    setTimeout(() => nameInput.focus(), 50);
-  });
+  /* ============================================
+     編輯 Modal（保留）
+     ============================================ */
 
-  document.getElementById('fund-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
+  document.getElementById('fund-cancel-btn').addEventListener('click', () => closeModal('fund-modal'));
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -58,11 +85,14 @@ export function initPortfolioPage() {
 
     if (editingId) {
       await updateFund(editingId, payload);
-    } else {
-      await addFund(payload);
+      showToast('✅ 已更新基金', 'success');
     }
-    modal.classList.remove('active');
+    closeModal('fund-modal');
   });
+
+  /* ============================================
+     卡片事件（編輯 / 刪除）
+     ============================================ */
 
   grid.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
@@ -81,14 +111,19 @@ export function initPortfolioPage() {
       valueInput.value = f.currentValue || '';
       unitsInput.value = f.units || '';
       noteInput.value = f.note || '';
-      modal.classList.add('active');
+      openModal('fund-modal');
       setTimeout(() => nameInput.focus(), 50);
     } else if (action === 'delete') {
       if (confirm(`確定要刪除「${f.name}」嗎？`)) {
         await removeFund(id);
+        showToast('✅ 已刪除', 'success');
       }
     }
   });
+
+  /* ============================================
+     渲染
+     ============================================ */
 
   function renderStats() {
     const totalCost = funds.reduce((s, f) => s + (Number(f.cost) || 0), 0);
@@ -111,7 +146,7 @@ export function initPortfolioPage() {
         <div class="glass-card" style="grid-column:1/-1;">
           <div class="empty-state">
             <i data-lucide="line-chart" style="width:48px;height:48px;opacity:0.4;"></i>
-            <p style="margin-top:12px;">尚無基金持倉，點擊「新增基金」開始。</p>
+            <p style="margin-top:12px;">尚無基金持倉，點擊上方「新增基金」開始。</p>
           </div>
         </div>`;
       if (window.lucide) window.lucide.createIcons();
