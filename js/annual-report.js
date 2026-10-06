@@ -306,6 +306,9 @@ function renderSummary() {
 /* ============================================
    🆕 按月明細檢視（單月）
    ============================================ */
+/* ============================================
+   按月明細檢視（單月）
+   ============================================ */
 function renderMonthly() {
   const tbody = document.getElementById('monthly-tbody');
   const monthIdx = Number(currentDisplayMonth) - 1;
@@ -376,45 +379,45 @@ function renderMonthly() {
     `);
   });
 
-  /* 家庭共用支出（按類別） */
+  /* 🆕 家庭共用支出（逐項顯示，與成員一致） */
   const fixedCatNames = Object.keys(annualData.fixedExpenses);
-  let sharedCurrentTotal = 0;
-  let sharedAnnualTotal = 0;
 
   if (fixedCatNames.length > 0) {
-    const catRows = [];
-
-    CATEGORY_ORDER.concat(fixedCatNames.filter((c) => !CATEGORY_ORDER.includes(c))).forEach((catName) => {
-      const itemsMap = annualData.fixedExpenses[catName];
-      if (!itemsMap) return;
-
-      let catCurrent = 0;
-      let catAnnual = 0;
-      Object.values(itemsMap).forEach((arr) => {
-        catCurrent += arr[monthIdx] || 0;
-        catAnnual += sumArr(arr);
+    // 合併所有類別的項目為一個扁平 map（同名項目累加）
+    const allItems = {};
+    Object.values(annualData.fixedExpenses).forEach((itemsMap) => {
+      Object.entries(itemsMap).forEach(([name, arr]) => {
+        if (!allItems[name]) allItems[name] = Array(12).fill(0);
+        arr.forEach((v, i) => { allItems[name][i] += v; });
       });
-
-      sharedCurrentTotal += catCurrent;
-      sharedAnnualTotal += catAnnual;
-
-      if (catAnnual > 0) {
-        catRows.push(`
-          <tr>
-            <td style="padding-left:32px;">${escapeHtml(catName)}</td>
-            <td class="num">${catCurrent ? formatNumber(catCurrent) : '—'}</td>
-            <td class="num">${catAnnual ? formatNumber(catAnnual) : '—'}</td>
-          </tr>
-        `);
-      }
     });
 
-    if (catRows.length > 0) {
+    const itemNames = Object.keys(allItems).sort();
+    if (itemNames.length > 0) {
       rows.push(`<tr class="group-header"><td>【家庭共用支出】</td><td class="num"></td><td class="num"></td></tr>`);
-      rows.push(...catRows);
+
+      let sharedCurrentTotal = 0;
+      let sharedAnnualTotal = 0;
+
+      itemNames.forEach((name) => {
+        const amounts = allItems[name];
+        const current = amounts[monthIdx] || 0;
+        const annual = sumArr(amounts);
+        sharedCurrentTotal += current;
+        sharedAnnualTotal += annual;
+
+        rows.push(`
+          <tr>
+            <td>${escapeHtml(name)}</td>
+            <td class="num">${current ? formatNumber(current) : '—'}</td>
+            <td class="num">${annual ? formatNumber(annual) : '—'}</td>
+          </tr>
+        `);
+      });
+
       rows.push(`
         <tr class="subtotal-row">
-          <td>共用支出小計</td>
+          <td>家庭共用支出小計</td>
           <td class="num">${formatNumber(sharedCurrentTotal)}</td>
           <td class="num">${formatNumber(sharedAnnualTotal)}</td>
         </tr>
