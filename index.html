@@ -15,16 +15,12 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div>
-            <h1 class="page-title">總覽儀表板</h1>
-            <p class="page-subtitle" id="dashboard-month">全家財務即時概況</p>
-          </div>
-          <div class="page-ym-selector">
-            <select class="select" id="page-year"></select>
-            <select class="select" id="page-month"></select>
-          </div>
+        <div class="page-header">
+          <h1 class="page-title">總覽儀表板</h1>
+          <p class="page-subtitle" id="dashboard-month">全家財務即時概況</p>
         </div>
+
+        <div id="page-filter-root" style="margin-bottom:16px;"></div>
 
         <div id="dashboard-error" class="banner banner-magenta" style="display:none;"></div>
 
