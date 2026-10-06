@@ -7,7 +7,7 @@ import {
   listenAllMemberExpenses, markMemberExpenseRepaid, updateExpense,
   getFixedRepaymentsOnce, getAllMemberExpensesOnce,
 } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 
 let members = [];
@@ -17,7 +17,11 @@ let unsubFixed = null;
 let unsubExpenses = null;
 
 export function initSettlementsPage() {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
   listenMembers((list) => {
+    // ... 其餘不變
     members = list;
     renderMemberOptions();
   });
