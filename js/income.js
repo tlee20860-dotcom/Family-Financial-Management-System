@@ -6,7 +6,7 @@ import {
   listenMembers, listenIncomeV2, saveIncomeV2, getIncomeOnce,
   listenAllIncome, updateIncomeEntry, removeIncomeEntry,
 } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 
 let members = [];
@@ -16,6 +16,9 @@ let unsubscribeIncome = null;
 let filters = { year: '', month: '', member: '' };
 
 export function initIncomePage() {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
   const container = document.getElementById('member-inputs');
   const extraInput = document.getElementById('income-extra');
   const form = document.getElementById('income-form');
