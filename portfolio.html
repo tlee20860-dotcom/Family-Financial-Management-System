@@ -15,15 +15,13 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div>
-            <h1 class="page-title">基金投資資產</h1>
-            <p class="page-subtitle">基金持倉與最新現值</p>
-          </div>
-          <button class="btn btn-primary" id="add-fund-btn">
-            <i data-lucide="plus"></i> 新增基金
-          </button>
+        <div class="page-header">
+          <h1 class="page-title">基金投資資產</h1>
+          <p class="page-subtitle">基金持倉與最新現值</p>
         </div>
+
+        <!-- 🆕 v99：摺疊輸入表單容器 -->
+        <div id="fund-input-root" style="margin-bottom:16px;"></div>
 
         <!-- 統計卡 -->
         <div class="grid grid-3" style="margin-bottom:20px;">
@@ -51,17 +49,16 @@
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- 編輯基金 Modal（保留） -->
   <div class="modal-overlay" id="fund-modal">
     <div class="modal" style="max-width:520px;">
-      <h2 class="modal-title" id="fund-modal-title">新增基金</h2>
+      <h2 class="modal-title" id="fund-modal-title">編輯基金</h2>
       <form id="fund-form">
-        <div class="field">
-          <label class="field-label" for="fund-name">基金名稱</label>
-          <input class="input" id="fund-name" required placeholder="例如：富達環球股票基金" maxlength="60">
-        </div>
-
-        <div class="grid grid-2" style="gap:12px;">
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label" for="fund-name">基金名稱</label>
+            <input class="input" id="fund-name" required placeholder="例如：富達環球股票基金" maxlength="60">
+          </div>
           <div class="field">
             <label class="field-label" for="fund-cost">投入成本（HK$）</label>
             <input class="input mono" id="fund-cost" type="number" min="0" step="0.01" required placeholder="0">
@@ -70,18 +67,15 @@
             <label class="field-label" for="fund-value">現時價值（HK$）</label>
             <input class="input mono" id="fund-value" type="number" min="0" step="0.01" required placeholder="0">
           </div>
+          <div class="field">
+            <label class="field-label" for="fund-units">持有單位數（可選）</label>
+            <input class="input mono" id="fund-units" type="number" min="0" step="0.0001" placeholder="例如：123.4567">
+          </div>
+          <div class="field">
+            <label class="field-label" for="fund-note">備註（可選）</label>
+            <input class="input" id="fund-note" placeholder="例如：月供計劃" maxlength="60">
+          </div>
         </div>
-
-        <div class="field">
-          <label class="field-label" for="fund-units">持有單位數（可選）</label>
-          <input class="input mono" id="fund-units" type="number" min="0" step="0.0001" placeholder="例如：123.4567">
-        </div>
-
-        <div class="field">
-          <label class="field-label" for="fund-note">備註（可選）</label>
-          <input class="input" id="fund-note" placeholder="例如：月供計劃" maxlength="60">
-        </div>
-
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="fund-cancel-btn">取消</button>
           <button type="submit" class="btn btn-primary">儲存</button>
