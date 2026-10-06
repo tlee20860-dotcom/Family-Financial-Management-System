@@ -1,5 +1,5 @@
 // ============================================
-// personal-expenses.js — 個人支出（v94 重構）
+// personal-expenses.js — 個人支出（v99.5 最終版）
 // ============================================
 
 import {
@@ -17,7 +17,6 @@ import {
 import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
 import { openModal, closeModal } from './modal.js';
 import { AppState } from './state.js';
-import { initCollapsibleCard } from './collapsible-card.js';
 
 let members = [];
 let categories = [];
@@ -29,136 +28,112 @@ let filters = { year: '', month: '', member: '', category: '' };
 const NAME_MAX_LEN = 6;
 
 export function initPersonalExpensesPage() {
-  // 🆕 v99.5：明細表格折疊（預設展開）
-  initCollapsibleCard('pe-table-card', 'pe-table-open', true);
+  console.log('🚀 initPersonalExpensesPage 開始');
 
-  const form = document.getElementById('personal-expense-form');
-  const yearSel = document.getElementById('pe-year');
-  const monthSel = document.getElementById('pe-month');
-  const memberSel = document.getElementById('pe-member');
-  const dateInput = document.getElementById('pe-date');
-  const categorySel = document.getElementById('pe-category');
-  const itemSel = document.getElementById('pe-item');
-  const amountInput = document.getElementById('pe-amount');
-  const paymentSel = document.getElementById('pe-payment');
-  const statusSel = document.getElementById('pe-status');
-  const fixedCheck = document.getElementById('pe-fixed');
-  const resetBtn = document.getElementById('pe-reset-btn');
+  try {
+    /* ============================================
+       0. 摺疊卡片初始化
+       ============================================ */
+    initCollapsibleCard('input-card', 'pe-input-open', false);
+    initCollapsibleCard('pe-table-card', 'pe-table-open', true);
+    console.log('✅ 摺疊卡片初始化完成');
 
-  /* ============================================
-     初始化
-     ============================================ */
+    /* ============================================
+       1. 取得 DOM 元素
+       ============================================ */
+    const form = document.getElementById('personal-expense-form');
+    const yearSel = document.getElementById('pe-year');
+    const monthSel = document.getElementById('pe-month');
+    const memberSel = document.getElementById('pe-member');
+    const dateInput = document.getElementById('pe-date');
+    const categorySel = document.getElementById('pe-category');
+    const itemSel = document.getElementById('pe-item');
+    const amountInput = document.getElementById('pe-amount');
+    const paymentSel = document.getElementById('pe-payment');
+    const statusSel = document.getElementById('pe-status');
+    const fixedCheck = document.getElementById('pe-fixed');
+    const resetBtn = document.getElementById('pe-reset-btn');
 
-  // 可摺疊輸入卡片
-  const inputCard = initCollapsibleCard('input-card', 'pe-input-open', false);
+    if (!form) {
+      console.error('❌ 找不到 #personal-expense-form');
+      return;
+    }
+    if (!yearSel || !monthSel) {
+      console.error('❌ 找不到 #pe-year 或 #pe-month');
+      return;
+    }
+    console.log('✅ DOM 元素取得完成');
 
-  // 表單年月下拉
-  fillYearSelect(yearSel, { defaultValue: AppState.year });
-  fillMonthSelect(monthSel, {
-    defaultValue: AppState.month === 'all' ? '01' : AppState.month,
-  });
-  dateInput.value = todayISO();
-
-  // 編輯 Modal 年月下拉
-  fillYearSelect('pe-edit-year');
-  fillMonthSelect('pe-edit-month');
-
-  // 頁面篩選欄
-  renderFilterBar();
-
-  /* ============================================
-     資料監聽
-     ============================================ */
-
-  listenMembers((list) => {
-    members = list;
-    fillMemberSelect(memberSel, members, { includeEmpty: true });
-    fillMemberSelect('pe-edit-member', members, { includeEmpty: false });
-    fillMemberSelect('pe-batch-member', members, { includeEmpty: true, emptyText: '— 不修改 —' });
-    updateFilterOptions();
-  });
-
-  listenCategories((list) => {
-    categories = list;
-    fillCategorySelect(categorySel, categories, { includeEmpty: true });
-    fillCategorySelect('pe-edit-category', categories, { includeEmpty: false });
-    fillCategorySelect('pe-batch-category', categories, { includeEmpty: true, emptyText: '— 不修改 —' });
-    updateFilterOptions();
-  });
-
-  listenItems((list) => {
-    items = list;
-    fillItemSelect(itemSel, items, categorySel.value, { includeEmpty: true });
-    fillItemSelect('pe-edit-item', items, document.getElementById('pe-edit-category').value, { includeEmpty: false });
-    fillItemSelect('pe-batch-item', items, document.getElementById('pe-batch-category').value, { includeEmpty: true, emptyText: '— 不修改 —' });
-  });
-
-  listenPaymentMethods((list) => {
-    payments = list;
-    fillPaymentSelect(paymentSel, payments, { includeEmpty: true });
-    fillPaymentSelect('pe-edit-payment', payments, { includeEmpty: true });
-    fillPaymentSelect('pe-batch-payment', payments, { includeEmpty: true, emptyText: '— 不修改 —' });
-  });
-
-  // 類別變更 → 更新項目
-  categorySel.addEventListener('change', () => {
-    fillItemSelect(itemSel, items, categorySel.value, { includeEmpty: true });
-  });
-
-  listenAllExpenses((list) => {
-    allExpenses = list;
-    renderExpenses();
-  });
-
-  /* ============================================
-     表單操作
-     ============================================ */
-
-  resetBtn.addEventListener('click', () => {
-    form.reset();
+    /* ============================================
+       2. 表單年月下拉
+       ============================================ */
+    fillYearSelect(yearSel, { defaultValue: AppState.year });
+    fillMonthSelect(monthSel, {
+      defaultValue: AppState.month === 'all' ? '01' : AppState.month,
+    });
     dateInput.value = todayISO();
-    fillItemSelect(itemSel, items, '', { includeEmpty: true });
-    memberSel.value = '';
-    categorySel.value = '';
-    paymentSel.value = '';
-    fixedCheck.checked = false;
-  });
+    console.log('✅ 表單年月下拉完成');
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const targetYear = yearSel.value;
-    const targetMonth = monthSel.value;
-    const targetMemberId = memberSel.value;
-    const catId = categorySel.value;
-    const itemId = itemSel.value;
-    const itemName = items.find((i) => i.id === itemId)?.name || '';
-    const paymentId = paymentSel.value;
-    if (!targetMemberId || !itemName || !amountInput.value) return;
+    /* ============================================
+       3. 編輯 Modal 年月下拉
+       ============================================ */
+    fillYearSelect('pe-edit-year');
+    fillMonthSelect('pe-edit-month');
 
-    const payload = {
-      name: itemName,
-      amount: Math.round(Number(amountInput.value) || 0),
-      status: statusSel.value,
-      date: dateInput.value.trim() || todayISO(),
-      categoryId: catId,
-      itemId: itemId,
-      paymentMethodId: paymentId,
-    };
+    /* ============================================
+       4. 頁面篩選欄
+       ============================================ */
+    renderFilterBar();
+    console.log('✅ 篩選欄完成');
 
-    try {
-      await addExpense(targetYear, targetMonth, targetMemberId, payload);
+    /* ============================================
+       5. 資料監聽
+       ============================================ */
+    listenMembers((list) => {
+      members = list;
+      fillMemberSelect(memberSel, members, { includeEmpty: true });
+      fillMemberSelect('pe-edit-member', members, { includeEmpty: false });
+      fillMemberSelect('pe-batch-member', members, { includeEmpty: true, emptyText: '— 不修改 —' });
+      updateFilterOptions();
+    });
 
-      if (fixedCheck.checked) {
-        await addFixedTemplate({
-          name: itemName, categoryId: catId, itemId: itemId,
-          memberId: targetMemberId, amount: payload.amount,
-          paymentMethodId: paymentId,
-        });
-      }
+    listenCategories((list) => {
+      categories = list;
+      fillCategorySelect(categorySel, categories, { includeEmpty: true });
+      fillCategorySelect('pe-edit-category', categories, { includeEmpty: false });
+      fillCategorySelect('pe-batch-category', categories, { includeEmpty: true, emptyText: '— 不修改 —' });
+      updateFilterOptions();
+    });
 
-      showToast(`✅ 已新增 ${targetYear} 年 ${targetMonth} 月支出`, 'success');
-      inputCard?.close();
+    listenItems((list) => {
+      items = list;
+      fillItemSelect(itemSel, items, categorySel.value, { includeEmpty: true });
+      fillItemSelect('pe-edit-item', items, document.getElementById('pe-edit-category')?.value || '', { includeEmpty: false });
+      fillItemSelect('pe-batch-item', items, document.getElementById('pe-batch-category')?.value || '', { includeEmpty: true, emptyText: '— 不修改 —' });
+    });
 
+    listenPaymentMethods((list) => {
+      payments = list;
+      fillPaymentSelect(paymentSel, payments, { includeEmpty: true });
+      fillPaymentSelect('pe-edit-payment', payments, { includeEmpty: true });
+      fillPaymentSelect('pe-batch-payment', payments, { includeEmpty: true, emptyText: '— 不修改 —' });
+    });
+
+    categorySel.addEventListener('change', () => {
+      fillItemSelect(itemSel, items, categorySel.value, { includeEmpty: true });
+    });
+
+    listenAllExpenses((list) => {
+      allExpenses = list;
+      renderExpenses();
+    });
+    console.log('✅ 資料監聽完成');
+
+    /* ============================================
+       6. 表單操作
+       ============================================ */
+
+    resetBtn.addEventListener('click', () => {
       form.reset();
       dateInput.value = todayISO();
       fillItemSelect(itemSel, items, '', { includeEmpty: true });
@@ -166,211 +141,258 @@ export function initPersonalExpensesPage() {
       categorySel.value = '';
       paymentSel.value = '';
       fixedCheck.checked = false;
-    } catch (err) {
-      showToast('新增失敗：' + err.message, 'error');
-    }
-  });
-
-  /* ============================================
-     表格：全選 / 選取計數
-     ============================================ */
-
-  document.getElementById('pe-select-all').addEventListener('change', (e) => {
-    document.querySelectorAll('.pe-row-checkbox:not(:disabled)').forEach((cb) => {
-      cb.checked = e.target.checked;
     });
-    updateSelectedCount();
-  });
 
-  document.getElementById('pe-tbody').addEventListener('change', (e) => {
-    if (e.target.classList.contains('pe-row-checkbox')) updateSelectedCount();
-  });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const targetYear = yearSel.value;
+      const targetMonth = monthSel.value;
+      const targetMemberId = memberSel.value;
+      const catId = categorySel.value;
+      const itemId = itemSel.value;
+      const itemName = items.find((i) => i.id === itemId)?.name || '';
+      const paymentId = paymentSel.value;
+      if (!targetMemberId || !itemName || !amountInput.value) return;
 
-  /* ============================================
-     表格：點擊（展開名稱 / 編輯 / 刪除）
-     ============================================ */
+      const payload = {
+        name: itemName,
+        amount: Math.round(Number(amountInput.value) || 0),
+        status: statusSel.value,
+        date: dateInput.value.trim() || todayISO(),
+        categoryId: catId,
+        itemId: itemId,
+        paymentMethodId: paymentId,
+      };
 
-  document.getElementById('pe-tbody').addEventListener('click', async (e) => {
-    // 名稱展開/收合
-    const nameSpan = e.target.closest('.pe-name-text');
-    if (nameSpan) {
-      const isShort = nameSpan.classList.contains('pe-name-short');
-      if (isShort) {
-        nameSpan.textContent = nameSpan.dataset.full;
-        nameSpan.classList.remove('pe-name-short');
-      } else {
-        nameSpan.textContent = nameSpan.dataset.short;
-        nameSpan.classList.add('pe-name-short');
+      try {
+        await addExpense(targetYear, targetMonth, targetMemberId, payload);
+
+        if (fixedCheck.checked) {
+          await addFixedTemplate({
+            name: itemName, categoryId: catId, itemId: itemId,
+            memberId: targetMemberId, amount: payload.amount,
+            paymentMethodId: paymentId,
+          });
+        }
+
+        showToast(`✅ 已新增 ${targetYear} 年 ${targetMonth} 月支出`, 'success');
+        document.getElementById('input-card')?.classList.remove('open');
+        document.getElementById('input-card-body')?.style.setProperty('display', 'none');
+        localStorage.setItem('pe-input-open', 'false');
+
+        form.reset();
+        dateInput.value = todayISO();
+        fillItemSelect(itemSel, items, '', { includeEmpty: true });
+        memberSel.value = '';
+        categorySel.value = '';
+        paymentSel.value = '';
+        fixedCheck.checked = false;
+      } catch (err) {
+        showToast('新增失敗：' + err.message, 'error');
       }
-      return;
-    }
+    });
+    console.log('✅ 表單操作綁定完成');
 
-    // 編輯 / 刪除
-    const btn = e.target.closest('button[data-action]');
-    if (!btn) return;
-    const expId = btn.dataset.id;
-    const memberId = btn.dataset.member;
-    const year = btn.dataset.year;
-    const month = btn.dataset.month;
-    const exp = allExpenses.find((x) =>
-      x.id === expId && x.memberId === memberId && x.year === year && x.month === month
-    );
-    if (!exp) return;
+    /* ============================================
+       7. 表格全選 / 選取計數
+       ============================================ */
+    document.getElementById('pe-select-all')?.addEventListener('change', (e) => {
+      document.querySelectorAll('.pe-row-checkbox:not(:disabled)').forEach((cb) => {
+        cb.checked = e.target.checked;
+      });
+      updateSelectedCount();
+    });
 
-    if (btn.dataset.action === 'edit') {
-      openEditModal(exp);
-    } else if (btn.dataset.action === 'delete') {
-      if (confirm(`確定要刪除「${exp.name}」嗎？`)) {
-        try {
-          await removeExpense(year, month, memberId, expId);
-          showToast('✅ 已刪除', 'success');
-        } catch (err) {
-          showToast('刪除失敗：' + err.message, 'error');
+    document.getElementById('pe-tbody')?.addEventListener('change', (e) => {
+      if (e.target.classList.contains('pe-row-checkbox')) updateSelectedCount();
+    });
+
+    /* ============================================
+       8. 表格點擊（展開名稱 / 編輯 / 刪除）
+       ============================================ */
+    document.getElementById('pe-tbody')?.addEventListener('click', async (e) => {
+      const nameSpan = e.target.closest('.pe-name-text');
+      if (nameSpan) {
+        const isShort = nameSpan.classList.contains('pe-name-short');
+        if (isShort) {
+          nameSpan.textContent = nameSpan.dataset.full;
+          nameSpan.classList.remove('pe-name-short');
+        } else {
+          nameSpan.textContent = nameSpan.dataset.short;
+          nameSpan.classList.add('pe-name-short');
+        }
+        return;
+      }
+
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const expId = btn.dataset.id;
+      const memberId = btn.dataset.member;
+      const year = btn.dataset.year;
+      const month = btn.dataset.month;
+      const exp = allExpenses.find((x) =>
+        x.id === expId && x.memberId === memberId && x.year === year && x.month === month
+      );
+      if (!exp) return;
+
+      if (btn.dataset.action === 'edit') {
+        openEditModal(exp);
+      } else if (btn.dataset.action === 'delete') {
+        if (confirm(`確定要刪除「${exp.name}」嗎？`)) {
+          try {
+            await removeExpense(year, month, memberId, expId);
+            showToast('✅ 已刪除', 'success');
+          } catch (err) {
+            showToast('刪除失敗：' + err.message, 'error');
+          }
         }
       }
-    }
-  });
+    });
 
-  /* ============================================
-     批次操作
-     ============================================ */
+    /* ============================================
+       9. 批次操作
+       ============================================ */
+    document.getElementById('pe-batch-edit-btn')?.addEventListener('click', () => openBatchEditModal());
 
-  document.getElementById('pe-batch-edit-btn').addEventListener('click', () => openBatchEditModal());
+    document.getElementById('pe-batch-delete-btn')?.addEventListener('click', async () => {
+      const checked = [...document.querySelectorAll('.pe-row-checkbox:checked')];
+      if (checked.length === 0) return showToast('請先選取要刪除的支出', 'warning');
+      if (!confirm(`確定要刪除已選取的 ${checked.length} 筆支出嗎？`)) return;
 
-  document.getElementById('pe-batch-delete-btn').addEventListener('click', async () => {
-    const checked = [...document.querySelectorAll('.pe-row-checkbox:checked')];
-    if (checked.length === 0) return showToast('請先選取要刪除的支出', 'warning');
-    if (!confirm(`確定要刪除已選取的 ${checked.length} 筆支出嗎？`)) return;
-
-    try {
-      const promises = checked.map((cb) =>
-        removeExpense(cb.dataset.year, cb.dataset.month, cb.dataset.member, cb.dataset.id)
-      );
-      await Promise.all(promises);
-      showToast(`✅ 已刪除 ${checked.length} 筆支出`, 'success');
-      updateSelectedCount();
-    } catch (err) {
-      showToast('刪除失敗：' + err.message, 'error');
-    }
-  });
-
-  /* ============================================
-     單筆編輯 Modal
-     ============================================ */
-
-  document.getElementById('pe-edit-cancel-btn').addEventListener('click', () => closeModal('pe-edit-modal'));
-
-  document.getElementById('pe-edit-category').addEventListener('change', (e) => {
-    fillItemSelect('pe-edit-item', items, e.target.value, { includeEmpty: false });
-  });
-
-  document.getElementById('pe-edit-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('pe-edit-id').value;
-    const oldYear = document.getElementById('pe-edit-old-year').value;
-    const oldMonth = document.getElementById('pe-edit-old-month').value;
-    const oldMember = document.getElementById('pe-edit-old-member').value;
-
-    const newYear = document.getElementById('pe-edit-year').value;
-    const newMonth = document.getElementById('pe-edit-month').value;
-    const newMember = document.getElementById('pe-edit-member').value;
-    const catId = document.getElementById('pe-edit-category').value;
-    const itemId = document.getElementById('pe-edit-item').value;
-    const itemName = items.find((i) => i.id === itemId)?.name || '';
-    const paymentId = document.getElementById('pe-edit-payment').value;
-    if (!newMember || !itemName) return;
-
-    const payload = {
-      name: itemName,
-      amount: Math.round(Number(document.getElementById('pe-edit-amount').value) || 0),
-      status: document.getElementById('pe-edit-status').value,
-      date: document.getElementById('pe-edit-date').value.trim(),
-      categoryId: catId,
-      itemId: itemId,
-      paymentMethodId: paymentId,
-    };
-
-    try {
-      if (newYear === oldYear && newMonth === oldMonth && newMember === oldMember) {
-        await updateExpense(newYear, newMonth, newMember, id, payload);
-      } else {
-        await batchUpdateExpenses([{
-          oldYear, oldMonth, oldMemberId: oldMember, expenseId: id,
-          data: { ...payload, year: newYear, month: newMonth, memberId: newMember },
-        }]);
+      try {
+        const promises = checked.map((cb) =>
+          removeExpense(cb.dataset.year, cb.dataset.month, cb.dataset.member, cb.dataset.id)
+        );
+        await Promise.all(promises);
+        showToast(`✅ 已刪除 ${checked.length} 筆支出`, 'success');
+        updateSelectedCount();
+      } catch (err) {
+        showToast('刪除失敗：' + err.message, 'error');
       }
-      closeModal('pe-edit-modal');
-      showToast('✅ 已更新支出', 'success');
-    } catch (err) {
-      showToast('更新失敗：' + err.message, 'error');
-    }
-  });
+    });
 
-  /* ============================================
-     批次編輯 Modal
-     ============================================ */
+    /* ============================================
+       10. 單筆編輯 Modal
+       ============================================ */
+    document.getElementById('pe-edit-cancel-btn')?.addEventListener('click', () => closeModal('pe-edit-modal'));
 
-  document.getElementById('pe-batch-edit-cancel-btn').addEventListener('click', () => closeModal('pe-batch-edit-modal'));
+    document.getElementById('pe-edit-category')?.addEventListener('change', (e) => {
+      fillItemSelect('pe-edit-item', items, e.target.value, { includeEmpty: false });
+    });
 
-  document.getElementById('pe-batch-category').addEventListener('change', (e) => {
-    fillItemSelect('pe-batch-item', items, e.target.value, { includeEmpty: true, emptyText: '— 不修改 —' });
-  });
+    document.getElementById('pe-edit-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('pe-edit-id').value;
+      const oldYear = document.getElementById('pe-edit-old-year').value;
+      const oldMonth = document.getElementById('pe-edit-old-month').value;
+      const oldMember = document.getElementById('pe-edit-old-member').value;
 
-  document.getElementById('pe-batch-edit-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const checked = [...document.querySelectorAll('.pe-row-checkbox:checked')];
-    if (checked.length === 0) return showToast('請先選取要編輯的支出', 'warning');
+      const newYear = document.getElementById('pe-edit-year').value;
+      const newMonth = document.getElementById('pe-edit-month').value;
+      const newMember = document.getElementById('pe-edit-member').value;
+      const catId = document.getElementById('pe-edit-category').value;
+      const itemId = document.getElementById('pe-edit-item').value;
+      const itemName = items.find((i) => i.id === itemId)?.name || '';
+      const paymentId = document.getElementById('pe-edit-payment').value;
+      if (!newMember || !itemName) return;
 
-    const batchYear = document.getElementById('pe-batch-year').value;
-    const batchMonth = document.getElementById('pe-batch-month').value;
-    const batchMember = document.getElementById('pe-batch-member').value;
-    const batchDate = document.getElementById('pe-batch-date').value.trim();
-    const batchCat = document.getElementById('pe-batch-category').value;
-    const batchItem = document.getElementById('pe-batch-item').value;
-    const batchAmount = document.getElementById('pe-batch-amount').value;
-    const batchPayment = document.getElementById('pe-batch-payment').value;
-    const batchStatus = document.getElementById('pe-batch-status').value;
-
-    const updates = checked.map((cb) => {
-      const exp = allExpenses.find((x) =>
-        x.id === cb.dataset.id && x.memberId === cb.dataset.member &&
-        x.year === cb.dataset.year && x.month === cb.dataset.month
-      );
-      if (!exp) return null;
-      const itemName = batchItem
-        ? (items.find((i) => i.id === batchItem)?.name || exp.name)
-        : exp.name;
-
-      return {
-        oldYear: cb.dataset.year,
-        oldMonth: cb.dataset.month,
-        oldMemberId: cb.dataset.member,
-        expenseId: cb.dataset.id,
-        data: {
-          name: itemName,
-          amount: batchAmount !== '' ? Math.round(Number(batchAmount)) : exp.amount,
-          status: batchStatus || exp.status,
-          date: batchDate || exp.date,
-          categoryId: batchCat || exp.categoryId,
-          itemId: batchItem || exp.itemId,
-          paymentMethodId: batchPayment || exp.paymentMethodId || '',
-          year: batchYear || cb.dataset.year,
-          month: batchMonth || cb.dataset.month,
-          memberId: batchMember || cb.dataset.member,
-        },
+      const payload = {
+        name: itemName,
+        amount: Math.round(Number(document.getElementById('pe-edit-amount').value) || 0),
+        status: document.getElementById('pe-edit-status').value,
+        date: document.getElementById('pe-edit-date').value.trim(),
+        categoryId: catId,
+        itemId: itemId,
+        paymentMethodId: paymentId,
       };
-    }).filter(Boolean);
 
-    try {
-      await batchUpdateExpenses(updates);
-      closeModal('pe-batch-edit-modal');
-      document.getElementById('pe-select-all').checked = false;
-      updateSelectedCount();
-      showToast(`✅ 已批次更新 ${updates.length} 筆支出`, 'success');
-    } catch (err) {
-      showToast('批次更新失敗：' + err.message, 'error');
-    }
-  });
+      try {
+        if (newYear === oldYear && newMonth === oldMonth && newMember === oldMember) {
+          await updateExpense(newYear, newMonth, newMember, id, payload);
+        } else {
+          await batchUpdateExpenses([{
+            oldYear, oldMonth, oldMemberId: oldMember, expenseId: id,
+            data: { ...payload, year: newYear, month: newMonth, memberId: newMember },
+          }]);
+        }
+        closeModal('pe-edit-modal');
+        showToast('✅ 已更新支出', 'success');
+      } catch (err) {
+        showToast('更新失敗：' + err.message, 'error');
+      }
+    });
+
+    /* ============================================
+       11. 批次編輯 Modal
+       ============================================ */
+    document.getElementById('pe-batch-edit-cancel-btn')?.addEventListener('click', () => closeModal('pe-batch-edit-modal'));
+
+    document.getElementById('pe-batch-category')?.addEventListener('change', (e) => {
+      fillItemSelect('pe-batch-item', items, e.target.value, { includeEmpty: true, emptyText: '— 不修改 —' });
+    });
+
+    document.getElementById('pe-batch-edit-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const checked = [...document.querySelectorAll('.pe-row-checkbox:checked')];
+      if (checked.length === 0) return showToast('請先選取要編輯的支出', 'warning');
+
+      const batchYear = document.getElementById('pe-batch-year').value;
+      const batchMonth = document.getElementById('pe-batch-month').value;
+      const batchMember = document.getElementById('pe-batch-member').value;
+      const batchDate = document.getElementById('pe-batch-date').value.trim();
+      const batchCat = document.getElementById('pe-batch-category').value;
+      const batchItem = document.getElementById('pe-batch-item').value;
+      const batchAmount = document.getElementById('pe-batch-amount').value;
+      const batchPayment = document.getElementById('pe-batch-payment').value;
+      const batchStatus = document.getElementById('pe-batch-status').value;
+
+      const updates = checked.map((cb) => {
+        const exp = allExpenses.find((x) =>
+          x.id === cb.dataset.id && x.memberId === cb.dataset.member &&
+          x.year === cb.dataset.year && x.month === cb.dataset.month
+        );
+        if (!exp) return null;
+        const itemName = batchItem
+          ? (items.find((i) => i.id === batchItem)?.name || exp.name)
+          : exp.name;
+
+        return {
+          oldYear: cb.dataset.year,
+          oldMonth: cb.dataset.month,
+          oldMemberId: cb.dataset.member,
+          expenseId: cb.dataset.id,
+          data: {
+            name: itemName,
+            amount: batchAmount !== '' ? Math.round(Number(batchAmount)) : exp.amount,
+            status: batchStatus || exp.status,
+            date: batchDate || exp.date,
+            categoryId: batchCat || exp.categoryId,
+            itemId: batchItem || exp.itemId,
+            paymentMethodId: batchPayment || exp.paymentMethodId || '',
+            year: batchYear || cb.dataset.year,
+            month: batchMonth || cb.dataset.month,
+            memberId: batchMember || cb.dataset.member,
+          },
+        };
+      }).filter(Boolean);
+
+      try {
+        await batchUpdateExpenses(updates);
+        closeModal('pe-batch-edit-modal');
+        document.getElementById('pe-select-all').checked = false;
+        updateSelectedCount();
+        showToast(`✅ 已批次更新 ${updates.length} 筆支出`, 'success');
+      } catch (err) {
+        showToast('批次更新失敗：' + err.message, 'error');
+      }
+    });
+
+    console.log('✅ initPersonalExpensesPage 全部完成');
+
+  } catch (err) {
+    console.error('❌ initPersonalExpensesPage 執行失敗：', err);
+    alert('頁面初始化失敗，請重新整理。\n\n錯誤：' + err.message);
+  }
 
   /* ============================================
      內部函式
@@ -408,7 +430,6 @@ export function initPersonalExpensesPage() {
     });
   }
 
-  // 當成員 / 類別清單變更時，更新篩選欄的下拉選項
   function updateFilterOptions() {
     const root = document.getElementById('page-filter-root');
     if (!root) return;
@@ -432,14 +453,18 @@ export function initPersonalExpensesPage() {
 
   function updateSelectedCount() {
     const count = document.querySelectorAll('.pe-row-checkbox:checked').length;
-    document.getElementById('pe-selected-count').textContent = `已選取 ${count} 筆`;
-    document.getElementById('pe-batch-edit-btn').disabled = count === 0;
-    document.getElementById('pe-batch-delete-btn').disabled = count === 0;
+    const countEl = document.getElementById('pe-selected-count');
+    if (countEl) countEl.textContent = `已選取 ${count} 筆`;
+    const editBtn = document.getElementById('pe-batch-edit-btn');
+    const delBtn = document.getElementById('pe-batch-delete-btn');
+    if (editBtn) editBtn.disabled = count === 0;
+    if (delBtn) delBtn.disabled = count === 0;
   }
 
   function renderExpenses() {
     const tbody = document.getElementById('pe-tbody');
     const totalCountEl = document.getElementById('pe-total-count');
+    if (!tbody) return;
 
     const filtered = allExpenses.filter((x) => {
       if (filters.year && x.year !== filters.year) return false;
@@ -532,7 +557,6 @@ export function initPersonalExpensesPage() {
     const now = new Date();
     const curY = now.getFullYear();
 
-    // 年份下拉（含「不修改」）
     const ySel = document.getElementById('pe-batch-year');
     let yOpts = `<option value="">— 不修改 —</option>`;
     for (let y = curY - 5; y <= curY + 5; y++) {
@@ -540,7 +564,6 @@ export function initPersonalExpensesPage() {
     }
     ySel.innerHTML = yOpts;
 
-    // 月份下拉（含「不修改」）
     const mSel = document.getElementById('pe-batch-month');
     let mOpts = `<option value="">— 不修改 —</option>`;
     for (let m = 1; m <= 12; m++) {
@@ -549,7 +572,6 @@ export function initPersonalExpensesPage() {
     }
     mSel.innerHTML = mOpts;
 
-    // 重置其他欄位
     document.getElementById('pe-batch-date').value = '';
     document.getElementById('pe-batch-amount').value = '';
     document.getElementById('pe-batch-status').value = '';
