@@ -15,14 +15,20 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header">
-          <h1 class="page-title">總覽儀表板</h1>
-          <p class="page-subtitle" id="dashboard-month">全家財務即時概況</p>
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title">總覽儀表板</h1>
+            <p class="page-subtitle" id="dashboard-month">全家財務即時概況</p>
+          </div>
+          <div class="page-ym-selector">
+            <select class="select" id="page-year"></select>
+            <select class="select" id="page-month"></select>
+          </div>
         </div>
 
         <div id="dashboard-error" class="banner banner-magenta" style="display:none;"></div>
 
-        <!-- ===== 全年模式 ===== -->
+        <!-- 全年模式 -->
         <div id="annual-view" style="display:none;">
           <div class="grid grid-4" style="margin-bottom:16px;">
             <div class="glass-card">
@@ -52,7 +58,7 @@
           <div id="monthly-cards"></div>
         </div>
 
-        <!-- ===== 單月模式 ===== -->
+        <!-- 單月模式 -->
         <div id="monthly-view" style="display:none;">
           <div class="grid grid-4">
             <div class="glass-card">
