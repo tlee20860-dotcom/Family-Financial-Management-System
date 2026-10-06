@@ -9,7 +9,7 @@ import {
   listenCategories, listenItems, addItem,
   listenMembers, listenPaymentMethods,
 } from './db.js';
-import { formatHKD, escapeHtml } from './utils.js';
+import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
 import { AppState } from './state.js';
 
 let templates = [];
@@ -22,6 +22,11 @@ let currentView = localStorage.getItem('fixed_view') || 'card';
 let expandedKeys = new Set();
 
 export function initFixedExpensesPage() {
+  // 🆕 v93：頁面年月選擇器
+  initPageYearMonthSelector('page-year', 'page-month');
+
+  const container = document.getElementById('fixed-templates-container');
+  // ... 其餘不變
   const container = document.getElementById('fixed-templates-container');
   const modal = document.getElementById('fixed-modal');
   const form = document.getElementById('fixed-form');
