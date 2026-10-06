@@ -42,6 +42,12 @@ export function initPersonalExpensesPage() {
   monthSel.innerHTML = monthOpts;
   dateInput.value = todayISO();
 
+  // 🆕 填充「編輯 Modal」的年份 / 月份下拉
+  const editYearSel = document.getElementById('pe-edit-year');
+  const editMonthSel = document.getElementById('pe-edit-month');
+  if (editYearSel) editYearSel.innerHTML = yearOpts;
+  if (editMonthSel) editMonthSel.innerHTML = monthOpts;
+
   initFilterOptions(currentYear);
 
   listenMembers((list) => {
