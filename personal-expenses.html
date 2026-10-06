@@ -71,49 +71,16 @@
           <div class="collapsible-body" id="input-card-body" style="display:none;">
             <form id="personal-expense-form">
               <div class="form-stack">
-                <div class="field">
-                  <label class="field-label" for="pe-year">所屬年份</label>
-                  <select class="select" id="pe-year"></select>
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-month">所屬月份</label>
-                  <select class="select" id="pe-month"></select>
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-member">支出成員</label>
-                  <select class="select" id="pe-member" required>
-                    <option value="">— 請選擇 —</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-date">支出日期</label>
-                  <input class="input" id="pe-date" type="text" placeholder="例如：2026-10-05">
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-category">支出類別</label>
-                  <select class="select" id="pe-category" required>
-                    <option value="">— 請選擇類別 —</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-item">項目</label>
-                  <select class="select" id="pe-item" required>
-                    <option value="">— 請先選擇類別 —</option>
-                  </select>
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-amount">費用（HK$）</label>
-                  <input class="input mono" id="pe-amount" type="number" min="0" step="1" required placeholder="0">
-                </div>
-                <div class="field">
-                  <label class="field-label" for="pe-payment">支付方式</label>
-                  <select class="select" id="pe-payment">
-                    <option value="">— 請選擇 —</option>
-                  </select>
-                </div>
+                <div class="field"><label class="field-label" for="pe-year">所屬年份</label><select class="select" id="pe-year"></select></div>
+                <div class="field"><label class="field-label" for="pe-month">所屬月份</label><select class="select" id="pe-month"></select></div>
+                <div class="field"><label class="field-label" for="pe-member">支出成員</label><select class="select" id="pe-member" required><option value="">— 請選擇 —</option></select></div>
+                <div class="field"><label class="field-label" for="pe-date">支出日期</label><input class="input" id="pe-date" type="text" placeholder="例如：2026-10-05"></div>
+                <div class="field"><label class="field-label" for="pe-category">支出類別</label><select class="select" id="pe-category" required><option value="">— 請選擇類別 —</option></select></div>
+                <div class="field"><label class="field-label" for="pe-item">項目</label><select class="select" id="pe-item" required><option value="">— 請先選擇類別 —</option></select></div>
+                <div class="field"><label class="field-label" for="pe-amount">費用（HK$）</label><input class="input mono" id="pe-amount" type="number" min="0" step="1" required placeholder="0"></div>
+                <div class="field"><label class="field-label" for="pe-payment">支付方式</label><select class="select" id="pe-payment"><option value="">— 請選擇 —</option></select></div>
                 <div class="form-stack-row">
-                  <div class="field">
-                    <label class="field-label" for="pe-status">狀態</label>
+                  <div class="field"><label class="field-label" for="pe-status">狀態</label>
                     <select class="select" id="pe-status">
                       <option value="未處理">未處理</option>
                       <option value="已處理">已處理</option>
@@ -138,37 +105,47 @@
           </div>
         </div>
 
-        <div class="glass-card merged-detail-card">
-          <div class="merged-table-area">
-            <div class="table-toolbar">
-              <div class="glass-card-title" style="margin:0;">支出明細 <span class="text-muted" id="pe-total-count" style="font-size:12px;"></span></div>
-              <div style="display:flex; gap:10px; align-items:center;">
-                <span id="pe-selected-count" class="mono" style="font-size:12px; color:var(--text-muted);">已選取 0 筆</span>
-                <button class="btn btn-sm btn-ghost" id="pe-batch-edit-btn" disabled>批次編輯</button>
-                <button class="btn btn-sm btn-danger" id="pe-batch-delete-btn" disabled>批次刪除</button>
-              </div>
+        <!-- 🆕 v99.5：明細表格改為可折疊 -->
+        <div class="glass-card collapsible-card" id="pe-table-card" style="padding:0 !important;">
+          <div class="collapsible-header" id="pe-table-header">
+            <div class="collapsible-header-title">
+              <i data-lucide="list" style="width:16px;height:16px;"></i>
+              <span>支出明細 <span class="text-muted" id="pe-total-count" style="font-size:12px; margin-left:6px;"></span></span>
             </div>
+            <i data-lucide="chevron-down" class="collapsible-arrow"></i>
+          </div>
+          <div class="collapsible-body" id="pe-table-body" style="display:none;">
+            <div class="merged-table-area">
+              <div class="table-toolbar">
+                <div></div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <span id="pe-selected-count" class="mono" style="font-size:12px; color:var(--text-muted);">已選取 0 筆</span>
+                  <button class="btn btn-sm btn-ghost" id="pe-batch-edit-btn" disabled>批次編輯</button>
+                  <button class="btn btn-sm btn-danger" id="pe-batch-delete-btn" disabled>批次刪除</button>
+                </div>
+              </div>
 
-            <div style="overflow-x:auto;">
-              <table class="data-table pe-table">
-                <thead>
-                  <tr>
-                    <th style="width:36px;"><input type="checkbox" id="pe-select-all" style="width:auto; cursor:pointer;"></th>
-                    <th style="width:80px;">年月</th>
-                    <th style="width:60px;">成員</th>
-                    <th>項目名稱</th>
-                    <th class="hide-mobile" style="width:70px;">類別</th>
-                    <th style="width:90px;">支付方式</th>
-                    <th class="hide-mobile" style="width:90px;">日期</th>
-                    <th style="text-align:right; width:90px;">金額</th>
-                    <th style="width:70px;">狀態</th>
-                    <th style="width:110px;">操作</th>
-                  </tr>
-                </thead>
-                <tbody id="pe-tbody">
-                  <tr><td colspan="10" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
+              <div style="overflow-x:auto;">
+                <table class="data-table pe-table">
+                  <thead>
+                    <tr>
+                      <th style="width:36px;"><input type="checkbox" id="pe-select-all" style="width:auto; cursor:pointer;"></th>
+                      <th style="width:80px;">年月</th>
+                      <th style="width:60px;">成員</th>
+                      <th>項目名稱</th>
+                      <th class="hide-mobile" style="width:70px;">類別</th>
+                      <th style="width:90px;">支付方式</th>
+                      <th class="hide-mobile" style="width:90px;">日期</th>
+                      <th style="text-align:right; width:90px;">金額</th>
+                      <th style="width:70px;">狀態</th>
+                      <th style="width:110px;">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pe-tbody">
+                    <tr><td colspan="10" class="empty-state">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
