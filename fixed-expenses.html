@@ -21,6 +21,10 @@
             <p class="page-subtitle" id="fixed-month"></p>
           </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <div class="page-ym-selector">
+              <select class="select" id="page-year"></select>
+              <select class="select" id="page-month"></select>
+            </div>
             <div class="view-toggle-group">
               <button class="btn btn-sm btn-primary" id="view-card-btn">卡片模式</button>
               <button class="btn btn-sm btn-ghost" id="view-table-btn">表格模式</button>
@@ -71,12 +75,12 @@
             <option value="每年">每年</option>
             <option value="一次性">一次性</option>
           </select>
-          <div class="field">
-  <label class="field-label" for="fixed-payment">支付方式</label>
-  <select class="select" id="fixed-payment">
-    <option value="">— 請選擇 —</option>
-  </select>
-</div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="fixed-payment">支付方式</label>
+          <select class="select" id="fixed-payment">
+            <option value="">— 請選擇 —</option>
+          </select>
         </div>
         <div class="field"><label class="field-label" for="fixed-amount">每月金額（HK$）</label><input class="input mono" id="fixed-amount" type="number" min="0" step="1" required></div>
         <div class="field"><label class="field-label" for="fixed-note">備註（可選）</label><input class="input" id="fixed-note" maxlength="60"></div>
