@@ -1,5 +1,5 @@
 // ============================================
-// banks.js — 銀行管理（表單式輸入）
+// banks.js — 銀行管理（表單式輸入 + 篩選 + 月報/年報）
 // ============================================
 
 import {
@@ -15,6 +15,8 @@ let banks = [];
 let balances = {};
 let prevBalances = {};
 let unsubBalances = null;
+let currentMode = 'annual';   // 'monthly' | 'annual'
+let filters = { year: '', month: '', bank: '' };
 
 export function initBanksPage() {
   const tbody = document.getElementById('bank-tbody');
@@ -24,8 +26,13 @@ export function initBanksPage() {
   const resetBtn = document.getElementById('bank-reset-btn');
   const addBankBtn = document.getElementById('add-bank-btn');
   const hintEl = document.getElementById('bank-form-hint');
+  const formYearSel = document.getElementById('bank-form-year');
+  const formMonthSel = document.getElementById('bank-form-month');
 
   bindCollapsibleInputCard();
+  initFormYearMonthOptions();
+  initFilterOptions();
+  bindViewToggle();
 
   /* ============================================
      監聽銀行清單
@@ -33,25 +40,47 @@ export function initBanksPage() {
   listenBanks((list) => {
     banks = list;
     renderBankSelect();
+    renderFilterBankOptions();
     renderTable();
   });
 
   /* ============================================
-     選銀行 → 自動帶入本月現有結餘
+     表單：年份 / 月份變更 → 重新查詢該月結餘
      ============================================ */
-  bankSelect.addEventListener('change', () => {
+  formYearSel.addEventListener('change', refreshFormBalance);
+  formMonthSel.addEventListener('change', refreshFormBalance);
+
+  /* ============================================
+     表單：選銀行 → 帶入現有值
+     ============================================ */
+  bankSelect.addEventListener('change', refreshFormBalance);
+
+  async function refreshFormBalance() {
+    const year = formYearSel.value;
+    const month = formMonthSel.value;
     const bankId = bankSelect.value;
+
+    if (!year || !month) return;
+
+    // 讀取該年月結餘
+    let targetBalances = {};
+    try {
+      targetBalances = await getBankBalancesOnce(year, month);
+    } catch (err) {
+      console.warn('讀取結餘失敗：', err);
+    }
+
     if (!bankId) {
       amountInput.value = '';
       if (hintEl) hintEl.style.display = 'none';
       return;
     }
 
-    const bal = balances[bankId] || {};
+    const bal = targetBalances[bankId] || {};
     if (bal.amount != null) {
       amountInput.value = bal.amount;
       if (hintEl) {
-        hintEl.textContent = `ℹ️ 此銀行本月已有結餘 ${formatHKD(bal.amount)}，儲存將覆蓋原值。`;
+        hintEl.textContent = `ℹ️ ${year} 年 ${month} 月已有結餘 ${formatHKD(bal.amount)}，儲存將覆蓋原值。`;
         hintEl.className = 'banner';
         hintEl.style.display = 'block';
       }
@@ -59,10 +88,10 @@ export function initBanksPage() {
       amountInput.value = '';
       if (hintEl) hintEl.style.display = 'none';
     }
-  });
+  }
 
   /* ============================================
-     🆕 新增銀行：select 旁的 + 按鈕
+     新增銀行
      ============================================ */
   addBankBtn.addEventListener('click', async () => {
     const name = prompt('請輸入新銀行名稱：');
@@ -76,39 +105,39 @@ export function initBanksPage() {
 
     try {
       const newId = await addBank(trimmed);
-      // 等 banks 監聽回呼更新後，選中新銀行
       setTimeout(() => {
         if (newId) {
           bankSelect.value = newId;
-          amountInput.value = '';
+          refreshFormBalance();
           amountInput.focus();
         }
       }, 300);
-      if (window.lucide) window.lucide.createIcons();
     } catch (err) {
       alert('新增銀行失敗：' + err.message);
     }
   });
 
   /* ============================================
-     表單提交：儲存結餘
+     表單提交：儲存結餘（同步 AppState）
      ============================================ */
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const year = formYearSel.value;
+    const month = formMonthSel.value;
     const bankId = bankSelect.value;
     const amount = amountInput.value;
+
+    if (!year || !month) return alert('請選擇所屬年份與月份。');
     if (!bankId) return alert('請選擇銀行。');
     if (amount === '') return alert('請輸入結餘金額。');
-
-    const { year, month } = AppState.getYearMonth();
-    if (month === 'all') {
-      return alert('請先切換到特定月份，再輸入結餘。');
-    }
 
     try {
       await saveBankBalance(year, month, bankId, amount);
 
-      // 儲存後收起表單
+      // 🆕 同步 AppState
+      AppState.setYearMonth(year, month);
+
+      // 收起表單
       const card = document.getElementById('bank-input-card');
       const body = document.getElementById('bank-input-body');
       if (card && body) {
@@ -117,7 +146,6 @@ export function initBanksPage() {
         localStorage.setItem('bank-input-open', 'false');
       }
 
-      // 重置表單
       bankSelect.value = '';
       amountInput.value = '';
       if (hintEl) hintEl.style.display = 'none';
@@ -131,31 +159,122 @@ export function initBanksPage() {
 
   resetBtn.addEventListener('click', () => {
     form.reset();
+    const { year, month } = AppState.getYearMonth();
+    formYearSel.value = year;
+    formMonthSel.value = month === 'all' ? '01' : month;
+    bankSelect.value = '';
+    amountInput.value = '';
     if (hintEl) hintEl.style.display = 'none';
+  });
+
+  /* ============================================
+     檢視切換
+     ============================================ */
+  function bindViewToggle() {
+    const monthBtn = document.getElementById('view-month-btn');
+    const annualBtn = document.getElementById('view-annual-btn');
+
+    const updateUI = () => {
+      if (currentMode === 'monthly') {
+        monthBtn.classList.add('btn-primary'); monthBtn.classList.remove('btn-ghost');
+        annualBtn.classList.add('btn-ghost'); annualBtn.classList.remove('btn-primary');
+        document.getElementById('monthly-view').style.display = 'block';
+        document.getElementById('annual-view').style.display = 'none';
+      } else {
+        monthBtn.classList.add('btn-ghost'); monthBtn.classList.remove('btn-primary');
+        annualBtn.classList.add('btn-primary'); annualBtn.classList.remove('btn-ghost');
+        document.getElementById('monthly-view').style.display = 'none';
+        document.getElementById('annual-view').style.display = 'block';
+      }
+    };
+
+    monthBtn.addEventListener('click', () => {
+      currentMode = 'monthly';
+      updateUI();
+      loadBalances();
+    });
+
+    annualBtn.addEventListener('click', () => {
+      currentMode = 'annual';
+      updateUI();
+      loadBalances();
+    });
+
+    updateUI();
+  }
+
+  /* ============================================
+     篩選
+     ============================================ */
+  document.getElementById('filter-year').addEventListener('change', (e) => {
+    filters.year = e.target.value;
+    loadBalances();
+  });
+  document.getElementById('filter-month').addEventListener('change', (e) => {
+    filters.month = e.target.value;
+    if (e.target.value === 'all') {
+      currentMode = 'annual';
+      document.getElementById('view-month-btn').classList.remove('btn-primary');
+      document.getElementById('view-month-btn').classList.add('btn-ghost');
+      document.getElementById('view-annual-btn').classList.add('btn-primary');
+      document.getElementById('view-annual-btn').classList.remove('btn-ghost');
+      document.getElementById('monthly-view').style.display = 'none';
+      document.getElementById('annual-view').style.display = 'block';
+    } else {
+      currentMode = 'monthly';
+      document.getElementById('view-month-btn').classList.add('btn-primary');
+      document.getElementById('view-month-btn').classList.remove('btn-ghost');
+      document.getElementById('view-annual-btn').classList.remove('btn-primary');
+      document.getElementById('view-annual-btn').classList.add('btn-ghost');
+      document.getElementById('monthly-view').style.display = 'block';
+      document.getElementById('annual-view').style.display = 'none';
+    }
+    loadBalances();
+  });
+  document.getElementById('filter-bank').addEventListener('change', (e) => {
+    filters.bank = e.target.value;
+    if (currentMode === 'monthly') renderTable();
+    else loadBalances();
+  });
+  document.getElementById('filter-clear-btn').addEventListener('click', () => {
+    filters = { year: '', month: '', bank: '' };
+    document.getElementById('filter-year').value = AppState.year;
+    document.getElementById('filter-month').value = 'all';
+    document.getElementById('filter-bank').value = '';
+    currentMode = 'annual';
+    document.getElementById('view-month-btn').classList.remove('btn-primary');
+    document.getElementById('view-month-btn').classList.add('btn-ghost');
+    document.getElementById('view-annual-btn').classList.add('btn-primary');
+    document.getElementById('view-annual-btn').classList.remove('btn-ghost');
+    document.getElementById('monthly-view').style.display = 'none';
+    document.getElementById('annual-view').style.display = 'block';
+    loadBalances();
   });
 
   /* ============================================
      載入結餘
      ============================================ */
-  const loadBalances = async () => {
-    const { year, month } = AppState.getYearMonth();
-    const isAnnual = month === 'all';
+  async function loadBalances() {
+    const targetYear = filters.year || AppState.year;
+    let targetMonth;
+    if (currentMode === 'annual') {
+      targetMonth = 'all';
+    } else {
+      targetMonth = filters.month && filters.month !== 'all' ? filters.month : (AppState.month === 'all' ? '01' : AppState.month);
+    }
 
-    document.getElementById('annual-view').style.display = isAnnual ? 'block' : 'none';
-    document.getElementById('monthly-view').style.display = isAnnual ? 'none' : 'block';
-    document.getElementById('banks-month').textContent = isAnnual
-      ? `${year} 年 全年總覽`
-      : `${year} 年 ${month} 月`;
+    document.getElementById('banks-month').textContent = currentMode === 'annual'
+      ? `${targetYear} 年 全年總覽`
+      : `${targetYear} 年 ${targetMonth} 月`;
 
-    if (isAnnual) {
+    if (currentMode === 'annual') {
       if (unsubBalances) { unsubBalances(); unsubBalances = null; }
-      await loadAnnual(year);
+      await loadAnnual(targetYear);
     } else {
       if (unsubBalances) unsubBalances();
 
-      // 計算上月
-      const y = Number(year);
-      const m = Number(month);
+      const y = Number(targetYear);
+      const m = Number(targetMonth);
       let prevY = y;
       let prevM = m - 1;
       if (prevM < 1) { prevY = y - 1; prevM = 12; }
@@ -164,24 +283,51 @@ export function initBanksPage() {
       try {
         prevBalances = await getBankBalancesOnce(prevY, prevMonthStr);
       } catch (err) {
-        console.warn('無法讀取上月結餘：', err);
         prevBalances = {};
       }
 
-      unsubBalances = listenBankBalances(year, month, (val) => {
+      unsubBalances = listenBankBalances(targetYear, targetMonth, (val) => {
         balances = val || {};
         renderTable();
       });
 
-      updateAvailableFunds();
+      updateAvailableFunds(targetYear, targetMonth);
     }
-  };
+  }
 
+  // 初始載入
+  filters.year = AppState.year;
   loadBalances();
-  AppState.on('ym-change', loadBalances);
+
+  // 監聽 AppState 年月變更
+  AppState.on('ym-change', () => {
+    if (!filters.year) filters.year = AppState.year;
+    if (!filters.month) {
+      if (AppState.month === 'all') currentMode = 'annual';
+      else currentMode = 'monthly';
+    }
+    updateToggleUI();
+    loadBalances();
+  });
+
+  function updateToggleUI() {
+    const monthBtn = document.getElementById('view-month-btn');
+    const annualBtn = document.getElementById('view-annual-btn');
+    if (currentMode === 'monthly') {
+      monthBtn.classList.add('btn-primary'); monthBtn.classList.remove('btn-ghost');
+      annualBtn.classList.add('btn-ghost'); annualBtn.classList.remove('btn-primary');
+      document.getElementById('monthly-view').style.display = 'block';
+      document.getElementById('annual-view').style.display = 'none';
+    } else {
+      monthBtn.classList.add('btn-ghost'); monthBtn.classList.remove('btn-primary');
+      annualBtn.classList.add('btn-primary'); annualBtn.classList.remove('btn-ghost');
+      document.getElementById('monthly-view').style.display = 'none';
+      document.getElementById('annual-view').style.display = 'block';
+    }
+  }
 
   /* ============================================
-     表格操作（刪除銀行）
+     表格操作
      ============================================ */
   tbody.addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
@@ -219,14 +365,18 @@ export function initBanksPage() {
     const container = document.getElementById('annual-monthly-cards');
     let lastTotal = 0;
 
+    const filteredBanks = filters.bank
+      ? banks.filter((b) => b.id === filters.bank)
+      : banks;
+
     const cards = monthlyBalances.map((bal, i) => {
       const monthNum = i + 1;
-      const total = banks.reduce((s, b) => s + (Number(bal[b.id]?.amount) || 0), 0);
+      const total = filteredBanks.reduce((s, b) => s + (Number(bal[b.id]?.amount) || 0), 0);
       if (total > 0) lastTotal = total;
 
-      const rows = banks.length === 0
+      const rows = filteredBanks.length === 0
         ? '<div style="font-size:12px; color:var(--text-muted);">尚無銀行</div>'
-        : banks.map((b) => {
+        : filteredBanks.map((b) => {
           const amount = Number(bal[b.id]?.amount) || 0;
           return `
             <div class="annual-month-row">
@@ -265,10 +415,7 @@ export function initBanksPage() {
   /* ============================================
      當月可用金額
      ============================================ */
-  async function updateAvailableFunds() {
-    const { year, month } = AppState.getYearMonth();
-    if (month === 'all') return;
-
+  async function updateAvailableFunds(year, month) {
     try {
       const summary = await api.summary(year, month);
       const prevTotal = Object.values(prevBalances).reduce((s, b) => s + (Number(b.amount) || 0), 0);
@@ -280,7 +427,7 @@ export function initBanksPage() {
   }
 
   /* ============================================
-     Render
+     Render helpers
      ============================================ */
   function renderBankSelect() {
     if (!bankSelect) return;
@@ -290,22 +437,34 @@ export function initBanksPage() {
     if (cur && banks.some((b) => b.id === cur)) bankSelect.value = cur;
   }
 
+  function renderFilterBankOptions() {
+    const sel = document.getElementById('filter-bank');
+    if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">全部</option>`
+      + banks.map((b) => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+    if (cur && banks.some((b) => b.id === cur)) sel.value = cur;
+  }
+
   function renderTable() {
-    if (AppState.isAnnualMode()) return;
     if (!tbody) return;
 
-    const countEl = document.getElementById('bank-count');
-    if (countEl) countEl.textContent = `（共 ${banks.length} 間）`;
+    const filteredBanks = filters.bank
+      ? banks.filter((b) => b.id === filters.bank)
+      : banks;
 
-    const total = banks.reduce((s, b) => s + (Number(balances[b.id]?.amount) || 0), 0);
+    const countEl = document.getElementById('bank-count');
+    if (countEl) countEl.textContent = `（共 ${filteredBanks.length} 間）`;
+
+    const total = filteredBanks.reduce((s, b) => s + (Number(balances[b.id]?.amount) || 0), 0);
     document.getElementById('bank-total').textContent = formatHKD(total);
 
-    if (!banks.length) {
+    if (!filteredBanks.length) {
       tbody.innerHTML = `<tr><td colspan="5" class="empty-state">尚未新增銀行，請點擊上方「+」新增。</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = banks.map((b) => {
+    tbody.innerHTML = filteredBanks.map((b) => {
       const bal = balances[b.id] || {};
       const prevBal = prevBalances[b.id] || {};
       const amount = Number(bal.amount) || 0;
@@ -333,6 +492,49 @@ export function initBanksPage() {
     if (window.lucide) window.lucide.createIcons();
   }
 
+  /* ============================================
+     初始化
+     ============================================ */
+  function initFormYearMonthOptions() {
+    const ySel = document.getElementById('bank-form-year');
+    const mSel = document.getElementById('bank-form-month');
+    const now = new Date();
+    const curY = now.getFullYear();
+    const { year: stateYear, month: stateMonth } = AppState.getYearMonth();
+
+    let yOpts = '';
+    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
+    ySel.innerHTML = yOpts;
+
+    let mOpts = '';
+    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
+    mSel.innerHTML = mOpts;
+
+    ySel.value = stateYear || curY;
+    mSel.value = stateMonth === 'all' ? '01' : (stateMonth || '01');
+  }
+
+  function initFilterOptions() {
+    const ySel = document.getElementById('filter-year');
+    const mSel = document.getElementById('filter-month');
+    const now = new Date();
+    const curY = now.getFullYear();
+    const { year: stateYear } = AppState.getYearMonth();
+
+    let yOpts = '';
+    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
+    ySel.innerHTML = yOpts;
+
+    let mOpts = `<option value="all">全部</option>`;
+    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
+    mSel.innerHTML = mOpts;
+
+    ySel.value = stateYear || curY;
+    mSel.value = 'all';
+    filters.year = ySel.value;
+    filters.month = 'all';
+  }
+
   function bindCollapsibleInputCard() {
     const card = document.getElementById('bank-input-card');
     const header = document.getElementById('bank-input-header');
@@ -354,9 +556,6 @@ export function initBanksPage() {
   }
 }
 
-/* ============================================
-   Toast
-   ============================================ */
 function showToast(msg) {
   let toast = document.getElementById('app-toast');
   if (!toast) {
