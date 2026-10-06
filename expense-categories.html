@@ -40,92 +40,97 @@
 
         <div class="data-blocks">
           <!-- 支出類別 -->
-          <div class="glass-card">
-            <div class="data-block-header">
-              <div class="glass-card-title" style="margin:0;">支出類別</div>
-              <button class="btn btn-sm btn-primary" id="add-category-btn">
-                <i data-lucide="plus"></i> 新增類別
-              </button>
+          <div>
+            <!-- 🆕 v99：摺疊輸入表單 -->
+            <div id="category-input-root"></div>
+            <div class="glass-card">
+              <div class="data-block-header">
+                <div class="glass-card-title" style="margin:0;">支出類別</div>
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>名稱</th>
+                    <th style="text-align:right;">排序</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="category-tbody">
+                  <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>名稱</th>
-                  <th style="text-align:right;">排序</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="category-tbody">
-                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
           </div>
 
           <!-- 支出項目 -->
-          <div class="glass-card">
-            <div class="data-block-header">
-              <div class="glass-card-title" style="margin:0;">支出項目</div>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <select class="select" id="filter-category" style="width:auto; padding:6px 10px; font-size:13px;">
-                  <option value="">全部分類</option>
-                </select>
-                <button class="btn btn-sm btn-primary" id="add-item-btn">
-                  <i data-lucide="plus"></i> 新增
-                </button>
+          <div>
+            <!-- 🆕 v99：摺疊輸入表單 -->
+            <div id="item-input-root"></div>
+            <div class="glass-card">
+              <div class="data-block-header">
+                <div class="glass-card-title" style="margin:0;">支出項目</div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <select class="select" id="filter-category" style="width:auto; padding:6px 10px; font-size:13px;">
+                    <option value="">全部分類</option>
+                  </select>
+                </div>
               </div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>名稱</th>
+                    <th>所屬類別</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="item-tbody">
+                  <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>名稱</th>
-                  <th>所屬類別</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="item-tbody">
-                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
           </div>
 
-          <!-- 🆕 支付方式 -->
-          <div class="glass-card">
-            <div class="data-block-header">
-              <div class="glass-card-title" style="margin:0;">支付方式</div>
-              <button class="btn btn-sm btn-primary" id="add-payment-btn">
-                <i data-lucide="plus"></i> 新增支付方式
-              </button>
+          <!-- 支付方式 -->
+          <div>
+            <!-- 🆕 v99：摺疊輸入表單 -->
+            <div id="payment-input-root"></div>
+            <div class="glass-card">
+              <div class="data-block-header">
+                <div class="glass-card-title" style="margin:0;">支付方式</div>
+              </div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>名稱</th>
+                    <th style="text-align:right;">排序</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="payment-tbody">
+                  <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+                </tbody>
+              </table>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>名稱</th>
-                  <th style="text-align:right;">排序</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="payment-tbody">
-                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </main>
     </div>
   </div>
 
-  <!-- 類別 Modal -->
+  <!-- 編輯類別 Modal（保留） -->
   <div class="modal-overlay" id="category-modal">
     <div class="modal">
-      <h2 class="modal-title" id="category-modal-title">新增類別</h2>
+      <h2 class="modal-title" id="category-modal-title">編輯類別</h2>
       <form id="category-form">
-        <div class="field">
-          <label class="field-label" for="category-name">類別名稱</label>
-          <input class="input" id="category-name" required maxlength="20" placeholder="例如：醫療類">
-        </div>
-        <div class="field">
-          <label class="field-label" for="category-order">排序（數字越小越前）</label>
-          <input class="input mono" id="category-order" type="number" min="0" placeholder="例如：1">
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label" for="category-name">類別名稱</label>
+            <input class="input" id="category-name" required maxlength="20" placeholder="例如：醫療類">
+          </div>
+          <div class="field">
+            <label class="field-label" for="category-order">排序（數字越小越前）</label>
+            <input class="input mono" id="category-order" type="number" min="0" placeholder="例如：1">
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="category-cancel-btn">取消</button>
@@ -135,20 +140,22 @@
     </div>
   </div>
 
-  <!-- 項目 Modal -->
+  <!-- 編輯項目 Modal（保留） -->
   <div class="modal-overlay" id="item-modal">
     <div class="modal">
-      <h2 class="modal-title" id="item-modal-title">新增項目</h2>
+      <h2 class="modal-title" id="item-modal-title">編輯項目</h2>
       <form id="item-form">
-        <div class="field">
-          <label class="field-label" for="item-category">所屬類別</label>
-          <select class="select" id="item-category" required>
-            <option value="">— 請選擇 —</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="field-label" for="item-name">項目名稱</label>
-          <input class="input" id="item-name" required maxlength="30" placeholder="例如：看病-濕疹">
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label" for="item-category">所屬類別</label>
+            <select class="select" id="item-category" required>
+              <option value="">— 請選擇 —</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="item-name">項目名稱</label>
+            <input class="input" id="item-name" required maxlength="30" placeholder="例如：看病-濕疹">
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="item-cancel-btn">取消</button>
@@ -158,18 +165,20 @@
     </div>
   </div>
 
-  <!-- 🆕 支付方式 Modal -->
+  <!-- 編輯支付方式 Modal（保留） -->
   <div class="modal-overlay" id="payment-modal">
     <div class="modal">
-      <h2 class="modal-title" id="payment-modal-title">新增支付方式</h2>
+      <h2 class="modal-title" id="payment-modal-title">編輯支付方式</h2>
       <form id="payment-form">
-        <div class="field">
-          <label class="field-label" for="payment-name">支付方式名稱</label>
-          <input class="input" id="payment-name" required maxlength="20" placeholder="例如：現金">
-        </div>
-        <div class="field">
-          <label class="field-label" for="payment-order">排序（數字越小越前）</label>
-          <input class="input mono" id="payment-order" type="number" min="0" placeholder="例如：1">
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label" for="payment-name">支付方式名稱</label>
+            <input class="input" id="payment-name" required maxlength="20" placeholder="例如：現金">
+          </div>
+          <div class="field">
+            <label class="field-label" for="payment-order">排序（數字越小越前）</label>
+            <input class="input mono" id="payment-order" type="number" min="0" placeholder="例如：1">
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="payment-cancel-btn">取消</button>
