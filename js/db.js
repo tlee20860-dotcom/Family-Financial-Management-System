@@ -727,3 +727,44 @@ export async function getPaymentMethodsOnce() {
   list.sort((a, b) => (a.order || 0) - (b.order || 0));
   return list;
 }
+/* ============================================
+   🆕 v93 收入：跨年跨月監聽 + 單筆編輯
+   ============================================ */
+
+/**
+ * 監聽所有收入（跨年跨月）
+ * 回傳扁平陣列：[{year, month, memberId, amount}, ...]
+ */
+export function listenAllIncome(callback, onError) {
+  return listen('income', (snap) => {
+    const val = snap.val() || {};
+    const flat = [];
+    Object.entries(val).forEach(([year, months]) => {
+      Object.entries(months || {}).forEach(([month, data]) => {
+        Object.entries(data || {}).forEach(([memberId, amount]) => {
+          flat.push({ year, month, memberId, amount: Math.round(Number(amount) || 0) });
+        });
+      });
+    });
+    callback(flat);
+  }, onError);
+}
+
+/**
+ * 更新單筆收入（金額 > 0 用 update，= 0 用 remove）
+ */
+export async function updateIncomeEntry(year, month, memberId, amount) {
+  const num = Math.round(Number(amount) || 0);
+  if (num > 0) {
+    await update(familyRef(`income/${year}/${month}`), { [memberId]: num });
+  } else {
+    await remove(familyRef(`income/${year}/${month}/${memberId}`));
+  }
+}
+
+/**
+ * 刪除單筆收入
+ */
+export async function removeIncomeEntry(year, month, memberId) {
+  await remove(familyRef(`income/${year}/${month}/${memberId}`));
+}
