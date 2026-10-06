@@ -1,5 +1,5 @@
 // ============================================
-// annual-report.js — 年度報表（雙檢視模式）
+// annual-report.js — 年度報表（含支付方式統計）
 // ============================================
 
 import { api } from './api.js';
@@ -8,7 +8,7 @@ import { AppState } from './state.js';
 
 let currentYear = '';
 let currentView = 'summary';
-let currentDisplayMonth = '01';   // 🆕 按月明細的顯示月份
+let currentDisplayMonth = '01';
 let annualData = null;
 
 const CATEGORY_ORDER = ['醫療類', '學校類', '保險類', '固定費用類', '其他'];
@@ -50,9 +50,6 @@ export function initAnnualReportPage() {
   loadAnnual();
 }
 
-/* ============================================
-   🆕 年份切換器
-   ============================================ */
 function renderYearSwitcher() {
   const el = document.getElementById('year-switcher');
   if (!el) return;
@@ -72,9 +69,6 @@ function renderYearSwitcher() {
   });
 }
 
-/* ============================================
-   🆕 月份切換器
-   ============================================ */
 function renderMonthSwitcher() {
   const el = document.getElementById('month-switcher');
   if (!el) return;
@@ -94,9 +88,6 @@ function renderMonthSwitcher() {
   });
 }
 
-/* ============================================
-   載入年度資料
-   ============================================ */
 async function loadAnnual() {
   document.getElementById('report-year-title').textContent = `${currentYear} 年`;
   document.getElementById('summary-tbody').innerHTML = '<tr><td colspan="9" class="empty-state">載入中…</td></tr>';
@@ -121,13 +112,10 @@ async function loadAnnual() {
   }
 }
 
-/* ============================================
-   🆕 buildAnnualData — 收集 12 個月的資料
-   fixedExpenses 加入 categoryName
-   ============================================ */
 function buildAnnualData(year, monthlyResults) {
   const memberMap = {};
-  const fixedMap = {};   // key: categoryName → { [itemName]: [12] }
+  const fixedMap = {};
+  const paymentMap = {};
   const monthlyTotals = { income: Array(12).fill(0), expense: Array(12).fill(0) };
 
   monthlyResults.forEach((monthData, idx) => {
@@ -156,13 +144,19 @@ function buildAnnualData(year, monthlyResults) {
       });
     });
 
-    // 🆕 家庭固定支出：按 categoryName 分類
     (monthData.fixedList || []).forEach((f) => {
       const catName = f.categoryName || '其他';
       const key = f.name || '（未命名）';
       if (!fixedMap[catName]) fixedMap[catName] = {};
       if (!fixedMap[catName][key]) fixedMap[catName][key] = Array(12).fill(0);
       fixedMap[catName][key][idx] += Math.round(Number(f.amount) || 0);
+    });
+
+    // 🆕 支付方式統計
+    const pb = monthData.paymentBreakdown || {};
+    Object.entries(pb).forEach(([pmName, amount]) => {
+      if (!paymentMap[pmName]) paymentMap[pmName] = Array(12).fill(0);
+      paymentMap[pmName][idx] += Math.round(Number(amount) || 0);
     });
 
     monthlyTotals.income[idx] = Math.round(monthData.totalIncome || 0);
@@ -178,7 +172,7 @@ function buildAnnualData(year, monthlyResults) {
     return 0;
   });
 
-  return { year, members: membersArr, fixedExpenses: fixedMap, monthly: monthlyTotals };
+  return { year, members: membersArr, fixedExpenses: fixedMap, paymentBreakdown: paymentMap, monthly: monthlyTotals };
 }
 
 function renderStats() {
@@ -193,9 +187,6 @@ function renderStats() {
   balanceEl.classList.add(balance >= 0 ? 'emerald' : 'red');
 }
 
-/* ============================================
-   全年總合檢視
-   ============================================ */
 function renderSummary() {
   const thead = document.getElementById('summary-thead');
   const tbody = document.getElementById('summary-tbody');
@@ -215,7 +206,6 @@ function renderSummary() {
   let grandTotalExpense = 0;
   const grandCategoryTotals = Object.fromEntries(categories.map((c) => [c, 0]));
 
-  /* 成員行 */
   annualData.members.forEach((m) => {
     if (m.id === 'extra') return;
 
@@ -253,7 +243,6 @@ function renderSummary() {
     `);
   });
 
-  /* 🆕 家庭共用支出（按類別彙總為一列） */
   const sharedCatTotals = {};
   categories.forEach((c) => { sharedCatTotals[c] = 0; });
   let sharedTotal = 0;
@@ -261,9 +250,7 @@ function renderSummary() {
   Object.entries(annualData.fixedExpenses).forEach(([catName, itemsMap]) => {
     const catKey = categories.includes(catName) ? catName : '其他';
     let catSum = 0;
-    Object.values(itemsMap).forEach((arr) => {
-      catSum += arr.reduce((a, b) => a + b, 0);
-    });
+    Object.values(itemsMap).forEach((arr) => { catSum += arr.reduce((a, b) => a + b, 0); });
     sharedCatTotals[catKey] += catSum;
     sharedTotal += catSum;
   });
@@ -283,12 +270,10 @@ function renderSummary() {
     `);
   }
 
-  /* 額外收入 */
   const extraMember = annualData.members.find((m) => m.id === 'extra');
   const extraIncome = extraMember ? extraMember.income.reduce((s, x) => s + x, 0) : 0;
   grandTotalIncome += extraIncome;
 
-  /* 總計行 */
   rows.push(`
     <tr class="group-header">
       <td>【總計】</td>
@@ -301,14 +286,56 @@ function renderSummary() {
 
   tbody.innerHTML = rows.join('');
   if (window.lucide) window.lucide.createIcons();
+
+  // 🆕 支付方式統計卡片
+  renderPaymentStatsCard();
 }
 
-/* ============================================
-   🆕 按月明細檢視（單月）
-   ============================================ */
-/* ============================================
-   按月明細檢視（單月）
-   ============================================ */
+function renderPaymentStatsCard() {
+  const container = document.getElementById('payment-stats-card');
+  if (!container) return;
+
+  const pb = annualData.paymentBreakdown || {};
+  const entries = Object.entries(pb).filter(([, arr]) => arr.some((v) => v > 0));
+
+  if (entries.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.style.display = 'block';
+
+  const rows = entries.map(([pmName, arr]) => {
+    const total = arr.reduce((s, x) => s + x, 0);
+    return `
+      <tr>
+        <td>${escapeHtml(pmName)}</td>
+        <td class="num text-emerald">${formatHKD(total)}</td>
+      </tr>
+    `;
+  }).join('');
+
+  const grandTotal = entries.reduce((s, [, arr]) => s + arr.reduce((a, b) => a + b, 0), 0);
+
+  container.innerHTML = `
+    <div class="glass-card-title" style="margin-bottom:14px;">支付方式統計</div>
+    <div style="overflow-x:auto;">
+      <table class="annual-table" style="min-width:400px;">
+        <thead>
+          <tr><th>支付方式</th><th class="num">年度總支出</th></tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr class="group-header">
+            <td>【總計】</td>
+            <td class="num">${formatHKD(grandTotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderMonthly() {
   const tbody = document.getElementById('monthly-tbody');
   const monthIdx = Number(currentDisplayMonth) - 1;
@@ -316,7 +343,6 @@ function renderMonthly() {
 
   const sumArr = (arr) => arr.reduce((s, x) => s + x, 0);
 
-  /* 收入 */
   const incomeRows = annualData.members.filter((m) => m.income.some((v) => v > 0));
   if (incomeRows.length > 0) {
     rows.push(`<tr class="group-header"><td>【收入】</td><td class="num"></td><td class="num"></td></tr>`);
@@ -342,7 +368,6 @@ function renderMonthly() {
     `);
   }
 
-  /* 每位成員 */
   annualData.members.forEach((m) => {
     if (m.id === 'extra') return;
     const itemNames = Object.keys(m.expenses);
@@ -379,11 +404,9 @@ function renderMonthly() {
     `);
   });
 
-  /* 🆕 家庭共用支出（逐項顯示，與成員一致） */
   const fixedCatNames = Object.keys(annualData.fixedExpenses);
 
   if (fixedCatNames.length > 0) {
-    // 合併所有類別的項目為一個扁平 map（同名項目累加）
     const allItems = {};
     Object.values(annualData.fixedExpenses).forEach((itemsMap) => {
       Object.entries(itemsMap).forEach(([name, arr]) => {
@@ -425,7 +448,6 @@ function renderMonthly() {
     }
   }
 
-  /* 月度總計 */
   const expenseCurrent = annualData.monthly.expense[monthIdx] || 0;
   const expenseAnnual = sumArr(annualData.monthly.expense);
   const incomeCurrent = annualData.monthly.income[monthIdx] || 0;
@@ -453,9 +475,6 @@ function renderMonthly() {
   if (window.lucide) window.lucide.createIcons();
 }
 
-/* ============================================
-   Excel 匯出（保持 12 欄格式）
-   ============================================ */
 function exportToExcel() {
   if (!annualData) return alert('資料尚未載入完成');
   const data = annualData;
@@ -488,7 +507,6 @@ function exportToExcel() {
     rows.push([`${m.name}小計`, ...monthlyMemberTotal.map((v) => Math.round(v)), memberSubtotal]);
   });
 
-  /* 家庭共用支出（按類別） */
   const fixedCatNames = Object.keys(data.fixedExpenses);
   if (fixedCatNames.length > 0) {
     const monthlyFixedTotal = Array(12).fill(0);
@@ -504,6 +522,19 @@ function exportToExcel() {
     });
     const fixedSubtotal = Math.round(monthlyFixedTotal.reduce((s, x) => s + x, 0));
     rows.push(['固定支出小計', ...monthlyFixedTotal.map((v) => Math.round(v)), fixedSubtotal]);
+  }
+
+  // 🆕 支付方式統計
+  const pbEntries = Object.entries(data.paymentBreakdown || {}).filter(([, arr]) => arr.some((v) => v > 0));
+  if (pbEntries.length > 0) {
+    rows.push(['【支付方式統計】', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+    let pmGrand = 0;
+    pbEntries.forEach(([pmName, arr]) => {
+      const total = Math.round(arr.reduce((s, x) => s + x, 0));
+      pmGrand += total;
+      rows.push([`  ${pmName}`, ...arr.map((v) => Math.round(v)), total]);
+    });
+    rows.push(['支付方式合計', '', '', '', '', '', '', '', '', '', '', '', '', pmGrand]);
   }
 
   rows.push(['【月度總計】', '', '', '', '', '', '', '', '', '', '', '', '', '']);
