@@ -12,6 +12,7 @@ import {
 import { formatHKD, escapeHtml } from './utils.js';
 import { renderPageFilter } from './page-filter.js';
 import { showToast } from './toast.js';
+import { createInputForm } from './input-form.js';
 import { AppState } from './state.js';
 
 let templates = [];
@@ -22,6 +23,7 @@ let members = [];
 let payments = [];
 let currentView = localStorage.getItem('fixed_view') || 'card';
 let expandedKeys = new Set();
+let inputForm = null;
 
 export function initFixedExpensesPage() {
   renderPageFilter({
@@ -33,54 +35,137 @@ export function initFixedExpensesPage() {
     },
   });
 
-  const container = document.getElementById('fixed-templates-container');
-  const modal = document.getElementById('fixed-modal');
-  const form = document.getElementById('fixed-form');
-  const memberSel = document.getElementById('fixed-member');
-  const categorySel = document.getElementById('fixed-category');
-  const itemSel = document.getElementById('fixed-item');
-  const cycleSelect = document.getElementById('fixed-cycle');
-  const amountInput = document.getElementById('fixed-amount');
-  const noteInput = document.getElementById('fixed-note');
-  const paymentSel = document.getElementById('fixed-payment');
-  const addItemBtn = document.getElementById('add-fixed-item-btn');
+  // 🆕 v99：摺疊輸入表單
+  inputForm = createInputForm({
+    containerId: 'fixed-input-root',
+    storageKey: 'fixed-input-open',
+    title: '新增固定支出',
+    icon: 'plus-circle',
+    fields: [
+      { type: 'select', id: 'inp-member', label: '所屬成員', options: [{ value: 'shared', label: '家庭共用支出' }] },
+      { type: 'select', id: 'inp-category', label: '支出類別', required: true, includeEmpty: true, emptyText: '— 請選擇類別 —' },
+      {
+        type: 'select', id: 'inp-item', label: '項目', required: true, includeEmpty: true, emptyText: '— 請先選擇類別 —',
+        extraBtn: {
+          icon: 'plus', title: '新增項目',
+          onClick: async () => {
+            const catId = document.getElementById('inp-category').value;
+            if (!catId) return alert('請先選擇一個類別，再新增項目。');
+            const name = prompt('請輸入新項目名稱：');
+            if (!name || !name.trim()) return;
+            try {
+              await addItem({ name: name.trim(), categoryId: catId });
+              setTimeout(() => {
+                const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId);
+                if (newItem) document.getElementById('inp-item').value = newItem.id;
+              }, 500);
+            } catch (err) { alert('新增項目失敗：' + err.message); }
+          },
+        },
+      },
+      {
+        type: 'select', id: 'inp-cycle', label: '付款週期',
+        options: [
+          { value: '每月', label: '每月' },
+          { value: '每2個月', label: '每2個月' },
+          { value: '每季', label: '每季' },
+          { value: '每年', label: '每年' },
+          { value: '一次性', label: '一次性' },
+        ],
+        includeEmpty: false,
+      },
+      { type: 'select', id: 'inp-payment', label: '支付方式' },
+      { type: 'number', id: 'inp-amount', label: '每月金額（HK$）', required: true, min: 0, step: 1 },
+      { type: 'text', id: 'inp-note', label: '備註（可選）', maxlength: 60 },
+    ],
+    submitText: '新增並分配到各月',
+    onSubmit: async (data) => {
+      const memberId = data['inp-member'];
+      const catId = data['inp-category'];
+      const itemId = data['inp-item'];
+      const itemName = items.find((i) => i.id === itemId)?.name || '';
+      const amount = Math.round(Number(data['inp-amount']) || 0);
+      const cycle = data['inp-cycle'];
+      const note = data['inp-note'] || '';
+      const paymentMethodId = data['inp-payment'] || '';
+      if (!itemName || !amount) return;
 
-  bindViewToggle();
+      await addFixedTemplate({
+        name: itemName, categoryId: catId, itemId: itemId,
+        amount: amount, cycle: cycle, note: note, memberId: memberId,
+        paymentMethodId: paymentMethodId,
+      });
+
+      const targetMonths = getMonthsByCycle(cycle);
+      const year = AppState.year;
+      const promises = [];
+      for (let m = 1; m <= 12; m++) {
+        const monthStr = String(m).padStart(2, '0');
+        const isTarget = targetMonths.includes(m);
+        promises.push(addFixedExpenseV2(year, monthStr, {
+          name: itemName, amount: isTarget ? amount : 0, cycle: cycle, note: note,
+          categoryId: catId, itemId: itemId, memberId: memberId, isSkipped: !isTarget,
+          paymentMethodId: paymentMethodId,
+        }));
+      }
+      await Promise.all(promises);
+      await loadYearData();
+      render();
+
+      showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`, 'success');
+      inputForm.close();
+    },
+    onReset: () => {
+      const itemSel = document.getElementById('inp-item');
+      if (itemSel) itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
+    },
+  });
+
+  // 綁定類別變更 → 更新項目
+  if (inputForm) {
+    inputForm.onFieldChange('inp-category', () => {
+      const catId = document.getElementById('inp-category').value;
+      const filtered = items.filter((i) => i.categoryId === catId);
+      inputForm.updateOptions('inp-item', filtered.map((i) => ({ value: i.id, label: i.name })), {
+        includeEmpty: true, emptyText: catId ? '— 請選擇項目 —' : '— 請先選擇類別 —',
+      });
+    });
+  }
+
+  /* ============================================
+     資料監聽
+     ============================================ */
 
   listenMembers((list) => {
     members = list;
-    const cur = memberSel.value;
-    memberSel.innerHTML = `<option value="shared">家庭共用支出</option>` + members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
-    if (cur) memberSel.value = cur;
-  });
-
-  listenCategories((cats) => { categories = cats; renderCategoryOptions(); });
-  listenItems((list) => { items = list; renderItemOptions(); });
-
-  listenPaymentMethods((list) => {
-    payments = list;
-    if (paymentSel) {
-      const cur = paymentSel.value;
-      paymentSel.innerHTML = `<option value="">— 請選擇 —</option>` + payments.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
-      if (cur) paymentSel.value = cur;
+    if (inputForm) {
+      inputForm.updateOptions('inp-member', [
+        { value: 'shared', label: '家庭共用支出' },
+        ...members.map((m) => ({ value: m.id, label: m.name })),
+      ], { includeEmpty: false });
     }
   });
 
-  categorySel.addEventListener('change', renderItemOptions);
+  listenCategories((cats) => {
+    categories = cats;
+    if (inputForm) {
+      inputForm.updateOptions('inp-category', categories.map((c) => ({ value: c.id, label: c.name })), {
+        includeEmpty: true, emptyText: '— 請選擇類別 —',
+      });
+    }
+  });
 
-  addItemBtn.addEventListener('click', async () => {
-    const catId = categorySel.value;
-    if (!catId) return alert('請先選擇一個類別，再新增項目。');
-    const name = prompt('請輸入新項目名稱：');
-    if (!name || !name.trim()) return;
-    try {
-      await addItem({ name: name.trim(), categoryId: catId });
-      setTimeout(() => {
-        const newItem = items.find((i) => i.name === name.trim() && i.categoryId === catId);
-        if (newItem) itemSel.value = newItem.id;
-      }, 500);
-    } catch (err) {
-      alert('新增項目失敗：' + err.message);
+  listenItems((list) => {
+    items = list;
+    // 項目選項依類別動態更新，由 inp-category change 事件處理
+  });
+
+  listenPaymentMethods((list) => {
+    payments = list;
+    if (inputForm) {
+      inputForm.updateOptions('inp-payment', payments.map((p) => ({ value: p.id, label: p.name })), {
+        includeEmpty: true, emptyText: '— 請選擇 —',
+      });
     }
   });
 
@@ -95,53 +180,15 @@ export function initFixedExpensesPage() {
     render();
   });
 
-  document.getElementById('add-fixed-btn').addEventListener('click', () => {
-    form.reset();
-    memberSel.value = 'shared';
-    categorySel.value = '';
-    itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`;
-    modal.classList.add('active');
-  });
+  /* ============================================
+     檢視切換
+     ============================================ */
+  bindViewToggle();
 
-  document.getElementById('fixed-cancel-btn').addEventListener('click', () => modal.classList.remove('active'));
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const memberId = memberSel.value;
-    const catId = categorySel.value;
-    const itemId = itemSel.value;
-    const itemName = items.find((i) => i.id === itemId)?.name || '';
-    const amount = Math.round(Number(amountInput.value) || 0);
-    const cycle = cycleSelect.value;
-    const note = noteInput.value.trim();
-    const paymentMethodId = paymentSel ? paymentSel.value : '';
-    if (!itemName || !amount) return;
-
-    await addFixedTemplate({
-      name: itemName, categoryId: catId, itemId: itemId,
-      amount: amount, cycle: cycle, note: note, memberId: memberId,
-      paymentMethodId: paymentMethodId,
-    });
-
-    const targetMonths = getMonthsByCycle(cycle);
-    const year = AppState.year;
-    const promises = [];
-    for (let m = 1; m <= 12; m++) {
-      const monthStr = String(m).padStart(2, '0');
-      const isTarget = targetMonths.includes(m);
-      promises.push(addFixedExpenseV2(year, monthStr, {
-        name: itemName, amount: isTarget ? amount : 0, cycle: cycle, note: note,
-        categoryId: catId, itemId: itemId, memberId: memberId, isSkipped: !isTarget,
-        paymentMethodId: paymentMethodId,
-      }));
-    }
-    await Promise.all(promises);
-    await loadYearData();
-    render();
-
-    modal.classList.remove('active');
-    showToast(`✅ 已新增「${itemName}」並分配到 ${targetMonths.length} 個月份`, 'success');
-  });
+  /* ============================================
+     容器事件委派（展開/刪除/儲存）
+     ============================================ */
+  const container = document.getElementById('fixed-templates-container');
 
   container.addEventListener('click', async (e) => {
     const yearHeader = e.target.closest('.fixed-year-header');
@@ -172,8 +219,7 @@ export function initFixedExpensesPage() {
 
     const saveBtn = e.target.closest('button[data-action="save-template"]');
     if (saveBtn) {
-      const name = saveBtn.dataset.name;
-      await saveTemplateDetails(name);
+      await saveTemplateDetails(saveBtn.dataset.name);
       return;
     }
   });
@@ -192,18 +238,9 @@ export function initFixedExpensesPage() {
     }
   });
 
-  function renderCategoryOptions() {
-    const cur = categorySel.value;
-    categorySel.innerHTML = `<option value="">— 請選擇類別 —</option>` + categories.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
-    if (cur) categorySel.value = cur;
-  }
-
-  function renderItemOptions() {
-    const catId = categorySel.value;
-    if (!catId) { itemSel.innerHTML = `<option value="">— 請先選擇類別 —</option>`; return; }
-    const filtered = items.filter((i) => i.categoryId === catId);
-    itemSel.innerHTML = `<option value="">— 請選擇項目 —</option>` + filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
-  }
+  /* ============================================
+     內部函式
+     ============================================ */
 
   async function loadYearData() {
     monthlyData = {};
@@ -338,12 +375,13 @@ export function initFixedExpensesPage() {
   }
 
   function render() {
+    const container = document.getElementById('fixed-templates-container');
     if (!templates.length) {
       container.innerHTML = `
         <div class="glass-card">
           <div class="empty-state">
             <i data-lucide="file-text" style="width:48px;height:48px;opacity:0.4;"></i>
-            <p style="margin-top:12px;">尚無固定支出，點擊「新增固定支出」開始。</p>
+            <p style="margin-top:12px;">尚無固定支出，點擊上方「新增固定支出」開始。</p>
           </div>
         </div>`;
       if (window.lucide) window.lucide.createIcons();
