@@ -299,7 +299,8 @@ function renderSummary() {
 
 function renderPaymentStatsCard() {
   const container = document.getElementById('payment-stats-card');
-  if (!container) return;
+  const body = document.getElementById('payment-stats-body');
+  if (!container || !body) return;
 
   const pb = annualData.paymentBreakdown || {};
   const entries = Object.entries(pb).filter(([, arr]) => arr.some((v) => v > 0));
@@ -323,8 +324,7 @@ function renderPaymentStatsCard() {
 
   const grandTotal = entries.reduce((s, [, arr]) => s + arr.reduce((a, b) => a + b, 0), 0);
 
-  container.innerHTML = `
-    <div class="glass-card-title" style="margin-bottom:14px;">支付方式統計</div>
+  body.innerHTML = `
     <div style="overflow-x:auto;">
       <table class="annual-table" style="min-width:400px;">
         <thead>
@@ -340,8 +340,9 @@ function renderPaymentStatsCard() {
       </table>
     </div>
   `;
-}
 
+  if (window.lucide) window.lucide.createIcons();
+}
 function renderMonthly() {
   const tbody = document.getElementById('monthly-tbody');
   const monthIdx = Number(currentDisplayMonth) - 1;
