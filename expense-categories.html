@@ -16,14 +16,6 @@
     @media (max-width: 1024px) {
       .data-blocks { grid-template-columns: 1fr; }
     }
-    .data-block-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
   </style>
 </head>
 <body>
@@ -41,75 +33,93 @@
         <div class="data-blocks">
           <!-- 支出類別 -->
           <div>
-            <!-- 🆕 v99：摺疊輸入表單 -->
             <div id="category-input-root"></div>
-            <div class="glass-card">
-              <div class="data-block-header">
-                <div class="glass-card-title" style="margin:0;">支出類別</div>
+
+            <div class="glass-card collapsible-card collapsible-card-flat" id="cat-table-card">
+              <div class="collapsible-header" id="cat-table-header">
+                <div class="collapsible-header-title">
+                  <i data-lucide="tags" style="width:16px;height:16px;"></i>
+                  <span>支出類別</span>
+                </div>
+                <i data-lucide="chevron-down" class="collapsible-arrow"></i>
               </div>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>名稱</th>
-                    <th style="text-align:right;">排序</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="category-tbody">
-                  <tr><td colspan="3" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
+              <div class="collapsible-body" id="cat-table-body" style="display:none;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>名稱</th>
+                      <th style="text-align:right;">排序</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="category-tbody">
+                    <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
           <!-- 支出項目 -->
           <div>
-            <!-- 🆕 v99：摺疊輸入表單 -->
             <div id="item-input-root"></div>
-            <div class="glass-card">
-              <div class="data-block-header">
-                <div class="glass-card-title" style="margin:0;">支出項目</div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                  <select class="select" id="filter-category" style="width:auto; padding:6px 10px; font-size:13px;">
+
+            <div class="glass-card collapsible-card collapsible-card-flat" id="item-table-card">
+              <div class="collapsible-header" id="item-table-header">
+                <div class="collapsible-header-title">
+                  <i data-lucide="list" style="width:16px;height:16px;"></i>
+                  <span>支出項目</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <select class="select" id="filter-category" style="width:auto; padding:4px 8px; font-size:12px;" onclick="event.stopPropagation()">
                     <option value="">全部分類</option>
                   </select>
+                  <i data-lucide="chevron-down" class="collapsible-arrow"></i>
                 </div>
               </div>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>名稱</th>
-                    <th>所屬類別</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="item-tbody">
-                  <tr><td colspan="3" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
+              <div class="collapsible-body" id="item-table-body" style="display:none;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>名稱</th>
+                      <th>所屬類別</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="item-tbody">
+                    <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
           <!-- 支付方式 -->
           <div>
-            <!-- 🆕 v99：摺疊輸入表單 -->
             <div id="payment-input-root"></div>
-            <div class="glass-card">
-              <div class="data-block-header">
-                <div class="glass-card-title" style="margin:0;">支付方式</div>
+
+            <div class="glass-card collapsible-card collapsible-card-flat" id="payment-table-card">
+              <div class="collapsible-header" id="payment-table-header">
+                <div class="collapsible-header-title">
+                  <i data-lucide="credit-card" style="width:16px;height:16px;"></i>
+                  <span>支付方式</span>
+                </div>
+                <i data-lucide="chevron-down" class="collapsible-arrow"></i>
               </div>
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>名稱</th>
-                    <th style="text-align:right;">排序</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody id="payment-tbody">
-                  <tr><td colspan="3" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
+              <div class="collapsible-body" id="payment-table-body" style="display:none;">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>名稱</th>
+                      <th style="text-align:right;">排序</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="payment-tbody">
+                    <tr><td colspan="3" class="empty-state">載入中…</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
@@ -117,7 +127,7 @@
     </div>
   </div>
 
-  <!-- 編輯類別 Modal（保留） -->
+  <!-- 編輯類別 Modal -->
   <div class="modal-overlay" id="category-modal">
     <div class="modal">
       <h2 class="modal-title" id="category-modal-title">編輯類別</h2>
@@ -140,7 +150,7 @@
     </div>
   </div>
 
-  <!-- 編輯項目 Modal（保留） -->
+  <!-- 編輯項目 Modal -->
   <div class="modal-overlay" id="item-modal">
     <div class="modal">
       <h2 class="modal-title" id="item-modal-title">編輯項目</h2>
@@ -165,7 +175,7 @@
     </div>
   </div>
 
-  <!-- 編輯支付方式 Modal（保留） -->
+  <!-- 編輯支付方式 Modal -->
   <div class="modal-overlay" id="payment-modal">
     <div class="modal">
       <h2 class="modal-title" id="payment-modal-title">編輯支付方式</h2>
