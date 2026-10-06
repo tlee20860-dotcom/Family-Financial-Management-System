@@ -8,41 +8,220 @@
   <link rel="stylesheet" href="./css/layout.css">
   <link rel="stylesheet" href="./css/components.css">
   <style>
-    .report-view-tabs {
+    /* ===== 控制列：視圖切換 + 年份切換器 ===== */
+    .report-controls {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
     }
-    .annual-table-wrapper {
+
+    .year-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .year-switcher .year-btn {
+      padding: 6px 12px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-secondary);
+      transition: all var(--transition);
+      cursor: pointer;
+    }
+
+    .year-switcher .year-btn:hover {
+      color: var(--neon-cyan);
+      border-color: var(--glass-border-hover);
+    }
+
+    .year-switcher .year-btn.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: rgba(0, 240, 255, 0.5);
+      color: var(--neon-cyan);
+      font-weight: 700;
+      cursor: default;
+    }
+
+    .year-switcher .year-arrow {
+      padding: 6px 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ===== 月份切換器 ===== */
+    .month-switcher {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .month-switcher .month-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--glass-border);
+      background: var(--glass-bg);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .month-switcher .month-btn:hover {
+      color: var(--neon-cyan);
+      border-color: var(--glass-border-hover);
+    }
+
+    .month-switcher .month-btn.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: rgba(0, 240, 255, 0.5);
+      color: var(--neon-cyan);
+      font-weight: 700;
+    }
+
+    /* ===== 全年總合表格 ===== */
+    .summary-table-wrapper {
       overflow-x: auto;
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
       background: var(--glass-bg);
       backdrop-filter: blur(var(--glass-blur));
     }
+
     .annual-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
-      min-width: 800px;
+      min-width: 900px;
     }
-    .annual-table th, .annual-table td {
+
+    .annual-table th,
+    .annual-table td {
       padding: 10px 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       text-align: left;
     }
+
     .annual-table thead th {
       font-size: 11px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 1px;
+      white-space: nowrap;
     }
-    .annual-table .num { text-align: right; font-family: var(--font-mono); }
-    .annual-table tr:hover td { background: rgba(0, 240, 255, 0.03); }
+
+    .annual-table .num {
+      text-align: right;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    .annual-table tr:hover td {
+      background: rgba(0, 240, 255, 0.03);
+    }
+
     .annual-table .group-header td {
       background: rgba(0, 240, 255, 0.06);
       color: var(--neon-cyan);
       font-weight: 700;
+    }
+
+    .annual-table .shared-row td {
+      background: rgba(217, 70, 239, 0.06);
+      color: var(--neon-magenta);
+      font-weight: 600;
+    }
+
+    /* ===== 按月明細表格（單月模式） ===== */
+    .monthly-table-wrapper {
+      overflow-x: auto;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur));
+    }
+
+    .monthly-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 520px;
+    }
+
+    .monthly-table th,
+    .monthly-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      text-align: left;
+    }
+
+    .monthly-table thead th {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: rgba(0, 240, 255, 0.03);
+    }
+
+    .monthly-table .num {
+      text-align: right;
+      font-family: var(--font-mono);
+      white-space: nowrap;
+    }
+
+    .monthly-table tr:hover td {
+      background: rgba(0, 240, 255, 0.03);
+    }
+
+    .monthly-table .group-header td {
+      background: rgba(0, 240, 255, 0.06);
+      color: var(--neon-cyan);
+      font-weight: 700;
+    }
+
+    .monthly-table .subtotal-row td {
+      font-weight: 700;
+      color: var(--text-primary);
+      border-top: 1px solid rgba(0, 240, 255, 0.15);
+    }
+
+    .monthly-table .total-row td {
+      font-weight: 700;
+      background: rgba(0, 240, 255, 0.08);
+    }
+
+    .monthly-table .net-row td {
+      font-weight: 700;
+      background: rgba(217, 70, 239, 0.06);
+    }
+
+    @media (max-width: 640px) {
+      .annual-table th,
+      .annual-table td {
+        padding: 8px 8px;
+        font-size: 11px;
+      }
+      .monthly-table th,
+      .monthly-table td {
+        padding: 8px 10px;
+        font-size: 12px;
+      }
+      .month-switcher .month-btn {
+        padding: 5px 9px;
+        font-size: 11px;
+      }
+      .year-switcher .year-btn {
+        padding: 5px 9px;
+        font-size: 12px;
+      }
     }
   </style>
 </head>
@@ -53,25 +232,18 @@
       <header id="navbar-root"></header>
 
       <main class="content">
+        <!-- ===== 頁頭：年份標題 + 匯出 ===== -->
         <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
           <div>
-            <h1 class="page-title">年度報表</h1>
-            <p class="page-subtitle" id="annual-year">載入中…</p>
+            <h1 class="page-title" id="report-year-title">2026 年</h1>
+            <p class="page-subtitle">年度報表</p>
           </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <button class="btn btn-ghost" id="prev-year-btn">
-              <i data-lucide="chevron-left"></i> 上一年
-            </button>
-            <button class="btn btn-ghost" id="next-year-btn">
-              下一年 <i data-lucide="chevron-right"></i>
-            </button>
-            <button class="btn btn-magenta" id="export-excel-btn">
-              <i data-lucide="file-spreadsheet"></i> 匯出 Excel
-            </button>
-          </div>
+          <button class="btn btn-magenta" id="export-excel-btn">
+            <i data-lucide="file-spreadsheet"></i> 匯出 Excel
+          </button>
         </div>
 
-        <!-- 年度統計卡 -->
+        <!-- ===== 年度統計卡 ===== -->
         <div class="grid grid-3" style="margin-bottom:20px;">
           <div class="glass-card">
             <div class="glass-card-title">年度總收入</div>
@@ -87,40 +259,43 @@
           </div>
         </div>
 
-        <!-- 檢視切換 -->
-        <div class="report-view-tabs">
-          <button class="btn btn-primary" id="view-summary-btn">全年總合</button>
-          <button class="btn btn-ghost" id="view-monthly-btn">按月明細</button>
+        <!-- ===== 控制列：視圖切換 + 年份切換器 ===== -->
+        <div class="report-controls">
+          <div class="view-toggle-group">
+            <button class="btn btn-sm btn-primary" id="view-summary-btn">全年總合</button>
+            <button class="btn btn-sm btn-ghost" id="view-monthly-btn">按月明細</button>
+          </div>
+          <div class="year-switcher" id="year-switcher"></div>
         </div>
 
-        <!-- 全年總合檢視 -->
+        <!-- ===== 月份切換器（只在按月明細模式顯示） ===== -->
+        <div class="month-switcher" id="month-switcher" style="display:none;"></div>
+
+        <!-- ===== 全年總合檢視 ===== -->
         <div id="summary-view">
-          <div class="glass-card">
-            <div style="overflow-x:auto;">
-              <table class="annual-table">
-                <thead id="summary-thead"></thead>
-                <tbody id="summary-tbody">
-                  <tr><td colspan="8" class="empty-state">載入中…</td></tr>
-                </tbody>
-              </table>
-            </div>
+          <div class="summary-table-wrapper">
+            <table class="annual-table">
+              <thead id="summary-thead"></thead>
+              <tbody id="summary-tbody">
+                <tr><td colspan="9" class="empty-state">載入中…</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
-        <!-- 按月明細檢視 -->
+        <!-- ===== 按月明細檢視（單月模式） ===== -->
         <div id="monthly-view" style="display:none;">
-          <div class="annual-table-wrapper">
-            <table class="annual-table">
+          <div class="monthly-table-wrapper">
+            <table class="monthly-table">
               <thead>
                 <tr>
-                  <th class="col-item">項目</th>
-                  <th>1月</th><th>2月</th><th>3月</th><th>4月</th><th>5月</th><th>6月</th>
-                  <th>7月</th><th>8月</th><th>9月</th><th>10月</th><th>11月</th><th>12月</th>
-                  <th>年度小計</th>
+                  <th style="min-width:180px;">項目</th>
+                  <th class="num" style="width:130px;">當月</th>
+                  <th class="num" style="width:130px;">年度累計</th>
                 </tr>
               </thead>
               <tbody id="monthly-tbody">
-                <tr><td colspan="14" class="empty-state">載入中…</td></tr>
+                <tr><td colspan="3" class="empty-state">載入中…</td></tr>
               </tbody>
             </table>
           </div>
@@ -129,14 +304,14 @@
     </div>
   </div>
 
-<script src="https://unpkg.com/lucide@latest"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module">
-  import { initApp } from './js/app.js';
-  import { initAnnualReportPage } from './js/annual-report.js';
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script type="module">
+    import { initApp } from './js/app.js';
+    import { initAnnualReportPage } from './js/annual-report.js';
 
-  const user = await initApp({ activeHref: 'annual-report.html', title: '年度報表' });
-  if (user) initAnnualReportPage();
-</script>
+    const user = await initApp({ activeHref: 'annual-report.html', title: '年度報表' });
+    if (user) initAnnualReportPage();
+  </script>
 </body>
 </html>
