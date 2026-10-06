@@ -6,7 +6,8 @@ import {
   listenMembers, listenIncomeV2, saveIncomeV2, getIncomeOnce,
   listenAllIncome, updateIncomeEntry, removeIncomeEntry,
 } from './db.js';
-import { formatHKD, escapeHtml, initPageYearMonthSelector } from './utils.js';
+import { formatHKD, escapeHtml } from './utils.js';
+import { renderPageFilter } from './page-filter.js';
 import { AppState } from './state.js';
 
 let members = [];
@@ -16,8 +17,30 @@ let unsubscribeIncome = null;
 let filters = { year: '', month: '', member: '' };
 
 export function initIncomePage() {
-  // 🆕 v93：頁面年月選擇器
-  initPageYearMonthSelector('page-year', 'page-month');
+  renderPageFilter({
+    containerId: 'page-filter-root',
+    fields: ['year', 'month'],
+    renderExtra: () => `
+      <div class="filter-group">
+        <label class="field-label">成員</label>
+        <select class="select" data-filter="member">
+          <option value="">全部</option>
+          <option value="extra">額外收入</option>
+          ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('')}
+        </select>
+      </div>
+    `,
+    onChange: (f) => {
+      filters = {
+        year: f.year || '',
+        month: f.month === 'all' ? '' : (f.month || ''),
+        member: f.member || '',
+      };
+      renderIncomeTable();
+    },
+  });
+  // ... 其餘不變（表單內年月保持獨立）
+}
 
   const container = document.getElementById('member-inputs');
   const extraInput = document.getElementById('income-extra');
