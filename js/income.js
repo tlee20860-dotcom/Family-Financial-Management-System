@@ -1,5 +1,5 @@
 // ============================================
-// income.js — 每月收入（v94 重構）
+// income.js — 每月收入（v99.5）
 // ============================================
 
 import {
@@ -14,7 +14,6 @@ import { fillMemberSelect } from './select-helpers.js';
 import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
 import { openModal, closeModal } from './modal.js';
 import { AppState } from './state.js';
-import { initCollapsibleCard } from './collapsible-card.js';
 
 let members = [];
 let allIncome = [];
