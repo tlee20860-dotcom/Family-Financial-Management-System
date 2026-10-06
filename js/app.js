@@ -4,7 +4,6 @@
 
 import { renderSidebar } from './sidebar.js';
 import { renderNavbar } from './navbar.js';
-import { renderDateFilter } from './date-filter.js';
 import { requireLogin } from './auth-guard.js';
 import { getDisplayName } from './auth.js';
 import { initPWA } from './pwa.js';
@@ -43,25 +42,6 @@ export async function initApp({ activeHref = '', title = '', needAuth = true, re
     renderNavbar('navbar-root', title);
   } catch (err) {
     console.error('❌ Navbar 渲染失敗：', err);
-  }
-
-  if (activeHref !== 'admin.html') {
-    try {
-      let dateFilterRoot = document.getElementById('date-filter-root');
-      if (!dateFilterRoot) {
-        dateFilterRoot = document.createElement('div');
-        dateFilterRoot.id = 'date-filter-root';
-        const navbar = document.getElementById('navbar-root');
-        if (navbar && navbar.parentNode) {
-          navbar.parentNode.insertBefore(dateFilterRoot, navbar.nextSibling);
-        } else {
-          document.body.insertBefore(dateFilterRoot, document.body.firstChild);
-        }
-      }
-      renderDateFilter('date-filter-root');
-    } catch (err) {
-      console.error('❌ Date Filter 注入失敗：', err);
-    }
   }
 
   const userBox = document.getElementById('navbar-user');
