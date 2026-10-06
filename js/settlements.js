@@ -9,6 +9,9 @@ import {
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { renderPageFilter } from './page-filter.js';
+import { createInputForm } from './input-form.js';
+import { openModal, closeModal } from './modal.js';
+import { showToast } from './toast.js';
 import { AppState } from './state.js';
 
 let members = [];
@@ -16,6 +19,7 @@ let fixedRepayments = [];
 let memberExpenses = [];
 let unsubFixed = null;
 let unsubExpenses = null;
+let inputForm = null;
 
 export function initSettlementsPage() {
   renderPageFilter({
@@ -24,23 +28,71 @@ export function initSettlementsPage() {
     onChange: () => loadAll(),
   });
 
+  // 🆕 v99：摺疊輸入表單（新增固定還款）
+  inputForm = createInputForm({
+    containerId: 'repayment-input-root',
+    storageKey: 'repayment-input-open',
+    title: '新增固定還款',
+    icon: 'plus-circle',
+    fields: [
+      { type: 'select', id: 'inp-rp-year', label: '歸屬年份', required: true, includeEmpty: false },
+      { type: 'select', id: 'inp-rp-month', label: '歸屬月份', required: true, includeEmpty: false },
+      { type: 'select', id: 'inp-rp-member', label: '還款成員', required: true, includeEmpty: true, emptyText: '— 請選擇 —' },
+      { type: 'text', id: 'inp-rp-name', label: '項目名稱', required: true, placeholder: '例如：房租代墊', maxlength: 30 },
+      { type: 'number', id: 'inp-rp-amount', label: '金額（HK$）', required: true, min: 0, step: 1, placeholder: '0' },
+    ],
+    submitText: '新增固定還款',
+    onSubmit: async (data) => {
+      const year = data['inp-rp-year'];
+      const month = data['inp-rp-month'];
+      const memberId = data['inp-rp-member'];
+      const name = (data['inp-rp-name'] || '').trim();
+      const amount = Number(data['inp-rp-amount']) || 0;
+      if (!year || !month || !memberId || !name) return;
+
+      await addFixedRepayment(year, month, { memberId, name, amount });
+      showToast(`✅ 已錄入 ${year} 年 ${month} 月`, 'success');
+      inputForm.reset();
+      // 重置年月為當前
+      const { year: curY, month: curM } = AppState.getYearMonth();
+      const yEl = document.getElementById('inp-rp-year');
+      const mEl = document.getElementById('inp-rp-month');
+      if (yEl) yEl.value = curY;
+      if (mEl) mEl.value = curM === 'all' ? String(new Date().getMonth() + 1).padStart(2, '0') : curM;
+      inputForm.close();
+    },
+  });
+
+  // 初始化年月下拉
+  if (inputForm) {
+    const now = new Date();
+    const curY = now.getFullYear();
+    const years = [];
+    for (let y = curY - 5; y <= curY + 5; y++) years.push({ value: String(y), label: `${y} 年` });
+    inputForm.updateOptions('inp-rp-year', years, { includeEmpty: false });
+
+    const months = [];
+    for (let m = 1; m <= 12; m++) months.push({ value: String(m).padStart(2, '0'), label: `${m} 月` });
+    inputForm.updateOptions('inp-rp-month', months, { includeEmpty: false });
+
+    // 預設值
+    const { year: stateY, month: stateM } = AppState.getYearMonth();
+    const yEl = document.getElementById('inp-rp-year');
+    const mEl = document.getElementById('inp-rp-month');
+    if (yEl) yEl.value = stateY;
+    if (mEl) mEl.value = stateM === 'all' ? String(now.getMonth() + 1).padStart(2, '0') : stateM;
+  }
+
   listenMembers((list) => {
     members = list;
     renderMemberOptions();
+    if (inputForm) {
+      inputForm.updateOptions('inp-rp-member', members.map((m) => ({ value: m.id, label: m.name })), {
+        includeEmpty: true, emptyText: '— 請選擇 —',
+      });
+    }
   });
 
-  const yearSel = document.getElementById('fixed-repayment-year');
-  const monthSel = document.getElementById('fixed-repayment-month');
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  let yearOpts = '';
-  for (let y = currentYear - 5; y <= currentYear + 5; y++) yearOpts += `<option value="${y}">${y} 年</option>`;
-  yearSel.innerHTML = yearOpts;
-  let monthOpts = '';
-  for (let m = 1; m <= 12; m++) monthOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
-  monthSel.innerHTML = monthOpts;
-
-  bindModalEvents();
   bindEditModalEvents();
 
   loadAll();
@@ -177,46 +229,11 @@ function renderMemberOptions() {
   if (current) sel.value = current;
 }
 
-function bindModalEvents() {
-  const modal = document.getElementById('fixed-repayment-modal');
-  const form = document.getElementById('fixed-repayment-form');
-  const memberSel = document.getElementById('fixed-member');
-  const nameInput = document.getElementById('fixed-name');
-  const amountInput = document.getElementById('fixed-amount');
-  const yearSel = document.getElementById('fixed-repayment-year');
-  const monthSel = document.getElementById('fixed-repayment-month');
-
-  document.getElementById('add-fixed-repayment-btn').addEventListener('click', () => {
-    form.reset();
-    const { year, month } = AppState.getYearMonth();
-    yearSel.value = year;
-    monthSel.value = month === 'all'
-      ? String(new Date().getMonth() + 1).padStart(2, '0')
-      : month;
-    modal.classList.add('active');
-    setTimeout(() => memberSel.focus(), 50);
-  });
-
-  document.getElementById('fixed-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const targetYear = yearSel.value;
-    const targetMonth = monthSel.value;
-    await addFixedRepayment(targetYear, targetMonth, {
-      memberId: memberSel.value,
-      name: nameInput.value.trim(),
-      amount: Number(amountInput.value) || 0,
-    });
-    modal.classList.remove('active');
-    showToast(`✅ 已錄入 ${targetYear} 年 ${targetMonth} 月`);
-  });
-}
+/* ============================================
+   編輯代墊支出 Modal（保留）
+   ============================================ */
 
 function bindEditModalEvents() {
-  const modal = document.getElementById('edit-expense-modal');
   const form = document.getElementById('edit-expense-form');
   const memberIdInput = document.getElementById('edit-member-id');
   const expIdInput = document.getElementById('edit-expense-id');
@@ -227,9 +244,7 @@ function bindEditModalEvents() {
   const dateInput = document.getElementById('edit-expense-date');
   const statusSelect = document.getElementById('edit-expense-status');
 
-  document.getElementById('edit-expense-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
-  });
+  document.getElementById('edit-expense-cancel-btn').addEventListener('click', () => closeModal('edit-expense-modal'));
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -243,8 +258,8 @@ function bindEditModalEvents() {
         status: statusSelect.value,
       }
     );
-    modal.classList.remove('active');
-    showToast('✅ 已更新');
+    closeModal('edit-expense-modal');
+    showToast('✅ 已更新', 'success');
   });
 
   window.openEditExpenseModal = (exp, year, month) => {
@@ -256,7 +271,7 @@ function bindEditModalEvents() {
     amountInput.value = exp.amount || 0;
     dateInput.value = exp.date || '';
     statusSelect.value = exp.status || '未處理';
-    modal.classList.add('active');
+    openModal('edit-expense-modal');
     setTimeout(() => nameInput.focus(), 50);
   };
 }
@@ -366,17 +381,4 @@ document.addEventListener('click', async (e) => {
 
 function refreshIcons() {
   if (window.lucide) window.lucide.createIcons();
-}
-
-function showToast(msg) {
-  let toast = document.getElementById('app-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'app-toast';
-    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.opacity = '1';
-  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
