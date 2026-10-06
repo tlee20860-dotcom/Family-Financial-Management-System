@@ -887,3 +887,40 @@
     font-size: 12px;
   }
 }
+/* ============================================
+   🆕 v98 表單單欄直落（全站共用）
+   -------------------------------------------------
+   使用方式：
+     <form>
+       <div class="form-stack">
+         <div class="field">...</div>
+         <div class="field">...</div>
+         <div class="form-stack-row">
+           <div class="field">...</div>
+           <div class="field">...</div>
+         </div>
+       </div>
+       <div class="modal-actions">...</div>
+     </form>
+   ============================================ */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.form-stack > .field {
+  margin-bottom: 0;
+}
+.form-stack-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.form-stack-row > .field {
+  margin-bottom: 0;
+}
+@media (max-width: 640px) {
+  .form-stack-row {
+    grid-template-columns: 1fr;
+  }
+}
