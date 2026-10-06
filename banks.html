@@ -85,7 +85,7 @@
           </div>
           <div class="collapsible-body" id="bank-input-body" style="display:none;">
             <form id="bank-form">
-              <div class="grid grid-2" style="gap:12px;">
+              <div class="form-stack">
                 <div class="field">
                   <label class="field-label" for="bank-form-year">所屬年份</label>
                   <select class="select" id="bank-form-year"></select>
@@ -94,28 +94,26 @@
                   <label class="field-label" for="bank-form-month">所屬月份</label>
                   <select class="select" id="bank-form-month"></select>
                 </div>
-              </div>
-
-              <div class="field">
-                <label class="field-label" for="bank-select">銀行</label>
-                <div style="display:flex; gap:8px;">
-                  <select class="select" id="bank-select" required style="flex:1;">
-                    <option value="">— 請選擇銀行 —</option>
-                  </select>
-                  <button type="button" class="btn btn-sm btn-ghost" id="add-bank-btn" style="padding:0 12px;" title="新增銀行">
-                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
-                  </button>
+                <div class="field">
+                  <label class="field-label" for="bank-select">銀行</label>
+                  <div style="display:flex; gap:8px;">
+                    <select class="select" id="bank-select" required style="flex:1;">
+                      <option value="">— 請選擇銀行 —</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-ghost" id="add-bank-btn" style="padding:0 12px;" title="新增銀行">
+                      <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="bank-amount">結餘金額（HK$）</label>
+                  <input class="input mono" id="bank-amount" type="number" min="0" step="1" required placeholder="0">
                 </div>
               </div>
 
-              <div class="field">
-                <label class="field-label" for="bank-amount">結餘金額（HK$）</label>
-                <input class="input mono" id="bank-amount" type="number" min="0" step="1" required placeholder="0">
-              </div>
+              <div id="bank-form-hint" class="banner" style="display:none; margin-top:14px;"></div>
 
-              <div id="bank-form-hint" class="banner" style="display:none;"></div>
-
-              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
                 <button type="button" class="btn btn-ghost" id="bank-reset-btn">重置</button>
                 <button type="submit" class="btn btn-primary">
                   <i data-lucide="check"></i> 儲存結餘
