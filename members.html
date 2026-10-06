@@ -15,15 +15,13 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
-          <div>
-            <h1 class="page-title">成員管理</h1>
-            <p class="page-subtitle">新增、編輯、刪除家庭成員；可用箭頭調整顯示順序</p>
-          </div>
-          <button class="btn btn-primary" id="add-member-btn">
-            <i data-lucide="plus"></i> 新增成員
-          </button>
+        <div class="page-header">
+          <h1 class="page-title">成員管理</h1>
+          <p class="page-subtitle">新增、編輯、刪除家庭成員；可用箭頭調整顯示順序</p>
         </div>
+
+        <!-- 🆕 v99：摺疊輸入表單容器 -->
+        <div id="member-input-root" style="margin-bottom:16px;"></div>
 
         <div class="grid grid-4" id="members-grid">
           <div class="glass-card" style="grid-column:1/-1;">
@@ -34,23 +32,25 @@
     </div>
   </div>
 
-  <!-- Modal -->
+  <!-- 編輯成員 Modal（保留） -->
   <div class="modal-overlay" id="member-modal">
     <div class="modal">
-      <h2 class="modal-title" id="member-modal-title">新增成員</h2>
+      <h2 class="modal-title" id="member-modal-title">編輯成員</h2>
       <form id="member-form">
-        <div class="field">
-          <label class="field-label" for="member-name-input">名稱</label>
-          <input class="input" id="member-name-input" required placeholder="例如：老公、梓舜" maxlength="20">
-        </div>
-        <div class="field">
-          <label class="field-label" for="member-role-input">角色</label>
-          <select class="select" id="member-role-input">
-            <option value="husband">老公 / 丈夫</option>
-            <option value="wife">老婆 / 妻子</option>
-            <option value="child">子女</option>
-            <option value="other" selected>其他</option>
-          </select>
+        <div class="form-stack">
+          <div class="field">
+            <label class="field-label" for="member-name-input">名稱</label>
+            <input class="input" id="member-name-input" required placeholder="例如：老公、梓舜" maxlength="20">
+          </div>
+          <div class="field">
+            <label class="field-label" for="member-role-input">角色</label>
+            <select class="select" id="member-role-input">
+              <option value="husband">老公 / 丈夫</option>
+              <option value="wife">老婆 / 妻子</option>
+              <option value="child">子女</option>
+              <option value="other" selected>其他</option>
+            </select>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="member-cancel-btn">取消</button>
