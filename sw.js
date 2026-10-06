@@ -15,7 +15,11 @@ const STATIC_ASSETS = [
   './js/banks.js', './js/annual-report.js', './js/pwa.js',
   './js/admin.js',
   './js/personal-expenses.js',
-  // 🆕 v93：移除 './js/date-filter.js'
+  // 🆕 v94 共用模組
+  './js/page-filter.js',
+  './js/toast.js',
+  './js/collapsible-card.js',
+  './js/annual-month-cards.js',
   './manifest.json', './icons/icon.svg',
 ];
 
