@@ -1,5 +1,5 @@
 // ============================================
-// income.js — 每月收入（可摺疊輸入 + 明細表格 + 篩選）
+// income.js — 每月收入（v94 重構）
 // ============================================
 
 import {
@@ -8,40 +8,19 @@ import {
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
 import { renderPageFilter } from './page-filter.js';
+import { showToast } from './toast.js';
+import { initCollapsibleCard } from './collapsible-card.js';
+import { fillMemberSelect } from './select-helpers.js';
+import { fillYearSelect, fillMonthSelect } from './date-helpers.js';
+import { openModal, closeModal } from './modal.js';
 import { AppState } from './state.js';
 
 let members = [];
 let allIncome = [];
 let currentIncome = {};
-let unsubscribeIncome = null;
 let filters = { year: '', month: '', member: '' };
 
 export function initIncomePage() {
-  renderPageFilter({
-    containerId: 'page-filter-root',
-    fields: ['year', 'month'],
-    renderExtra: () => `
-      <div class="filter-group">
-        <label class="field-label">成員</label>
-        <select class="select" data-filter="member">
-          <option value="">全部</option>
-          <option value="extra">額外收入</option>
-          ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('')}
-        </select>
-      </div>
-    `,
-    onChange: (f) => {
-      filters = {
-        year: f.year || '',
-        month: f.month === 'all' ? '' : (f.month || ''),
-        member: f.member || '',
-      };
-      renderIncomeTable();
-    },
-  });
-  // ... 其餘不變（表單內年月保持獨立）
-}
-
   const container = document.getElementById('member-inputs');
   const extraInput = document.getElementById('income-extra');
   const form = document.getElementById('income-form');
@@ -50,32 +29,55 @@ export function initIncomePage() {
   const formMonthSel = document.getElementById('income-form-month');
   const resetBtn = document.getElementById('income-reset-btn');
 
-  bindCollapsibleInputCard();
-  initFormYearMonthOptions();
-  initFilterOptions();
+  /* ============================================
+     初始化
+     ============================================ */
 
-  // 監聽成員
+  // 可摺疊輸入卡片
+  const inputCard = initCollapsibleCard('income-input-card', 'income-input-open', false);
+
+  // 表單年月下拉
+  fillYearSelect(formYearSel, { defaultValue: AppState.year });
+  fillMonthSelect(formMonthSel, {
+    defaultValue: AppState.month === 'all' ? '01' : AppState.month,
+  });
+
+  // 頁面篩選欄
+  renderFilterBar();
+
+  /* ============================================
+     資料監聽
+     ============================================ */
+
   listenMembers((list) => {
     members = list;
     renderMemberInputs(container);
-    renderFilterMemberOptions();
     applyIncomeToInputs();
+    updateFilterOptions();
   });
 
-  // 監聽所有收入（跨年跨月）
   listenAllIncome((list) => {
     allIncome = list;
     renderIncomeTable();
   });
 
-  // 表單年月變更 → 重新載入該月收入
+  /* ============================================
+     表單：年月變更 → 重新載入該月收入
+     ============================================ */
+
   formYearSel.addEventListener('change', () => loadFormIncome());
   formMonthSel.addEventListener('change', () => loadFormIncome());
 
-  // 表單提交
+  // 初始載入
+  loadFormIncome();
+
+  /* ============================================
+     表單提交
+     ============================================ */
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (members.length === 0) return;
+    if (members.length === 0) return showToast('尚無成員', 'warning');
 
     const targetYear = formYearSel.value;
     const targetMonth = formMonthSel.value;
@@ -94,29 +96,27 @@ export function initIncomePage() {
       AppState.setYearMonth(targetYear, targetMonth);
 
       // 收起表單
-      const card = document.getElementById('income-input-card');
-      const body = document.getElementById('income-input-body');
-      if (card && body) {
-        card.classList.remove('open');
-        body.style.display = 'none';
-        localStorage.setItem('income-input-open', 'false');
-      }
+      inputCard?.close();
 
       statusEl.textContent = '✅ 收入已儲存';
       statusEl.style.display = 'block';
       setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
       if (window.lucide) window.lucide.createIcons();
+
+      showToast(`✅ 已儲存 ${targetYear} 年 ${targetMonth} 月收入`, 'success');
     } catch (err) {
       statusEl.textContent = '❌ 儲存失敗：' + err.message;
       statusEl.style.display = 'block';
+      showToast('儲存失敗：' + err.message, 'error');
     }
   });
 
   resetBtn.addEventListener('click', () => {
     form.reset();
-    const { year, month } = AppState.getYearMonth();
-    formYearSel.value = year;
-    formMonthSel.value = month === 'all' ? '01' : month;
+    fillYearSelect(formYearSel, { defaultValue: AppState.year });
+    fillMonthSelect(formMonthSel, {
+      defaultValue: AppState.month === 'all' ? '01' : AppState.month,
+    });
     extraInput.value = '';
     members.forEach((m) => {
       const input = document.getElementById(`income-${m.id}`);
@@ -124,9 +124,13 @@ export function initIncomePage() {
     });
   });
 
-  // 年度明細彈窗
+  /* ============================================
+     年度明細彈窗
+     ============================================ */
+
   document.getElementById('view-annual-income-btn').addEventListener('click', () => openDetailModal());
-  document.getElementById('income-detail-cancel-btn').addEventListener('click', () => document.getElementById('income-detail-modal').classList.remove('active'));
+  document.getElementById('income-detail-cancel-btn').addEventListener('click', () => closeModal('income-detail-modal'));
+
   document.getElementById('income-detail-save-btn').addEventListener('click', async () => {
     const rows = document.querySelectorAll('.income-detail-row');
     const year = filters.year || AppState.year;
@@ -143,48 +147,17 @@ export function initIncomePage() {
     });
     try {
       await Promise.all(promises);
-      alert('✅ 已批次更新年度收入');
-      document.getElementById('income-detail-modal').classList.remove('active');
+      closeModal('income-detail-modal');
+      showToast('✅ 已批次更新年度收入', 'success');
     } catch (err) {
-      alert('批次更新失敗：' + err.message);
+      showToast('批次更新失敗：' + err.message, 'error');
     }
   });
 
-  // 篩選
-  document.getElementById('filter-year').addEventListener('change', (e) => { filters.year = e.target.value; renderIncomeTable(); });
-  document.getElementById('filter-month').addEventListener('change', (e) => { filters.month = e.target.value; renderIncomeTable(); });
-  document.getElementById('filter-member').addEventListener('change', (e) => { filters.member = e.target.value; renderIncomeTable(); });
-  document.getElementById('filter-clear-btn').addEventListener('click', () => {
-    filters = { year: '', month: '', member: '' };
-    document.getElementById('filter-year').value = '';
-    document.getElementById('filter-month').value = '';
-    document.getElementById('filter-member').value = '';
-    renderIncomeTable();
-  });
+  /* ============================================
+     表格：編輯 / 刪除
+     ============================================ */
 
-    // 🆕 v93：監聽頁面年月切換，同步篩選欄
-  AppState.on('ym-change', ({ year, month }) => {
-    // 篩選欄年份跟隨
-    const filterYearSel = document.getElementById('filter-year');
-    if (filterYearSel && filterYearSel.value !== String(year)) {
-      filterYearSel.value = String(year);
-      filters.year = String(year);
-    }
-    // 篩選欄月份：若頁面切到「全年」，篩選欄設為「全部」；否則同步該月
-    const filterMonthSel = document.getElementById('filter-month');
-    if (filterMonthSel) {
-      if (month === 'all') {
-        filterMonthSel.value = '';
-        filters.month = '';
-      } else {
-        filterMonthSel.value = String(month);
-        filters.month = String(month);
-      }
-    }
-    renderIncomeTable();
-  });
-
-  // 表格操作
   document.getElementById('income-tbody').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -193,15 +166,25 @@ export function initIncomePage() {
     if (btn.dataset.action === 'edit') {
       openEditModal(year, month, memberId);
     } else if (btn.dataset.action === 'delete') {
-      const memberName = memberId === 'extra' ? '額外收入' : (members.find((m) => m.id === memberId)?.name || '（未知）');
+      const memberName = memberId === 'extra'
+        ? '額外收入'
+        : (members.find((m) => m.id === memberId)?.name || '（未知）');
       if (confirm(`確定要刪除 ${year} 年 ${month} 月的「${memberName}」收入嗎？`)) {
-        await removeIncomeEntry(year, month, memberId);
+        try {
+          await removeIncomeEntry(year, month, memberId);
+          showToast('✅ 已刪除', 'success');
+        } catch (err) {
+          showToast('刪除失敗：' + err.message, 'error');
+        }
       }
     }
   });
 
-  // 編輯 Modal
-  document.getElementById('income-edit-cancel-btn').addEventListener('click', () => document.getElementById('income-edit-modal').classList.remove('active'));
+  /* ============================================
+     編輯 Modal
+     ============================================ */
+
+  document.getElementById('income-edit-cancel-btn').addEventListener('click', () => closeModal('income-edit-modal'));
 
   document.getElementById('income-edit-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -212,68 +195,67 @@ export function initIncomePage() {
     const newMonth = document.getElementById('income-edit-month').value;
     const amount = Math.round(Number(document.getElementById('income-edit-amount').value) || 0);
 
-    // 若年月有變 → 先刪除舊記錄，再寫入新記錄
-    if (newYear !== oldYear || newMonth !== oldMonth) {
-      await removeIncomeEntry(oldYear, oldMonth, oldMember);
-    }
-    await updateIncomeEntry(newYear, newMonth, oldMember, amount);
+    try {
+      // 若年月有變 → 先刪除舊記錄，再寫入新記錄
+      if (newYear !== oldYear || newMonth !== oldMonth) {
+        await removeIncomeEntry(oldYear, oldMonth, oldMember);
+      }
+      await updateIncomeEntry(newYear, newMonth, oldMember, amount);
 
-    document.getElementById('income-edit-modal').classList.remove('active');
-    showToast('✅ 已更新收入');
+      closeModal('income-edit-modal');
+      showToast('✅ 已更新收入', 'success');
+    } catch (err) {
+      showToast('更新失敗：' + err.message, 'error');
+    }
   });
 
   /* ============================================
-     初始化表單年月
+     內部函式
      ============================================ */
-  function initFormYearMonthOptions() {
-    const now = new Date();
-    const curY = now.getFullYear();
-    const { year: stateYear, month: stateMonth } = AppState.getYearMonth();
 
-    let yOpts = '';
-    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
-    formYearSel.innerHTML = yOpts;
-
-    let mOpts = '';
-    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
-    formMonthSel.innerHTML = mOpts;
-
-    formYearSel.value = stateYear || curY;
-    formMonthSel.value = stateMonth === 'all' ? '01' : (stateMonth || '01');
-
-    loadFormIncome();
+  function renderFilterBar() {
+    renderPageFilter({
+      containerId: 'page-filter-root',
+      fields: ['year', 'month'],
+      renderExtra: () => `
+        <div class="filter-group">
+          <label class="field-label">成員</label>
+          <select class="select" data-filter="member">
+            <option value="">全部</option>
+            <option value="extra">額外收入</option>
+            ${members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('')}
+          </select>
+        </div>
+      `,
+      onChange: (f) => {
+        filters = {
+          year: f.year || '',
+          month: f.month === 'all' ? '' : (f.month || ''),
+          member: f.member || '',
+        };
+        renderIncomeTable();
+      },
+    });
   }
 
-  function initFilterOptions() {
-    const now = new Date();
-    const curY = now.getFullYear();
-    const { year: stateYear } = AppState.getYearMonth();
-
-    const ySel = document.getElementById('filter-year');
-    let yOpts = '<option value="">全部</option>';
-    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
-    ySel.innerHTML = yOpts;
-    ySel.value = stateYear || curY;
-    filters.year = ySel.value;
-
-    const mSel = document.getElementById('filter-month');
-    let mOpts = '<option value="">全部</option>';
-    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
-    mSel.innerHTML = mOpts;
-  }
-
-  function renderFilterMemberOptions() {
-    const sel = document.getElementById('filter-member');
-    const cur = sel.value;
-    sel.innerHTML = `<option value="">全部</option>` +
-      `<option value="extra">額外收入</option>` +
-      members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
-    if (cur) sel.value = cur;
+  // 當成員清單變更時，更新篩選欄的成員下拉
+  function updateFilterOptions() {
+    const root = document.getElementById('page-filter-root');
+    if (!root) return;
+    const memberSel = root.querySelector('select[data-filter="member"]');
+    if (memberSel) {
+      const cur = memberSel.value;
+      memberSel.innerHTML = `<option value="">全部</option>` +
+        `<option value="extra">額外收入</option>` +
+        members.map((m) => `<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+      if (cur && (cur === 'extra' || members.some((m) => m.id === cur))) memberSel.value = cur;
+    }
   }
 
   /* ============================================
      表單載入
      ============================================ */
+
   async function loadFormIncome() {
     const year = formYearSel.value;
     const month = formMonthSel.value;
@@ -312,6 +294,7 @@ export function initIncomePage() {
   /* ============================================
      收入明細表格
      ============================================ */
+
   function renderIncomeTable() {
     const tbody = document.getElementById('income-tbody');
     const countEl = document.getElementById('income-total-count');
@@ -363,13 +346,16 @@ export function initIncomePage() {
   /* ============================================
      年度明細彈窗
      ============================================ */
+
   async function openDetailModal() {
     const year = filters.year || AppState.year;
     document.getElementById('income-detail-title').textContent = `${year} 年度收入明細`;
     const body = document.getElementById('income-detail-body');
 
     let header = '<tr><th style="padding:8px; border-bottom:1px solid var(--glass-border);">月份</th>';
-    members.forEach((m) => { header += `<th style="padding:8px; text-align:right; border-bottom:1px solid var(--glass-border);">${escapeHtml(m.name)}</th>`; });
+    members.forEach((m) => {
+      header += `<th style="padding:8px; text-align:right; border-bottom:1px solid var(--glass-border);">${escapeHtml(m.name)}</th>`;
+    });
     header += '<th style="padding:8px; text-align:right; border-bottom:1px solid var(--glass-border);">額外</th></tr>';
 
     let rows = '';
@@ -377,78 +363,39 @@ export function initIncomePage() {
       const monthStr = String(m).padStart(2, '0');
       const data = await getIncomeOnce(year, monthStr);
       let row = `<tr class="income-detail-row" data-month="${monthStr}"><td style="padding:4px; font-family:var(--font-mono); font-size:12px;">${m}月</td>`;
-      members.forEach((mem) => { row += `<td style="padding:4px;"><input type="number" class="input inc-${mem.id}" value="${data[mem.id] || 0}" min="0" step="1" style="width:100%; padding:4px 8px; font-size:12px;"></td>`; });
+      members.forEach((mem) => {
+        row += `<td style="padding:4px;"><input type="number" class="input inc-${mem.id}" value="${data[mem.id] || 0}" min="0" step="1" style="width:100%; padding:4px 8px; font-size:12px;"></td>`;
+      });
       row += `<td style="padding:4px;"><input type="number" class="input inc-extra" value="${data.extra || 0}" min="0" step="1" style="width:100%; padding:4px 8px; font-size:12px;"></td></tr>`;
       rows += row;
     }
 
     body.innerHTML = `<table style="width:100%; border-collapse:collapse; min-width:600px;"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
-    document.getElementById('income-detail-modal').classList.add('active');
+    openModal('income-detail-modal');
   }
 
   /* ============================================
      編輯 Modal
      ============================================ */
+
   function openEditModal(year, month, memberId) {
-    const memberName = memberId === 'extra' ? '額外收入' : (members.find((m) => m.id === memberId)?.name || '（未知）');
-    const entry = allIncome.find((x) => x.year === year && x.month === month && x.memberId === memberId);
+    const memberName = memberId === 'extra'
+      ? '額外收入'
+      : (members.find((m) => m.id === memberId)?.name || '（未知）');
+    const entry = allIncome.find((x) =>
+      x.year === year && x.month === month && x.memberId === memberId
+    );
 
     document.getElementById('income-edit-old-year').value = year;
     document.getElementById('income-edit-old-month').value = month;
     document.getElementById('income-edit-old-member').value = memberId;
     document.getElementById('income-edit-member-name').value = memberName;
 
-    const ySel = document.getElementById('income-edit-year');
-    const mSel = document.getElementById('income-edit-month');
-    const now = new Date();
-    const curY = now.getFullYear();
-    let yOpts = '';
-    for (let y = curY - 5; y <= curY + 5; y++) yOpts += `<option value="${y}">${y} 年</option>`;
-    ySel.innerHTML = yOpts;
-    let mOpts = '';
-    for (let m = 1; m <= 12; m++) mOpts += `<option value="${String(m).padStart(2,'0')}">${m} 月</option>`;
-    mSel.innerHTML = mOpts;
+    fillYearSelect('income-edit-year', { defaultValue: year });
+    fillMonthSelect('income-edit-month', { defaultValue: month });
 
-    ySel.value = year;
-    mSel.value = month;
     document.getElementById('income-edit-amount').value = entry ? entry.amount : 0;
 
-    document.getElementById('income-edit-modal').classList.add('active');
+    openModal('income-edit-modal');
   }
-
-  /* ============================================
-     摺疊輸入卡片
-     ============================================ */
-  function bindCollapsibleInputCard() {
-    const card = document.getElementById('income-input-card');
-    const header = document.getElementById('income-input-header');
-    const body = document.getElementById('income-input-body');
-    if (!card || !header || !body) return;
-
-    const savedOpen = localStorage.getItem('income-input-open') === 'true';
-    if (savedOpen) {
-      card.classList.add('open');
-      body.style.display = 'block';
-    }
-
-    header.addEventListener('click', () => {
-      const isOpen = card.classList.toggle('open');
-      body.style.display = isOpen ? 'block' : 'none';
-      localStorage.setItem('income-input-open', String(isOpen));
-      if (window.lucide) window.lucide.createIcons();
-    });
-  }
-}
-
-function showToast(msg) {
-  let toast = document.getElementById('app-toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'app-toast';
-    toast.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:rgba(16,185,129,0.95);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);z-index:99999;opacity:0;transition:opacity 0.3s;`;
-    document.body.appendChild(toast);
-  }
-  toast.textContent = msg;
-  toast.style.opacity = '1';
-  setTimeout(() => { toast.style.opacity = '0'; }, 2000);
 }
