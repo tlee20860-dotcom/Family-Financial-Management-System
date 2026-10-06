@@ -199,7 +199,7 @@
     left: -260px !important;
     height: 100vh !important;
     width: 260px !important;
-    z-index: 1000 !important;       /* 側邊欄層級較高 */
+    z-index: 1000 !important;
     transition: left 0.3s ease !important;
   }
   .sidebar.mobile-open { left: 0 !important; }
@@ -209,10 +209,11 @@
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
-    z-index: 999 !important;        /* 背景遮罩層級較低 */
+    z-index: 999 !important;
   }
   .sidebar-backdrop.active { display: block; }
 }
+
 /* ================= 手機版 Navbar 優化 ================= */
 @media (max-width: 640px) {
   .navbar {
@@ -220,23 +221,11 @@
     gap: 8px;
   }
 
-  /* 手機上隱藏標題，避免被擠壓 */
   .navbar-title {
     display: none !important;
   }
-
-  /* 讓年月選擇器自動佔滿剩餘空間 */
-  .navbar-ym {
-    flex: 1;
-    justify-content: flex-end;
-  }
-
-  /* 縮小年月選擇器 */
-  .navbar-ym .select {
-    padding: 4px 8px !important;
-    font-size: 12px !important;
-  }
 }
+
 /* ================= 可折疊導覽選單 ================= */
 .nav-group-title.collapsible {
   display: flex;
@@ -262,50 +251,10 @@
   color: var(--neon-cyan);
 }
 
-/* 展開時箭頭旋轉向上 */
 .nav-group-title.collapsible.open .nav-group-arrow {
   transform: rotate(180deg);
 }
 
-/* 折疊時隱藏子清單（搭配 JS 控制 display） */
 .nav-sub {
   transition: opacity 0.2s ease;
-}
-/* ================= 時間篩選欄 ================= */
-#date-filter-root {
-  padding: 0 24px;
-  margin-top: 12px;
-  margin-bottom: 8px;
-}
-
-.date-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-}
-
-.date-filter .select {
-  width: auto;
-  padding: 6px 10px;
-  font-size: 13px;
-  border: none;
-  background: transparent;
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.date-filter .select:focus {
-  outline: none;
-  background: rgba(0, 240, 255, 0.05);
-  border-radius: var(--radius-sm);
-}
-
-@media (max-width: 640px) {
-  #date-filter-root { padding: 0 16px; }
 }
