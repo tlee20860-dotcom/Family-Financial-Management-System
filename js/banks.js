@@ -1,10 +1,10 @@
 // ============================================
-// banks.js — 銀行管理（含徹底刪除）
+// banks.js — 銀行管理（可摺疊輸入 + 合併明細）
 // ============================================
 
 import {
   listenBanks, addBank, deleteBankAndBalances,
-  listenBankBalances, saveBankBalance, getPrevMonthBankTotal,
+  listenBankBalances, saveBankBalance,
   getBankBalancesOnce,
 } from './db.js';
 import { formatHKD, escapeHtml } from './utils.js';
@@ -13,13 +13,17 @@ import { api } from './api.js';
 
 let banks = [];
 let balances = {};
+let prevBalances = {};
 let unsubBalances = null;
 
 export function initBanksPage() {
   const tbody = document.getElementById('bank-tbody');
-  const modal = document.getElementById('bank-modal');
   const form = document.getElementById('bank-form');
   const nameInput = document.getElementById('bank-name');
+  const resetBtn = document.getElementById('bank-reset-btn');
+
+  // 可摺疊輸入卡片
+  bindCollapsibleInputCard();
 
   listenBanks((list) => {
     banks = list;
@@ -41,10 +45,29 @@ export function initBanksPage() {
       await loadAnnual(year);
     } else {
       if (unsubBalances) unsubBalances();
+
+      // 計算上月
+      const y = Number(year);
+      const m = Number(month);
+      let prevY = y;
+      let prevM = m - 1;
+      if (prevM < 1) { prevY = y - 1; prevM = 12; }
+      const prevMonthStr = String(prevM).padStart(2, '0');
+
+      // 讀取上月結餘（每間銀行）
+      try {
+        prevBalances = await getBankBalancesOnce(prevY, prevMonthStr);
+      } catch (err) {
+        console.warn('無法讀取上月結餘：', err);
+        prevBalances = {};
+      }
+
+      // 監聽本月結餘
       unsubBalances = listenBankBalances(year, month, (val) => {
         balances = val || {};
         render();
       });
+
       updateAvailableFunds();
     }
   };
@@ -52,14 +75,8 @@ export function initBanksPage() {
   loadBalances();
   AppState.on('ym-change', loadBalances);
 
-  document.getElementById('add-bank-btn').addEventListener('click', () => {
+  resetBtn.addEventListener('click', () => {
     form.reset();
-    modal.classList.add('active');
-    setTimeout(() => nameInput.focus(), 50);
-  });
-
-  document.getElementById('bank-cancel-btn').addEventListener('click', () => {
-    modal.classList.remove('active');
   });
 
   form.addEventListener('submit', async (e) => {
@@ -67,7 +84,17 @@ export function initBanksPage() {
     const name = nameInput.value.trim();
     if (!name) return;
     await addBank(name);
-    modal.classList.remove('active');
+    form.reset();
+
+    // 新增後自動收起輸入卡片
+    const card = document.getElementById('bank-input-card');
+    const body = document.getElementById('bank-input-body');
+    if (card && card.classList.contains('open')) {
+      card.classList.remove('open');
+      if (body) body.style.display = 'none';
+      localStorage.setItem('bank-input-open', 'false');
+      if (window.lucide) window.lucide.createIcons();
+    }
   });
 
   tbody.addEventListener('click', async (e) => {
@@ -113,7 +140,6 @@ export function initBanksPage() {
 
     const cards = monthlyBalances.map((bal, i) => {
       const monthNum = i + 1;
-      // 只計算「存在於 banks 清單中」的銀行
       const total = banks.reduce((s, b) => s + (Number(bal[b.id]?.amount) || 0), 0);
       if (total > 0) lastTotal = total;
 
@@ -122,7 +148,7 @@ export function initBanksPage() {
         : banks.map((b) => {
           const amount = Number(bal[b.id]?.amount) || 0;
           return `
-            <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0;">
+            <div class="annual-month-row">
               <span>${escapeHtml(b.name)}</span>
               <span class="mono text-emerald">${formatHKD(amount)}</span>
             </div>
@@ -130,12 +156,12 @@ export function initBanksPage() {
         }).join('');
 
       return `
-        <div class="glass-card" style="margin-bottom:10px; padding:14px;">
-          <div class="month-toggle" style="display:flex; justify-content:space-between; align-items:center; gap:12px; cursor:pointer; user-select:none;">
-            <div style="font-weight:700; font-size:15px; color:var(--neon-cyan);">${monthNum} 月</div>
-            <div class="mono text-emerald" style="font-weight:700;">${formatHKD(total)}</div>
+        <div class="annual-month-card">
+          <div class="annual-month-header">
+            <div class="month-title">${monthNum} 月</div>
+            <div class="month-total">${formatHKD(total)}</div>
           </div>
-          <div class="month-detail" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed rgba(255,255,255,0.1);">
+          <div class="annual-month-detail" style="display:none;">
             ${rows}
           </div>
         </div>
@@ -145,7 +171,7 @@ export function initBanksPage() {
     document.getElementById('annual-bank-total').textContent = formatHKD(lastTotal);
     container.innerHTML = cards;
 
-    container.querySelectorAll('.month-toggle').forEach((el) => {
+    container.querySelectorAll('.annual-month-header').forEach((el) => {
       el.addEventListener('click', () => {
         const d = el.nextElementSibling;
         d.style.display = d.style.display === 'none' ? 'block' : 'none';
@@ -157,11 +183,11 @@ export function initBanksPage() {
 
   async function updateAvailableFunds() {
     const { year, month } = AppState.getYearMonth();
+    if (month === 'all') return;
+
     try {
-      const [prevTotal, summary] = await Promise.all([
-        getPrevMonthBankTotal(year, month),
-        api.summary(year, month),
-      ]);
+      const summary = await api.summary(year, month);
+      const prevTotal = Object.values(prevBalances).reduce((s, b) => s + (Number(b.amount) || 0), 0);
       const available = prevTotal + (summary.totalIncome || 0);
       document.getElementById('bank-available').textContent = formatHKD(available);
     } catch (err) {
@@ -171,34 +197,69 @@ export function initBanksPage() {
 
   function render() {
     if (AppState.isAnnualMode()) return;
+    if (!tbody) return;
 
-    // 只計算「存在於 banks 清單中」的銀行
+    // 更新銀行數量
+    const countEl = document.getElementById('bank-count');
+    if (countEl) countEl.textContent = `（共 ${banks.length} 間）`;
+
+    // 本月總額
     const total = banks.reduce((s, b) => s + (Number(balances[b.id]?.amount) || 0), 0);
     document.getElementById('bank-total').textContent = formatHKD(total);
 
     if (!banks.length) {
-      tbody.innerHTML = `<tr><td colspan="4" class="empty-state">尚未新增銀行，請點擊右上角「新增銀行」。</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-state">尚未新增銀行，請點擊上方「新增銀行」。</td></tr>`;
       return;
     }
 
     tbody.innerHTML = banks.map((b) => {
       const bal = balances[b.id] || {};
+      const prevBal = prevBalances[b.id] || {};
       const amount = Number(bal.amount) || 0;
-      const updated = bal.updatedAt ? new Date(bal.updatedAt).toLocaleString('zh-HK') : '—';
+      const prevAmount = Number(prevBal.amount) || 0;
+      const updated = bal.updatedAt
+        ? new Date(bal.updatedAt).toLocaleString('zh-HK', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit',
+          })
+        : '—';
+
       return `
         <tr>
-          <td>${escapeHtml(b.name)}</td>
+          <td class="bank-name-cell">${escapeHtml(b.name)}</td>
+          <td class="num prev-balance hide-mobile">${formatHKD(prevAmount)}</td>
           <td class="num">
-            <input type="number" class="input mono" data-action="edit-balance" data-id="${b.id}"
-              value="${amount}" min="0" step="0.01"
-              style="width:140px; text-align:right; padding:6px 10px; font-size:13px;">
+            <input type="number" class="bank-balance-input" data-action="edit-balance" data-id="${b.id}"
+              value="${amount}" min="0" step="1">
           </td>
-          <td class="mono" style="font-size:11px; color:var(--text-muted);">${updated}</td>
-          <td><button class="btn btn-sm btn-danger" data-action="delete" data-id="${b.id}">刪除</button></td>
+          <td class="updated-at hide-mobile">${updated}</td>
+          <td>
+            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${b.id}">刪除</button>
+          </td>
         </tr>
       `;
     }).join('');
 
     if (window.lucide) window.lucide.createIcons();
+  }
+
+  function bindCollapsibleInputCard() {
+    const card = document.getElementById('bank-input-card');
+    const header = document.getElementById('bank-input-header');
+    const body = document.getElementById('bank-input-body');
+    if (!card || !header || !body) return;
+
+    const savedOpen = localStorage.getItem('bank-input-open') === 'true';
+    if (savedOpen) {
+      card.classList.add('open');
+      body.style.display = 'block';
+    }
+
+    header.addEventListener('click', () => {
+      const isOpen = card.classList.toggle('open');
+      body.style.display = isOpen ? 'block' : 'none';
+      localStorage.setItem('bank-input-open', String(isOpen));
+      if (window.lucide) window.lucide.createIcons();
+    });
   }
 }
