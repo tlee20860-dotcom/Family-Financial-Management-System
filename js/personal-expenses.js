@@ -16,6 +16,8 @@ let items = [];
 let allExpenses = [];
 let filters = { year: '', month: '', member: '', category: '' };
 
+const NAME_MAX_LEN = 6;   // 🆕 項目名稱顯示上限
+
 export function initPersonalExpensesPage() {
   const form = document.getElementById('personal-expense-form');
   const yearSel = document.getElementById('pe-year');
@@ -29,7 +31,6 @@ export function initPersonalExpensesPage() {
   const fixedCheck = document.getElementById('pe-fixed');
   const resetBtn = document.getElementById('pe-reset-btn');
 
-  // 🆕 摺疊輸入卡片
   bindCollapsibleInputCard();
 
   const now = new Date();
@@ -42,7 +43,6 @@ export function initPersonalExpensesPage() {
   monthSel.innerHTML = monthOpts;
   dateInput.value = todayISO();
 
-  // 🆕 填充「編輯 Modal」的年份 / 月份下拉
   const editYearSel = document.getElementById('pe-edit-year');
   const editMonthSel = document.getElementById('pe-edit-month');
   if (editYearSel) editYearSel.innerHTML = yearOpts;
@@ -149,7 +149,24 @@ export function initPersonalExpensesPage() {
     if (e.target.classList.contains('pe-row-checkbox')) updateSelectedCount();
   });
 
+  /* ============================================
+     🆕 tbody click：先處理名稱展開，再處理按鈕
+     ============================================ */
   document.getElementById('pe-tbody').addEventListener('click', async (e) => {
+    // 🔧 名稱展開/收合
+    const nameSpan = e.target.closest('.pe-name-text');
+    if (nameSpan) {
+      const isShort = nameSpan.classList.contains('pe-name-short');
+      if (isShort) {
+        nameSpan.textContent = nameSpan.dataset.full;
+        nameSpan.classList.remove('pe-name-short');
+      } else {
+        nameSpan.textContent = nameSpan.dataset.short;
+        nameSpan.classList.add('pe-name-short');
+      }
+      return;
+    }
+
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const expId = btn.dataset.id;
@@ -273,16 +290,12 @@ export function initPersonalExpensesPage() {
     }
   });
 
-  /* ============================================
-     🆕 摺疊輸入卡片
-     ============================================ */
   function bindCollapsibleInputCard() {
     const card = document.getElementById('input-card');
     const header = document.getElementById('input-card-header');
     const body = document.getElementById('input-card-body');
     if (!card || !header || !body) return;
 
-    // 從 localStorage 讀取上次狀態（預設收起）
     const savedOpen = localStorage.getItem('pe-input-open') === 'true';
     if (savedOpen) {
       card.classList.add('open');
@@ -353,6 +366,9 @@ export function initPersonalExpensesPage() {
     sel.innerHTML = `<option value="">— 請選擇項目 —</option>` + filtered.map((i) => `<option value="${i.id}">${escapeHtml(i.name)}</option>`).join('');
   }
 
+  /* ============================================
+     🆕 renderExpenses：項目名稱可摺疊
+     ============================================ */
   function renderExpenses() {
     const tbody = document.getElementById('pe-tbody');
     const totalCountEl = document.getElementById('pe-total-count');
@@ -374,7 +390,7 @@ export function initPersonalExpensesPage() {
     if (totalCountEl) totalCountEl.textContent = `（共 ${filtered.length} 筆）`;
 
     if (!filtered.length) {
-      tbody.innerHTML = '<tr><td colspan="10" class="empty-state">沒有符合條件的支出紀錄</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">沒有符合條件的支出紀錄</td></tr>';
       updateSelectedCount();
       return;
     }
@@ -392,19 +408,29 @@ export function initPersonalExpensesPage() {
       }
 
       const actionCell = x.isAutoLinked
-        ? `<span class="text-muted" style="font-size:12px;">由保險模組管理</span>`
+        ? `<span class="text-muted" style="font-size:11px;">由保險模組管理</span>`
         : `<button class="btn btn-sm btn-ghost" data-action="edit" data-id="${x.id}" data-member="${x.memberId}" data-year="${x.year}" data-month="${x.month}">編輯</button>
            <button class="btn btn-sm btn-danger" data-action="delete" data-id="${x.id}" data-member="${x.memberId}" data-year="${x.year}" data-month="${x.month}">刪除</button>`;
+
+      // 🆕 名稱可摺疊
+      const fullName = x.name || '';
+      const isTruncatable = fullName.length > NAME_MAX_LEN;
+      const shortName = isTruncatable ? fullName.slice(0, NAME_MAX_LEN) + '…' : fullName;
+
+      const nameHtml = isTruncatable
+        ? `<span class="pe-name-text pe-name-short"
+                data-full="${escapeHtml(fullName)}"
+                data-short="${escapeHtml(shortName)}">${escapeHtml(shortName)}</span>`
+        : escapeHtml(fullName);
 
       return `
         <tr>
           <td><input type="checkbox" class="pe-row-checkbox" data-id="${x.id}" data-member="${x.memberId}" data-year="${x.year}" data-month="${x.month}" style="width:auto; cursor:pointer;" ${x.isAutoLinked ? 'disabled' : ''}></td>
-          <td class="mono" style="font-size:12px;">${x.year}</td>
-          <td class="mono" style="font-size:12px;">${x.month}</td>
-          <td>${escapeHtml(memberName)}</td>
-          <td>${escapeHtml(x.name)}${x.isAutoLinked ? '<span class="badge badge-info" style="margin-left:6px;">保險連動</span>' : ''}</td>
-          <td style="font-size:12px; color:var(--text-muted);">${escapeHtml(cat?.name || '—')}</td>
-          <td class="mono" style="font-size:12px; color:var(--text-muted);">${escapeHtml(x.date || '—')}</td>
+          <td class="pe-ym-cell">${x.year}-${x.month}</td>
+          <td class="pe-member-cell">${escapeHtml(memberName)}</td>
+          <td class="pe-name-cell">${nameHtml}${x.isAutoLinked ? '<span class="badge badge-info" style="margin-left:4px;">保險</span>' : ''}</td>
+          <td class="hide-mobile" style="font-size:11px; color:var(--text-muted);">${escapeHtml(cat?.name || '—')}</td>
+          <td class="hide-mobile mono" style="font-size:11px; color:var(--text-muted);">${escapeHtml(x.date || '—')}</td>
           <td class="num">${formatHKD(x.amount)}</td>
           <td>${statusBadge}</td>
           <td>${actionCell}</td>
