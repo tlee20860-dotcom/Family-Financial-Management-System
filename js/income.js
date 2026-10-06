@@ -139,6 +139,28 @@ export function initIncomePage() {
     renderIncomeTable();
   });
 
+    // 🆕 v93：監聽頁面年月切換，同步篩選欄
+  AppState.on('ym-change', ({ year, month }) => {
+    // 篩選欄年份跟隨
+    const filterYearSel = document.getElementById('filter-year');
+    if (filterYearSel && filterYearSel.value !== String(year)) {
+      filterYearSel.value = String(year);
+      filters.year = String(year);
+    }
+    // 篩選欄月份：若頁面切到「全年」，篩選欄設為「全部」；否則同步該月
+    const filterMonthSel = document.getElementById('filter-month');
+    if (filterMonthSel) {
+      if (month === 'all') {
+        filterMonthSel.value = '';
+        filters.month = '';
+      } else {
+        filterMonthSel.value = String(month);
+        filters.month = String(month);
+      }
+    }
+    renderIncomeTable();
+  });
+
   // 表格操作
   document.getElementById('income-tbody').addEventListener('click', async (e) => {
     const btn = e.target.closest('button[data-action]');
