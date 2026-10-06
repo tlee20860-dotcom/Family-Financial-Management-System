@@ -70,40 +70,69 @@
           </div>
           <div class="collapsible-body" id="input-card-body" style="display:none;">
             <form id="personal-expense-form">
-              <div class="grid grid-3" style="gap:12px;">
-                <div class="field"><label class="field-label" for="pe-year">所屬年份</label><select class="select" id="pe-year"></select></div>
-                <div class="field"><label class="field-label" for="pe-month">所屬月份</label><select class="select" id="pe-month"></select></div>
-                <div class="field"><label class="field-label" for="pe-member">支出成員</label><select class="select" id="pe-member" required><option value="">— 請選擇 —</option></select></div>
-              </div>
-
-              <div class="grid grid-2" style="gap:12px;">
-                <div class="field"><label class="field-label" for="pe-date">支出日期</label><input class="input" id="pe-date" type="text" placeholder="例如：2026-10-05"></div>
-                <div class="field"><label class="field-label" for="pe-category">支出類別</label><select class="select" id="pe-category" required><option value="">— 請選擇類別 —</option></select></div>
-              </div>
-
-              <div class="grid grid-2" style="gap:12px;">
-                <div class="field"><label class="field-label" for="pe-item">項目</label><select class="select" id="pe-item" required><option value="">— 請先選擇類別 —</option></select></div>
-                <div class="field"><label class="field-label" for="pe-amount">費用（HK$）</label><input class="input mono" id="pe-amount" type="number" min="0" step="1" required placeholder="0"></div>
-              </div>
-
-              <div class="grid grid-2" style="gap:12px;">
-                <div class="field"><label class="field-label" for="pe-payment">支付方式</label><select class="select" id="pe-payment"><option value="">— 請選擇 —</option></select></div>
-                <div class="field"><label class="field-label" for="pe-status">狀態</label>
-                  <select class="select" id="pe-status">
-                    <option value="未處理">未處理</option><option value="已處理">已處理</option>
-                    <option value="未還款">未還款</option><option value="已還款">已還款</option>
+              <div class="form-stack">
+                <div class="field">
+                  <label class="field-label" for="pe-year">所屬年份</label>
+                  <select class="select" id="pe-year"></select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-month">所屬月份</label>
+                  <select class="select" id="pe-month"></select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-member">支出成員</label>
+                  <select class="select" id="pe-member" required>
+                    <option value="">— 請選擇 —</option>
                   </select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-date">支出日期</label>
+                  <input class="input" id="pe-date" type="text" placeholder="例如：2026-10-05">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-category">支出類別</label>
+                  <select class="select" id="pe-category" required>
+                    <option value="">— 請選擇類別 —</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-item">項目</label>
+                  <select class="select" id="pe-item" required>
+                    <option value="">— 請先選擇類別 —</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-amount">費用（HK$）</label>
+                  <input class="input mono" id="pe-amount" type="number" min="0" step="1" required placeholder="0">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="pe-payment">支付方式</label>
+                  <select class="select" id="pe-payment">
+                    <option value="">— 請選擇 —</option>
+                  </select>
+                </div>
+                <div class="form-stack-row">
+                  <div class="field">
+                    <label class="field-label" for="pe-status">狀態</label>
+                    <select class="select" id="pe-status">
+                      <option value="未處理">未處理</option>
+                      <option value="已處理">已處理</option>
+                      <option value="未還款">未還款</option>
+                      <option value="已還款">已還款</option>
+                    </select>
+                  </div>
+                  <div class="field" style="display:flex; align-items:center; gap:8px; padding-top:24px;">
+                    <input type="checkbox" id="pe-fixed" style="width:auto; cursor:pointer;">
+                    <label for="pe-fixed" style="font-size:13px; color:var(--text-secondary); cursor:pointer;">設為每月固定支出</label>
+                  </div>
                 </div>
               </div>
 
-              <div class="field" style="display:flex; align-items:center; gap:8px;">
-                <input type="checkbox" id="pe-fixed" style="width:auto; cursor:pointer;">
-                <label for="pe-fixed" style="font-size:13px; color:var(--text-secondary); cursor:pointer;">設為每月固定支出</label>
-              </div>
-
-              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:12px;">
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
                 <button type="button" class="btn btn-ghost" id="pe-reset-btn">重置</button>
-                <button type="submit" class="btn btn-primary" id="pe-submit-btn"><i data-lucide="plus"></i> 新增支出</button>
+                <button type="submit" class="btn btn-primary" id="pe-submit-btn">
+                  <i data-lucide="plus"></i> 新增支出
+                </button>
               </div>
             </form>
           </div>
@@ -156,20 +185,14 @@
         <input type="hidden" id="pe-edit-old-year">
         <input type="hidden" id="pe-edit-old-month">
         <input type="hidden" id="pe-edit-old-member">
-        <div class="grid grid-3" style="gap:12px;">
+        <div class="form-stack">
           <div class="field"><label class="field-label" for="pe-edit-year">年份</label><select class="select" id="pe-edit-year"></select></div>
           <div class="field"><label class="field-label" for="pe-edit-month">月份</label><select class="select" id="pe-edit-month"></select></div>
           <div class="field"><label class="field-label" for="pe-edit-member">成員</label><select class="select" id="pe-edit-member" required></select></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label class="field-label" for="pe-edit-date">日期</label><input class="input" id="pe-edit-date" type="text"></div>
           <div class="field"><label class="field-label" for="pe-edit-category">類別</label><select class="select" id="pe-edit-category" required></select></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label class="field-label" for="pe-edit-item">項目</label><select class="select" id="pe-edit-item" required></select></div>
           <div class="field"><label class="field-label" for="pe-edit-amount">金額（HK$）</label><input class="input mono" id="pe-edit-amount" type="number" min="0" step="1" required></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label class="field-label" for="pe-edit-payment">支付方式</label><select class="select" id="pe-edit-payment"><option value="">— 請選擇 —</option></select></div>
           <div class="field"><label class="field-label" for="pe-edit-status">狀態</label>
             <select class="select" id="pe-edit-status">
@@ -191,20 +214,14 @@
     <div class="modal" style="max-width:520px;">
       <h2 class="modal-title">批次編輯（留空表示不修改）</h2>
       <form id="pe-batch-edit-form">
-        <div class="grid grid-3" style="gap:12px;">
+        <div class="form-stack">
           <div class="field"><label class="field-label" for="pe-batch-year">年份</label><select class="select" id="pe-batch-year"><option value="">— 不修改 —</option></select></div>
           <div class="field"><label class="field-label" for="pe-batch-month">月份</label><select class="select" id="pe-batch-month"><option value="">— 不修改 —</option></select></div>
           <div class="field"><label class="field-label" for="pe-batch-member">成員</label><select class="select" id="pe-batch-member"><option value="">— 不修改 —</option></select></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label class="field-label" for="pe-batch-date">日期</label><input class="input" id="pe-batch-date" type="text" placeholder="留空表示不修改"></div>
           <div class="field"><label class="field-label" for="pe-batch-category">類別</label><select class="select" id="pe-batch-category"><option value="">— 不修改 —</option></select></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label class="field-label" for="pe-batch-item">項目</label><select class="select" id="pe-batch-item"><option value="">— 不修改 —</option></select></div>
           <div class="field"><label class="field-label" for="pe-batch-amount">金額（HK$）</label><input class="input mono" id="pe-batch-amount" type="number" min="0" step="1" placeholder="留空表示不修改"></div>
-        </div>
-        <div class="grid grid-2" style="gap:12px;">
           <div class="field"><label class="field-label" for="pe-batch-payment">支付方式</label><select class="select" id="pe-batch-payment"><option value="">— 不修改 —</option></select></div>
           <div class="field"><label class="field-label" for="pe-batch-status">狀態</label>
             <select class="select" id="pe-batch-status">
