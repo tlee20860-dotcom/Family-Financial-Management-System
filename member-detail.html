@@ -15,9 +15,15 @@
       <header id="navbar-root"></header>
 
       <main class="content">
-        <div class="page-header">
-          <h1 class="page-title" id="member-name">載入中…</h1>
-          <p class="page-subtitle" id="member-id-label"></p>
+        <div class="page-header" style="display:flex; justify-content:space-between; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+          <div>
+            <h1 class="page-title" id="member-name">載入中…</h1>
+            <p class="page-subtitle" id="member-id-label"></p>
+          </div>
+          <div class="page-ym-selector">
+            <select class="select" id="page-year"></select>
+            <select class="select" id="page-month"></select>
+          </div>
         </div>
 
         <!-- 全年模式 -->
